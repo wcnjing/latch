@@ -1,0 +1,27 @@
+{
+  "scenarios": 6,
+  "closed": 6,
+  "at_risk": 4,
+  "served": 3,
+  "service_rate": 0.75,
+  "excluded_dismissed": 1,
+  "excluded_superseded": 1,
+  "total_usd": 0.43624,
+  "usd_per_risk": 0.072707,
+  "resolutions": {
+    "cr_0001": "connection_held",
+    "cr_0003": "connection_held",
+    "cr_0002": "window_lapsed_no_response",
+    "cr_0004": "dismissed_no_action",
+    "cr_0005": "superseded",
+    "cr_0006": "customer_declined_all"
+  },
+  "final_states": {
+    "cr_0001": "resolved",
+    "cr_0003": "resolved",
+    "cr_0002": "resolved",
+    "cr_0004": "dismissed",
+    "cr_0005": "superseded",
+    "cr_0006": "resolved"
+  }
+}

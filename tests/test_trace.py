@@ -145,6 +145,45 @@ def test_service_rate_is_none_before_anything_closes(risk):
     assert store.service_rate() is None
 
 
+def test_dismissals_and_supersessions_leave_the_denominator():
+    """Triage correctly deciding there was nothing to do is triage working, not
+    a service failure. Counting it as one would punish the funnel for doing its
+    job — and the excluded count is reported so the rate is never quoted bare."""
+    store = TraceStore()
+    outcomes = [
+        Resolution.CUSTOMER_DECIDED,
+        Resolution.WINDOW_LAPSED_NO_RESPONSE,
+        Resolution.DISMISSED_NO_ACTION,
+        Resolution.SUPERSEDED,
+    ]
+    for i, outcome in enumerate(outcomes):
+        store.open(make_risk(risk_id=f"cr_{i:04d}")).close(outcome)
+
+    metrics = store.metrics()
+    assert metrics["closed"] == 4
+    assert metrics["at_risk"] == 2
+    assert metrics["served"] == 1
+    assert metrics["service_rate"] == pytest.approx(0.5)
+    assert metrics["excluded_dismissed"] == 1
+    assert metrics["excluded_superseded"] == 1
+
+
+def test_service_rate_is_none_when_everything_was_excluded():
+    """A run that dismissed everything has no north-star number to report, and
+    should say so rather than claiming a perfect or a zero score."""
+    store = TraceStore()
+    store.open(make_risk(risk_id="cr_0001")).close(Resolution.DISMISSED_NO_ACTION)
+    assert store.service_rate() is None
+    assert store.metrics()["closed"] == 1
+
+
+def test_adopt_refuses_a_duplicate(risk):
+    store = TraceStore()
+    trace = store.open(risk)
+    with pytest.raises(ValueError, match="already present"):
+        store.adopt(trace)
+
+
 def test_flush_appends_one_line_per_trace(tmp_path, risk):
     sink = tmp_path / "traces" / "run.jsonl"
     store = TraceStore(sink=sink)

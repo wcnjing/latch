@@ -1,0 +1,224 @@
+[
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0001",
+    "ucid": "UCID-SGSIN-0001",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC MAERSK",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "tuas",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T10:18:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T16:17:00+00:00",
+      "estimated": "2026-08-30T16:17:00+00:00"
+    },
+    "boxes_at_risk": 34,
+    "slack_total_min": 720,
+    "slack_remaining_min": 110,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 361.0,
+      "slack_consumed_pct": 0.8472,
+      "priority": 18.55,
+      "crosses_terminals": true
+    }
+  },
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0003",
+    "ucid": "UCID-SGSIN-0003",
+    "detected_at": "2026-08-30T04:19:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC ONE",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "brani",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T04:19:00+00:00",
+      "estimated": "2026-08-30T09:49:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER II",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T12:19:00+00:00",
+      "estimated": "2026-08-30T12:19:00+00:00"
+    },
+    "boxes_at_risk": 52,
+    "slack_total_min": 480,
+    "slack_remaining_min": 76,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 330.0,
+      "slack_consumed_pct": 0.8417,
+      "priority": 41.05,
+      "crosses_terminals": true
+    }
+  },
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0002",
+    "ucid": "UCID-SGSIN-0002",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC MAERSK",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "tuas",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T09:07:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T14:17:00+00:00",
+      "estimated": "2026-08-30T14:17:00+00:00"
+    },
+    "boxes_at_risk": 18,
+    "slack_total_min": 600,
+    "slack_remaining_min": 58,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 290.0,
+      "slack_consumed_pct": 0.9033,
+      "priority": 18.62,
+      "crosses_terminals": true
+    }
+  },
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0004",
+    "ucid": "UCID-SGSIN-0004",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC MAERSK",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "tuas",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T10:27:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-31T10:17:00+00:00",
+      "estimated": "2026-08-31T10:17:00+00:00"
+    },
+    "boxes_at_risk": 6,
+    "slack_total_min": 1800,
+    "slack_remaining_min": 1430,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 370.0,
+      "slack_consumed_pct": 0.2056,
+      "priority": 0.25,
+      "crosses_terminals": true
+    }
+  },
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0005",
+    "ucid": "UCID-SGSIN-0005",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC MAERSK",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "tuas",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T09:17:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "terminal",
+      "berth": null,
+      "scheduled": "2026-08-30T13:17:00+00:00",
+      "estimated": "2026-08-30T13:17:00+00:00"
+    },
+    "boxes_at_risk": 22,
+    "slack_total_min": 540,
+    "slack_remaining_min": 95,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 300.0,
+      "slack_consumed_pct": 0.8241,
+      "priority": 13.89,
+      "crosses_terminals": true
+    }
+  },
+  {
+    "wire_version": 1,
+    "risk_id": "cr_0006",
+    "ucid": "UCID-SGSIN-0006",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC MAERSK",
+      "imo": null,
+      "service_code": "AE7",
+      "terminal": "tuas",
+      "terminal_resolution": "inferred",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T08:57:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER",
+      "imo": null,
+      "service_code": "SEA3",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "inferred",
+      "berth": null,
+      "scheduled": "2026-08-30T11:17:00+00:00",
+      "estimated": "2026-08-30T11:17:00+00:00"
+    },
+    "boxes_at_risk": 29,
+    "slack_total_min": 420,
+    "slack_remaining_min": 64,
+    "source": "oceans_x.vessel_movements",
+    "data_age_min": 2.0,
+    "derived": {
+      "eta_deviation_min": 280.0,
+      "slack_consumed_pct": 0.8476,
+      "priority": 27.19,
+      "crosses_terminals": true
+    }
+  }
+]

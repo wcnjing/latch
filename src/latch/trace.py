@@ -21,6 +21,14 @@ from latch.models import ConnectionRisk, Resolution
 
 TOKENS_PER_MILLION = 1_000_000
 
+# Resolutions excluded from the north-star denominator. Neither represents a
+# connection that was ever genuinely at risk of failing, so counting them as
+# service failures would punish the system for correctly deciding there was
+# nothing to do.
+EXCLUDED_FROM_DENOMINATOR: frozenset[Resolution] = frozenset(
+    {Resolution.DISMISSED_NO_ACTION, Resolution.SUPERSEDED}
+)
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -319,6 +327,17 @@ class TraceStore:
         self._traces[trace.trace_id] = trace
         return trace
 
+    def adopt(self, trace: Trace) -> Trace:
+        """Take ownership of a trace built elsewhere.
+
+        For replaying a captured fixture, and for the backup path if the live
+        feed dies during recording.
+        """
+        if trace.trace_id in self._traces:
+            raise ValueError(f"trace {trace.trace_id} already present")
+        self._traces[trace.trace_id] = trace
+        return trace
+
     def get(self, trace_id: str) -> Trace:
         return self._traces[trace_id]
 
@@ -334,18 +353,49 @@ class TraceStore:
 
     # --- metrics ------------------------------------------------------------
 
+    def metrics(self) -> dict[str, Any]:
+        """North-star metric with its denominator shown.
+
+        The metric is the share of *at-risk* connections where the customer
+        held a live decision before the window closed. Two resolutions are
+        excluded from the denominator rather than counted as failures:
+
+          DISMISSED_NO_ACTION  triage determined the connection was never
+                               actually at risk, which is triage working
+          SUPERSEDED           the ETA improved and the risk evaporated
+
+        Counting either as a service failure would punish the system for
+        correctly deciding there was nothing to do. Excluding them also moves
+        the number up, so the count of exclusions is reported alongside it —
+        a rate quoted without its denominator is not a measurement.
+        """
+        closed = [t for t in self._traces.values() if t.resolution is not None]
+        excluded = [t for t in closed if t.resolution in EXCLUDED_FROM_DENOMINATOR]
+        at_risk = [t for t in closed if t not in excluded]
+        served = [t for t in at_risk if t.resolution.is_service_success]
+
+        return {
+            "closed": len(closed),
+            "at_risk": len(at_risk),
+            "served": len(served),
+            "service_rate": (len(served) / len(at_risk)) if at_risk else None,
+            "excluded_dismissed": sum(
+                1 for t in excluded if t.resolution is Resolution.DISMISSED_NO_ACTION
+            ),
+            "excluded_superseded": sum(
+                1 for t in excluded if t.resolution is Resolution.SUPERSEDED
+            ),
+        }
+
     def service_rate(self) -> float | None:
-        """Share of closed risks where the customer held a live decision.
+        """Share of at-risk connections where the customer held a live decision.
 
         The north star. Deliberately not connection success rate: PSA cannot
         control vessel arrival, and claiming credit for it invites a judge who
-        knows the domain to reject the causality.
+        knows the domain to reject the causality. See `metrics()` for the
+        denominator.
         """
-        closed = [t for t in self._traces.values() if t.resolution is not None]
-        if not closed:
-            return None
-        served = sum(1 for t in closed if t.resolution.is_service_success)
-        return served / len(closed)
+        return self.metrics()["service_rate"]
 
     def cost_per_risk(self) -> float | None:
         traces = self.all()

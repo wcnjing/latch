@@ -1,0 +1,868 @@
+[
+  {
+    "trace_id": "cr_2026_08_30_0417_0001",
+    "risk_id": "cr_0001",
+    "ucid": "UCID-SGSIN-0001",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 361,
+      "slack_consumed_pct": 0.847,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877287+00:00",
+        "summary": "34 boxes, slack 110m of 720m (85% consumed), tuas -> pasir_panjang",
+        "priority": 18.55
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877423+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877426+00:00",
+        "summary": "slack 85% consumed against a 12h window; escalate to deliberation"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877429+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "slack 85% consumed against a 12h window; escalate to deliberation"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877431+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877434+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 9200,
+        "output_tokens": 1140,
+        "usd": 0.0745
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877435+00:00",
+        "tool": "query_itt_slot",
+        "status": "timeout",
+        "latency_ms": 5000
+      },
+      {
+        "seq": 8,
+        "type": "error",
+        "at": "2026-08-17T10:52:12.877436+00:00",
+        "tool": "query_itt_slot",
+        "error_class": "timeout",
+        "retries": 1,
+        "recovery": "retry with backoff"
+      },
+      {
+        "seq": 9,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877436+00:00",
+        "tool": "query_itt_slot",
+        "status": "timeout",
+        "latency_ms": 5000
+      },
+      {
+        "seq": 10,
+        "type": "error",
+        "at": "2026-08-17T10:52:12.877437+00:00",
+        "tool": "query_itt_slot",
+        "error_class": "timeout",
+        "retries": 1,
+        "recovery": "cached inventory @ T-8m"
+      },
+      {
+        "seq": 11,
+        "type": "confidence",
+        "at": "2026-08-17T10:52:12.877454+00:00",
+        "computed": 0.6172,
+        "method": "provenance",
+        "factors": {
+          "source": "cache",
+          "source_factor": 0.85,
+          "data_age_min": 8.0,
+          "age_factor": 0.9375,
+          "tool_outcome": "retried",
+          "tool_factor": 0.9,
+          "unverified_inputs": 2,
+          "unverified_penalty": 0.1
+        },
+        "derivation": "source=0.85 (cache) x age=0.938 (8m) x tool=0.90 (retried) - unverified=0.10 (2 of 3) = 0.62"
+      },
+      {
+        "seq": 12,
+        "type": "decision",
+        "at": "2026-08-17T10:52:12.877455+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 0.6172,
+        "rationale": "Barge slot covers all 34 boxes within the window at lower emissions than road; capacity read is from cache, so the number is provisional."
+      },
+      {
+        "seq": 13,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877456+00:00",
+        "from_state": "deliberating",
+        "to_state": "awaiting_approval",
+        "reason": "policy requires vessel ops at this volume"
+      },
+      {
+        "seq": 14,
+        "type": "gate",
+        "at": "2026-08-17T10:52:12.877458+00:00",
+        "rung": "rung_3_move",
+        "required_role": "vessel_ops",
+        "escalated": false,
+        "escalation_reason": "",
+        "status": "pending",
+        "latency_s": 0.0
+      },
+      {
+        "seq": 15,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877460+00:00",
+        "from_state": "awaiting_approval",
+        "to_state": "escalated",
+        "reason": "confidence 0.62 < 0.7"
+      },
+      {
+        "seq": 16,
+        "type": "gate",
+        "at": "2026-08-17T10:52:12.877461+00:00",
+        "rung": "rung_3_move",
+        "required_role": "duty_manager",
+        "escalated": true,
+        "escalation_reason": "confidence < 0.7",
+        "status": "approved",
+        "latency_s": 41
+      },
+      {
+        "seq": 17,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877462+00:00",
+        "from_state": "escalated",
+        "to_state": "executing",
+        "reason": "approved with the cache caveat visible"
+      },
+      {
+        "seq": 18,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877463+00:00",
+        "tool": "book_itt_slot",
+        "status": "ok",
+        "latency_ms": 850,
+        "booking_ref": "BK-tuapas_1140-SG0001"
+      },
+      {
+        "seq": 19,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877464+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "all 34 boxes on the barge leg"
+      }
+    ],
+    "outcome": {
+      "resolution": "connection_held",
+      "service_success": true,
+      "boxes": 34,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    }
+  },
+  {
+    "trace_id": "cr_2026_08_30_0419_0003",
+    "risk_id": "cr_0003",
+    "ucid": "UCID-SGSIN-0003",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 330,
+      "slack_consumed_pct": 0.842,
+      "inbound_terminal": "brani",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877509+00:00",
+        "summary": "52 boxes, slack 76m of 480m (84% consumed), brani -> pasir_panjang",
+        "priority": 41.05
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877510+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877511+00:00",
+        "summary": "84% of window consumed; 52 boxes crossing terminals"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877511+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "84% of window consumed; 52 boxes crossing terminals"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877512+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877513+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 9200,
+        "output_tokens": 1140,
+        "usd": 0.0745
+      },
+      {
+        "seq": 7,
+        "type": "lock",
+        "at": "2026-08-17T10:52:12.877519+00:00",
+        "resource": "itt_slot:tuapas_1140",
+        "status": "held",
+        "our_priority": 41.05,
+        "winner_priority": 41.05,
+        "action": "preempted cr_0002"
+      },
+      {
+        "seq": 8,
+        "type": "confidence",
+        "at": "2026-08-17T10:52:12.877527+00:00",
+        "computed": 1.0,
+        "method": "provenance",
+        "factors": {
+          "source": "live_api",
+          "source_factor": 1.0,
+          "data_age_min": 0.0,
+          "age_factor": 1.0,
+          "tool_outcome": "ok",
+          "tool_factor": 1.0,
+          "unverified_inputs": 0,
+          "unverified_penalty": 0.0
+        },
+        "derivation": "source=1.00 (live_api) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.00 (0 of 1) = 1.00"
+      },
+      {
+        "seq": 9,
+        "type": "decision",
+        "at": "2026-08-17T10:52:12.877528+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 1.0,
+        "rationale": "Higher boxes-at-risk over remaining slack; takes the contested slot."
+      },
+      {
+        "seq": 10,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877529+00:00",
+        "from_state": "deliberating",
+        "to_state": "executing",
+        "reason": "auto-approved: live data, within policy limits"
+      },
+      {
+        "seq": 11,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877531+00:00",
+        "tool": "book_itt_slot",
+        "status": "ok",
+        "latency_ms": 850
+      },
+      {
+        "seq": 12,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877532+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "all 52 boxes on the contested slot"
+      }
+    ],
+    "outcome": {
+      "resolution": "connection_held",
+      "service_success": true,
+      "boxes": 52,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    }
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0002",
+    "risk_id": "cr_0002",
+    "ucid": "UCID-SGSIN-0002",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 290,
+      "slack_consumed_pct": 0.903,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877490+00:00",
+        "summary": "18 boxes, slack 58m of 600m (90% consumed), tuas -> pasir_panjang",
+        "priority": 18.62
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877493+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877494+00:00",
+        "summary": "94% of window consumed; 18 boxes crossing terminals"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877494+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "94% of window consumed; 18 boxes crossing terminals"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877495+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877496+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 9200,
+        "output_tokens": 1140,
+        "usd": 0.0745
+      },
+      {
+        "seq": 7,
+        "type": "lock",
+        "at": "2026-08-17T10:52:12.877502+00:00",
+        "resource": "itt_slot:tuapas_1140",
+        "status": "held",
+        "our_priority": 18.62,
+        "winner_priority": null,
+        "action": "claimed"
+      },
+      {
+        "seq": 8,
+        "type": "lock",
+        "at": "2026-08-17T10:52:12.877533+00:00",
+        "resource": "itt_slot:tuapas_1140",
+        "status": "lost",
+        "our_priority": 18.62,
+        "winner_priority": 41.05,
+        "action": "re-deliberate with this option removed"
+      },
+      {
+        "seq": 9,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877534+00:00",
+        "from_state": "deliberating",
+        "to_state": "lost_lock",
+        "reason": "outranked by cr_0003"
+      },
+      {
+        "seq": 10,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877535+00:00",
+        "from_state": "lost_lock",
+        "to_state": "deliberating",
+        "reason": "re-deliberating without the contested slot"
+      },
+      {
+        "seq": 11,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877536+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation (re-run)",
+        "input_tokens": 6400,
+        "output_tokens": 720,
+        "usd": 0.05
+      },
+      {
+        "seq": 12,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877537+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420,
+        "alternatives_found": 0
+      },
+      {
+        "seq": 13,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877537+00:00",
+        "summary": "no alternative inter-terminal slot inside the window"
+      },
+      {
+        "seq": 14,
+        "type": "decision",
+        "at": "2026-08-17T10:52:12.877538+00:00",
+        "rung": "rung_4_offer",
+        "chosen": true,
+        "confidence": 0.91,
+        "rationale": "Nothing left to resolve internally. Three outbound services still callable \u2014 put them to the line while they exist."
+      },
+      {
+        "seq": 15,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877540+00:00",
+        "from_state": "deliberating",
+        "to_state": "awaiting_customer",
+        "reason": "PSA cannot re-route cargo; the line can"
+      },
+      {
+        "seq": 16,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877540+00:00",
+        "tool": "send_options_to_line",
+        "status": "ok",
+        "latency_ms": 640
+      },
+      {
+        "seq": 17,
+        "type": "external_gate",
+        "at": "2026-08-17T10:52:12.877541+00:00",
+        "party": "line",
+        "options_sent": 3,
+        "window_min": 180,
+        "outcome": "LAPSED_NO_RESPONSE"
+      },
+      {
+        "seq": 18,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877542+00:00",
+        "from_state": "awaiting_customer",
+        "to_state": "executing",
+        "reason": "window closed; default action fires"
+      },
+      {
+        "seq": 19,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877542+00:00",
+        "tool": "roll_to_next_service",
+        "status": "ok",
+        "latency_ms": 310
+      },
+      {
+        "seq": 20,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877543+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "rolled by default, not by decision"
+      }
+    ],
+    "outcome": {
+      "resolution": "window_lapsed_no_response",
+      "service_success": false,
+      "boxes": 18,
+      "decision_lead_time_h": 6.2,
+      "options_alive_at_send": 3
+    },
+    "cost": {
+      "model_calls": 3,
+      "input_tokens": 17440,
+      "output_tokens": 1950,
+      "usd": 0.12679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.1245
+      }
+    }
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0004",
+    "risk_id": "cr_0004",
+    "ucid": "UCID-SGSIN-0004",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 370,
+      "slack_consumed_pct": 0.206,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877553+00:00",
+        "summary": "6 boxes, slack 1430m of 1800m (21% consumed), tuas -> pasir_panjang",
+        "priority": 0.25
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877555+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877555+00:00",
+        "summary": "6h slip against 30h of slack; 21% consumed, well inside the window. Delay magnitude is large and irrelevant."
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877556+00:00",
+        "from_state": "detected",
+        "to_state": "dismissed",
+        "reason": "6h slip against 30h of slack; 21% consumed, well inside the window. Delay magnitude is large and irrelevant."
+      }
+    ],
+    "outcome": {
+      "resolution": "dismissed_no_action",
+      "service_success": false,
+      "boxes": 6,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 1840,
+      "output_tokens": 90,
+      "usd": 0.00229,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229
+      }
+    }
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0005",
+    "risk_id": "cr_0005",
+    "ucid": "UCID-SGSIN-0005",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 300,
+      "slack_consumed_pct": 0.824,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877567+00:00",
+        "summary": "22 boxes, slack 95m of 540m (82% consumed), tuas -> pasir_panjang",
+        "priority": 13.89
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877569+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877569+00:00",
+        "summary": "82% of window consumed; deliberating"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877570+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "82% of window consumed; deliberating"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877570+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877571+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 9200,
+        "output_tokens": 1140,
+        "usd": 0.0745
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877572+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420
+      },
+      {
+        "seq": 8,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877572+00:00",
+        "summary": "inbound ETA improved 148m mid-deliberation; slack restored"
+      },
+      {
+        "seq": 9,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877573+00:00",
+        "from_state": "deliberating",
+        "to_state": "superseded",
+        "reason": "ETA improved; connection no longer at risk"
+      }
+    ],
+    "outcome": {
+      "resolution": "superseded",
+      "service_success": false,
+      "boxes": 22,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    }
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0006",
+    "risk_id": "cr_0006",
+    "ucid": "UCID-SGSIN-0006",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 280,
+      "slack_consumed_pct": 0.848,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "inferred"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877580+00:00",
+        "summary": "29 boxes, slack 64m of 420m (85% consumed), tuas -> pasir_panjang",
+        "priority": 27.19
+      },
+      {
+        "seq": 2,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877582+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1840,
+        "output_tokens": 90,
+        "usd": 0.00229
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877582+00:00",
+        "summary": "85% of window consumed; 29 boxes"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877583+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "85% of window consumed; 29 boxes"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877583+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "model_call",
+        "at": "2026-08-17T10:52:12.877584+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 9200,
+        "output_tokens": 1140,
+        "usd": 0.0745
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877585+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420,
+        "alternatives_found": 0
+      },
+      {
+        "seq": 8,
+        "type": "observation",
+        "at": "2026-08-17T10:52:12.877585+00:00",
+        "summary": "no internal resolution available inside the window"
+      },
+      {
+        "seq": 9,
+        "type": "decision",
+        "at": "2026-08-17T10:52:12.877586+00:00",
+        "rung": "rung_4_offer",
+        "chosen": true,
+        "confidence": 0.83,
+        "rationale": "Two outbound services still callable. Escalating before internal evaluation completes: option count decays faster than certainty improves."
+      },
+      {
+        "seq": 10,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877587+00:00",
+        "from_state": "deliberating",
+        "to_state": "awaiting_customer",
+        "reason": "options ranked and sent"
+      },
+      {
+        "seq": 11,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877587+00:00",
+        "tool": "send_options_to_line",
+        "status": "ok",
+        "latency_ms": 640
+      },
+      {
+        "seq": 12,
+        "type": "external_gate",
+        "at": "2026-08-17T10:52:12.877588+00:00",
+        "party": "line",
+        "options_sent": 2,
+        "window_min": 180,
+        "outcome": "DECLINED_ALL"
+      },
+      {
+        "seq": 13,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877589+00:00",
+        "from_state": "awaiting_customer",
+        "to_state": "executing",
+        "reason": "line declined both; the roll is their call"
+      },
+      {
+        "seq": 14,
+        "type": "tool_call",
+        "at": "2026-08-17T10:52:12.877590+00:00",
+        "tool": "roll_to_next_service",
+        "status": "ok",
+        "latency_ms": 310
+      },
+      {
+        "seq": 15,
+        "type": "state_change",
+        "at": "2026-08-17T10:52:12.877591+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "rolled by the line's decision"
+      }
+    ],
+    "outcome": {
+      "resolution": "customer_declined_all",
+      "service_success": true,
+      "boxes": 29,
+      "decision_lead_time_h": 4.8,
+      "options_alive_at_send": 2
+    },
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    }
+  }
+]
