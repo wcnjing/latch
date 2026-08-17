@@ -1,0 +1,30 @@
+[project]
+name = "latch"
+version = "0.1.0"
+description = "Look-Ahead Transhipment Connection Handler — decision layer for at-risk container connections at SGSIN"
+readme = "README.md"
+authors = [
+    { name = "wcnjing", email = "wenjinx2005@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "anthropic>=0.116.0",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.2",
+]
+
+[project.scripts]
+latch = "latch.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
