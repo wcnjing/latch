@@ -101,6 +101,12 @@ def _record_deliberation(trace: Trace, result: DeliberationResult) -> None:
             result.output_tokens,
             purpose="deliberation",
         )
+    for ruled_out in result.excluded:
+        trace.observation(
+            f"ruled out {ruled_out.option_id}: {ruled_out.reason}",
+            rung=ruled_out.rung.value,
+            considered=True,
+        )
     if result.rejected_choice:
         trace.observation(
             "model chose an id that is not a candidate; falling back to the "

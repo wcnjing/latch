@@ -88,11 +88,27 @@ made rather than leaving it implicit."""
 
 
 @dataclass(frozen=True, slots=True)
+class ExcludedOption:
+    """An option the tools returned that the agent ruled out, and why.
+
+    Filtering happens in code before the prompt is built, so the model never
+    sees these and cannot explain them. Without recording them the reasoning
+    is invisible: a trace showing only road options looks like an agent that
+    never considered a barge, rather than one that considered and rejected it.
+    """
+
+    option_id: str
+    rung: Rung
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class DeliberationResult:
     plans: tuple[Plan, ...]
     chosen: Plan | None
     tool_results: tuple[ToolResult, ...]
     rationale: str
+    excluded: tuple[ExcludedOption, ...] = ()
     model: str = ""
     input_tokens: int = 0
     output_tokens: int = 0
@@ -153,9 +169,14 @@ def build_candidates(
     itt_slots: list[Any],
     outbound: list[Any],
     provenance: tuple[Provenance, ...],
-) -> list[Plan]:
-    """Enumerate every option the tools support. Deterministic."""
+) -> tuple[list[Plan], list[ExcludedOption]]:
+    """Enumerate every option the tools support, and record what was ruled out.
+
+    Deterministic. Returns both, because an option rejected for a stateable
+    reason is part of the reasoning and belongs in the trace.
+    """
     plans: list[Plan] = []
+    excluded: list[ExcludedOption] = []
     breakdown: ConfidenceBreakdown = score(provenance)
 
     # Rung 1 — only when preventing the transfer would genuinely save it.
@@ -192,6 +213,18 @@ def build_candidates(
     # cost and emissions, so the choice is real rather than decorative.
     for slot in itt_slots:
         if not _viable(slot, event):
+            transit = itt_transit_minutes(slot.mode)
+            window = event.no_itt_slack_hours * 60.0
+            excluded.append(
+                ExcludedOption(
+                    option_id=slot.slot_id,
+                    rung=Rung.MOVE,
+                    reason=(
+                        f"{slot.mode.value} transit is {transit}m against a "
+                        f"{window:.0f}m window; arrives after the cutoff"
+                    ),
+                )
+            )
             continue
         plans.append(
             Plan(
@@ -243,7 +276,7 @@ def build_candidates(
             )
         )
 
-    return plans
+    return plans, excluded
 
 
 def _prompt(risk: ConnectionRisk, event: RiskEvent, plans: list[Plan]) -> str:
@@ -285,7 +318,9 @@ def deliberate(
             for r in tool_results
         ]
     )
-    plans = build_candidates(risk, event, itt_slots, outbound, provenance)
+    plans, excluded = build_candidates(
+        risk, event, itt_slots, outbound, provenance
+    )
 
     if not plans:
         return DeliberationResult(
@@ -294,6 +329,7 @@ def deliberate(
             tool_results=tuple(tool_results),
             rationale="No feasible option: no viable transfer and no outbound "
             "service still callable.",
+            excluded=tuple(excluded),
         )
 
     response = client.complete_json(
@@ -328,6 +364,7 @@ def deliberate(
         chosen=chosen,
         tool_results=tuple(tool_results),
         rationale=rationale,
+        excluded=tuple(excluded),
         model=response.model,
         input_tokens=response.input_tokens,
         output_tokens=response.output_tokens,

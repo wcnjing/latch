@@ -69,14 +69,30 @@ risk event ─▶ triage ─▶ gather ─▶ compare ─▶ check locks
 Run it:
 
 ```bash
-uv run latch                                    # four mock cases
+uv run latch --model local                      # qwen3:8b via ollama, free
+uv run latch --model anthropic                  # billed
 uv run latch --customer accepts --approvals never
 uv run latch --events path/to/watcher_output.json
 ```
 
-With no `ANTHROPIC_API_KEY` set it runs on `FakeModel` and says so. Numbers
-from that run measure the pipeline, not the agent — the CLI prints that
-warning rather than leaving it to be inferred.
+Three model paths behind one `ModelClient` protocol, so nothing above the seam
+knows which ran. The CLI always names the one it used — a run that quietly
+used scripted responses and then reported numbers would be worse than no
+numbers.
+
+| Path | Cost | Use for |
+|---|---|---|
+| `fake` | none | Tests and CI. Deterministic, refuses to improvise |
+| `local` | zero at the margin | Iteration and triage. `qwen3:8b` via Ollama |
+| `anthropic` | billed | Deliberation, where rationale quality is read |
+
+Local inference needs Ollama (MIT) and an Apache-2.0 model — neither copyleft,
+both declarable under the competition T&Cs:
+
+```bash
+brew install ollama && ollama serve &
+ollama pull qwen3:8b        # or set LATCH_LOCAL_MODEL
+```
 
 ## The A → B contract
 

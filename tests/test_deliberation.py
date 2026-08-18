@@ -132,3 +132,32 @@ def test_watcher_confidence_propagates_into_the_plan():
     high = run(AVOIDABLE | {"confidence": "HIGH"})[1]
     low = run(AVOIDABLE | {"confidence": "LOW"})[1]
     assert low.chosen.confidence < high.chosen.confidence
+
+
+def test_options_ruled_out_are_recorded_with_a_reason():
+    """Filtering happens in code before the prompt, so the model never sees
+    these and cannot explain them. Unrecorded, a trace showing only road slots
+    looks like an agent that never considered a barge — rather than one that
+    considered and rejected it."""
+    _, result = run(AVOIDABLE)
+
+    assert result.excluded
+    assert all(x.rung is Rung.MOVE for x in result.excluded)
+    reason = result.excluded[0].reason
+    assert "barge" in reason
+    assert "190m" in reason and "144m" in reason
+
+
+def test_nothing_is_ruled_out_when_the_window_is_wide():
+    """A generous window should exclude nothing — otherwise the filter is
+    rejecting things for the wrong reason."""
+    roomy = AVOIDABLE | {"no_itt_slack_hours": 9.0, "current_plan_slack_hours": -0.5}
+    _, result = run(roomy)
+    assert result.excluded == ()
+
+
+def test_excluded_options_are_not_offered_as_candidates():
+    _, result = run(AVOIDABLE)
+    offered = {p.plan_id for p in result.plans}
+    for ruled_out in result.excluded:
+        assert not any(ruled_out.option_id in pid for pid in offered)

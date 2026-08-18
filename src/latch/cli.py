@@ -51,21 +51,38 @@ def main() -> int:
     parser.add_argument("--approvals", choices=sorted(APPROVALS), default="auto")
     parser.add_argument("--customer", choices=sorted(CUSTOMERS), default="silent")
     parser.add_argument("--out", type=Path, help="write traces as JSONL")
+    parser.add_argument(
+        "--model",
+        choices=("auto", "fake", "local", "anthropic"),
+        default="auto",
+        help="auto picks anthropic when a key is set, otherwise fake",
+    )
     args = parser.parse_args()
 
     events = [RiskEvent.from_dict(p) for p in json.loads(args.events.read_text())]
     store = TraceStore(sink=args.out)
     locks = LockTable()
 
-    live = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    print(
-        f"model: {'anthropic (live)' if live else 'FakeModel (no API key set)'}",
-        file=sys.stderr,
-    )
+    from latch.config import LOCAL_MODEL, LOCAL_MODEL_LICENCE
+    from latch.llm import OllamaModel
+
+    choice = args.model
+    if choice == "auto":
+        choice = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "fake"
+
+    label = {
+        "anthropic": "anthropic (billed)",
+        "local": f"{LOCAL_MODEL} via ollama ({LOCAL_MODEL_LICENCE}, zero marginal cost)",
+        "fake": "FakeModel (scripted; measures the pipeline, not the agent)",
+    }[choice]
+    print(f"model: {label}", file=sys.stderr)
+    live = choice == "anthropic"
 
     for event in events:
         if live:
             client, _ = get_client()
+        elif choice == "local":
+            client = OllamaModel()
         else:
             client = FakeModel(
                 SCRIPT
@@ -102,10 +119,16 @@ def main() -> int:
         f"{metrics['excluded_superseded']} superseded excluded "
         f"| ${store.cost_per_risk():.4f} per risk"
     )
-    if not live:
+    if choice == "fake":
         print(
             "\nThese numbers came from scripted model responses. They measure "
             "the pipeline, not the agent.",
+            file=sys.stderr,
+        )
+    elif choice == "local":
+        print(
+            f"\nRan on {LOCAL_MODEL} locally. Dollar cost is zero at the margin, "
+            "not zero outright — it cost this machine's time and power.",
             file=sys.stderr,
         )
     return 0
