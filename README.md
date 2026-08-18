@@ -16,6 +16,63 @@ uv sync
 uv run pytest
 ```
 
+## Historical AIS Data & Replay
+
+LATCH uses one month of real Singapore AIS vessel-movement data to test its historical early-warning pipeline.
+
+### Dataset
+
+* **Source:** *AIS Data from 11 ports around the globe* (Singapore subset)
+* **Period:** October 2023
+* **Records:** 609,975 AIS observations
+* **Vessels:** 5,879 anonymised vessel IDs
+* **File:** `Data Inspection/Singapore_anonymized.csv`
+* **SHA-256:** `a46b6f6f68e5d7f2cc87b3eaa0fe2cc74373cf8e9788b2a3156c4f4644bfad7e`
+
+The AIS dataset provides real timestamped vessel positions and movement information. It does **not** contain PSA's actual container connections, terminal assignments, loading cutoffs, or operational outcomes.
+
+Our historical evaluation therefore separates:
+
+* **Real:** AIS vessel movement and timestamps
+* **Derived:** vessel trajectories, arrival-boundary crossings, and causal ETA estimates
+* **Synthetic / assumed:** transhipment connections, terminal assignments, container volumes, transfer times, and loading cutoffs
+
+### Stage 2 — Historical Replay Feasibility
+
+The replay prototype currently derives vessel-approach events from a configurable, non-official Singapore arrival boundary.
+
+Current results:
+
+* **5,879** vessels assessed
+* **694** vessels crossed the exploratory boundary
+* **611** usable derived arrival events
+* Median pre-event history: **27 observations / 30.22 hours**
+* **89 automated tests passing**
+
+This confirms that the AIS dataset provides sufficient historical event volume to proceed with synthetic connection generation and Watcher evaluation.
+
+> **Important:** Derived geofence events are used for prototype evaluation and are not claimed to be actual PSA vessel arrivals or berth events.
+
+### Git LFS
+
+The AIS CSV is approximately 205 MB, so it is stored using **Git LFS** rather than normal Git storage.
+
+After cloning the repository, install and initialise Git LFS:
+
+```bash
+brew install git-lfs
+git lfs install
+git lfs pull
+```
+
+You can verify that the dataset is managed by LFS with:
+
+```bash
+git lfs ls-files
+```
+
+The checksum above can be used to verify that the exact dataset used in our experiments has been retrieved.
+
 ## What is real and what is not
 
 Stated here as plainly as it is stated on the slide.
