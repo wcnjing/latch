@@ -17,6 +17,7 @@ quietly used the fake model and reported numbers would be worthless.
 import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 from latch.config import (
@@ -141,6 +142,13 @@ class AnthropicModel:
                 f"(category={getattr(response.stop_details, 'category', None)})"
             )
 
+        if response.stop_reason == "max_tokens":
+            raise RuntimeError(
+                f"{purpose} response hit max_tokens ({max_tokens}) and is "
+                "truncated. On a thinking model the budget covers reasoning "
+                "as well as the answer — raise max_tokens or lower effort."
+            )
+
         text = next((b.text for b in response.content if b.type == "text"), None)
         if text is None:
             raise RuntimeError(f"no text block in {purpose} response")
@@ -153,6 +161,25 @@ class AnthropicModel:
         )
 
 
+def _load_dotenv() -> None:
+    """Read a local .env so the key lives in a gitignored file, not a shell export.
+
+    Deliberately minimal and non-overriding: an already-set environment
+    variable always wins, so a .env cannot silently redirect a run.
+    """
+    for parent in [Path.cwd(), *Path.cwd().parents]:
+        candidate = parent / ".env"
+        if not candidate.is_file():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+        return
+
+
 def get_client(script: dict[str, Any] | None = None) -> tuple[ModelClient, bool]:
     """Return a client and whether it is the real one.
 
@@ -160,6 +187,7 @@ def get_client(script: dict[str, Any] | None = None) -> tuple[ModelClient, bool]
     used the fake model and then reported its numbers would be worse than no
     numbers at all.
     """
+    _load_dotenv()
     if os.environ.get("ANTHROPIC_API_KEY"):
         return AnthropicModel(), True
     return FakeModel(script), False

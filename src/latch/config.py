@@ -22,9 +22,9 @@ PRICING: Final[dict[str, tuple[float, float]]] = {
 # Deliberation walks a ladder and orchestrates tools; it is the one place we
 # want real reasoning. Triage only has to answer "is this worth waking the
 # expensive model for", so it runs without thinking.
-DELIBERATION_EFFORT: Final = "high"
+DELIBERATION_EFFORT: Final = "medium"
 TRIAGE_MAX_TOKENS: Final = 512
-DELIBERATION_MAX_TOKENS: Final = 16_000
+DELIBERATION_MAX_TOKENS: Final = 3_000
 
 
 # --- Watcher ----------------------------------------------------------------
