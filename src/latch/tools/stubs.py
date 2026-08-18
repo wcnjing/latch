@@ -91,7 +91,7 @@ def build_itt_inventory(
     for i in range(count):
         mode = TransferMode.ROAD if i % 2 == 0 else TransferMode.BARGE
         departs = origin + timedelta(minutes=40 * (i + 1))
-        capacity = 60 if mode is TransferMode.BARGE else 24
+        capacity = 250 if mode is TransferMode.BARGE else 120
         slots.append(
             ITTSlot(
                 slot_id=f"{from_terminal.value[:3]}{to_terminal.value[:3]}_{1100 + i * 20}",

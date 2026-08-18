@@ -1,0 +1,50 @@
+[
+  {
+    "connection_id": "DEMO-000",
+    "state": "SAFE",
+    "current_plan_slack_hours": 9.6,
+    "no_itt_slack_hours": 13.8,
+    "avoidable_by_terminal_prevention": false,
+    "affected_boxes": 12,
+    "confidence": "HIGH",
+    "reason_codes": ["INBOUND_ETA_SLIP"],
+    "detected_at": "2026-08-30T04:17:00+00:00"
+  },
+  {
+    "connection_id": "DEMO-002",
+    "state": "WATCH",
+    "current_plan_slack_hours": 3.1,
+    "no_itt_slack_hours": 7.4,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 47,
+    "confidence": "MEDIUM",
+    "reason_codes": ["INBOUND_ETA_SLIP", "INTER_TERMINAL_TRANSFER_TIME"],
+    "detected_at": "2026-08-30T04:19:00+00:00"
+  },
+  {
+    "connection_id": "DEMO-001",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -1.8,
+    "no_itt_slack_hours": 2.4,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 84,
+    "confidence": "MEDIUM",
+    "reason_codes": ["INBOUND_ETA_SLIP", "INTER_TERMINAL_TRANSFER_TIME"],
+    "detected_at": "2026-08-30T04:21:00+00:00"
+  },
+  {
+    "connection_id": "DEMO-003",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -3.2,
+    "no_itt_slack_hours": -0.9,
+    "avoidable_by_terminal_prevention": false,
+    "affected_boxes": 61,
+    "confidence": "HIGH",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "OUTBOUND_CUTOFF_ADVANCED",
+      "BERTH_CONGESTION"
+    ],
+    "detected_at": "2026-08-30T04:23:00+00:00"
+  }
+]

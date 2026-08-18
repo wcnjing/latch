@@ -52,6 +52,63 @@ A ──ConnectionRisk──▶  agent core  ──Trace──▶ C
 | `confidence.py` | Deterministic confidence from provenance |
 | `locks.py` | Reservation store for contested resources |
 | `tools/` | Stubbed integrations plus deterministic failure injection |
+| `events.py` | The A → B contract, and the adapter into the internal model |
+| `triage.py` | Decides what deserves the expensive model |
+| `deliberation.py` | Enumerates options, then asks the model to rank them |
+| `gates.py` | Approval policy. Takes no model client, by construction |
+| `runner.py` | The pipeline, end to end |
+| `llm.py` | Model seam: `FakeModel` for tests, `AnthropicModel` for real runs |
+
+## The pipeline
+
+```
+risk event ─▶ triage ─▶ gather ─▶ compare ─▶ check locks
+           ─▶ recommend ─▶ approve if required ─▶ track to resolution
+```
+
+Run it:
+
+```bash
+uv run latch                                    # four mock cases
+uv run latch --customer accepts --approvals never
+uv run latch --events path/to/watcher_output.json
+```
+
+With no `ANTHROPIC_API_KEY` set it runs on `FakeModel` and says so. Numbers
+from that run measure the pipeline, not the agent — the CLI prints that
+warning rather than leaving it to be inferred.
+
+## The A → B contract
+
+A emits the agreed event format; `RiskEvent.to_connection_risk()` adapts it
+into the internal model. When A swaps mock output for the live Watcher, and
+later enriches it with vessel and terminal detail, **only the adapter
+changes** — the agent logic never touches the wire format.
+
+```json
+{
+  "connection_id": "DEMO-001",
+  "state": "AT_RISK",
+  "current_plan_slack_hours": -1.8,
+  "no_itt_slack_hours": 2.4,
+  "avoidable_by_terminal_prevention": true,
+  "affected_boxes": 84,
+  "confidence": "MEDIUM",
+  "reason_codes": ["INBOUND_ETA_SLIP", "INTER_TERMINAL_TRANSFER_TIME"]
+}
+```
+
+The two slack figures are the useful part. Their gap is what the transfer is
+costing, and when removing it would save the connection outright, Rung 1
+becomes a live option instead of advisory noise. `fixtures/mock_events.json`
+carries four cases that exercise genuinely different paths: SAFE, WATCH,
+AT_RISK-but-avoidable, and AT_RISK-with-nothing-that-works.
+
+> **Two fields are both called confidence and they are not the same thing.**
+> `RiskEvent.confidence` is how sure A is that this is a risk at all.
+> `Plan.confidence` is how much to trust a specific plan. A's is an *input*
+> to B's — a HIGH from the Watcher cannot make a plan built on stale cache
+> data trustworthy.
 
 ## Two design points worth knowing
 
@@ -62,6 +119,14 @@ from the weakest input in the plan, with weights frozen in `config.py`.
 `ConfidenceBreakdown.explain()` prints the derivation on one line. Combined with
 the Gate Controller's policy table, this is what lets the system claim the agent
 can neither self-authorise nor self-certify.
+
+**Code enumerates options; the model only ranks them.** Candidates are built
+from what the tools actually returned, so the agent cannot book a slot that
+does not exist — and a chosen id that is not on the candidate list is rejected
+rather than executed. The Gate Controller goes further: it imports no model
+client and has no channel through which to be persuaded, which is what makes
+"the agent cannot self-authorise" a property of the code rather than a claim
+about the prompt.
 
 **Failures are injected from a plan, not sampled at random.** The recorded demo
 has to replay identically on every take, and a scenario suite whose failures

@@ -74,3 +74,21 @@ CONFIDENCE_TOOL_FACTOR: Final[dict[str, float]] = {
 CONFIDENCE_AGE_SCALE_MIN: Final = 120.0  # decay scale applied to stale inputs
 CONFIDENCE_UNVERIFIED_PENALTY: Final = 0.05  # linear, per unverified input
 CONFIDENCE_FLOOR: Final = 0.05
+
+
+# --- model capabilities -----------------------------------------------------
+# `effort` is rejected by models that predate it, so the deliberation call
+# gates on this rather than sending it hopefully and catching a 400.
+
+EFFORT_CAPABLE_MODELS: Final[frozenset[str]] = frozenset(
+    {"claude-opus-5", "claude-opus-4-8", "claude-sonnet-5"}
+)
+
+
+# --- Triage -----------------------------------------------------------------
+# The funnel is free at both ends. A SAFE event and an obviously-critical one
+# are both decided deterministically; the small model is spent only on the
+# ambiguous middle, which is where a judgement is actually being made.
+
+TRIAGE_FAST_TRACK_BOXES: Final = 40  # large volume, already blown: skip the ask
+TRIAGE_MIN_BOXES: Final = 5  # below this the move costs more than the miss

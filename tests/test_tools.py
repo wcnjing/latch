@@ -143,10 +143,10 @@ def test_itt_inventory_is_deterministic():
 
 
 def test_query_itt_slot_filters_on_capacity():
-    big = query_itt_slot(T0, Terminal.TUAS, Terminal.PASIR_PANJANG, boxes=50)
+    big = query_itt_slot(T0, Terminal.TUAS, Terminal.PASIR_PANJANG, boxes=200)
     small = query_itt_slot(T0, Terminal.TUAS, Terminal.PASIR_PANJANG, boxes=10)
     assert len(big) < len(small)
-    assert all(s.capacity_teu >= 50 for s in big)
+    assert all(s.capacity_teu >= 200 for s in big)
 
 
 def test_slot_resource_key_is_what_the_lock_table_arbitrates_on():
