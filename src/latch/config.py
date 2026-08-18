@@ -4,6 +4,7 @@ Every threshold the agent's behaviour depends on lives here rather than
 inline, so the submission can state them and the evaluation can freeze them.
 """
 
+import os
 from typing import Final
 
 # --- Models -----------------------------------------------------------------
@@ -17,6 +18,11 @@ PRICING: Final[dict[str, tuple[float, float]]] = {
     # model: (input $/MTok, output $/MTok)
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-opus-5": (5.00, 25.00),
+    # Local inference: zero marginal cost, not zero cost. See LOCAL_MODEL below.
+    "qwen3:8b": (0.00, 0.00),
+    "qwen3:4b": (0.00, 0.00),
+    "qwen3:1.7b": (0.00, 0.00),
+    "qwen2.5:7b-instruct": (0.00, 0.00),
 }
 
 # Deliberation walks a ladder and orchestrates tools; it is the one place we
@@ -92,3 +98,19 @@ EFFORT_CAPABLE_MODELS: Final[frozenset[str]] = frozenset(
 
 TRIAGE_FAST_TRACK_BOXES: Final = 40  # large volume, already blown: skip the ask
 TRIAGE_MIN_BOXES: Final = 5  # below this the move costs more than the miss
+
+
+# --- local models -----------------------------------------------------------
+# Run through Ollama (MIT) against an Apache-2.0 model, so nothing here is
+# copyleft and everything is declarable under the competition T&Cs.
+#
+# Priced at zero because the *marginal* cost of a local call is zero. That is
+# not the same as free — it costs the laptop's time and power — so the trace
+# labels these calls rather than letting a $0.00 total imply no cost at all.
+
+# Overridable so the model can be swapped without a code change — useful when
+# download time, not capability, is the binding constraint.
+LOCAL_MODEL: Final = os.environ.get("LATCH_LOCAL_MODEL", "qwen3:8b")
+LOCAL_MODEL_LICENCE: Final = "Apache-2.0"
+OLLAMA_HOST: Final = "http://127.0.0.1:11434"
+LOCAL_TIMEOUT_SEC: Final = 180.0

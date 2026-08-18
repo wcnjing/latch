@@ -191,3 +191,99 @@ def get_client(script: dict[str, Any] | None = None) -> tuple[ModelClient, bool]
     if os.environ.get("ANTHROPIC_API_KEY"):
         return AnthropicModel(), True
     return FakeModel(script), False
+
+
+@dataclass
+class OllamaModel:
+    """A local open-weights model, served by Ollama.
+
+    Same `ModelClient` protocol as the hosted path, so nothing above this line
+    knows the difference. That was the point of the seam.
+
+    Two differences from the hosted client are worth knowing:
+
+    Local models are far weaker at holding a schema by instruction, so the
+    schema is passed to Ollama as a grammar constraint rather than described in
+    the prompt. Structural validity stops being a hope.
+
+    Sampling is pinned to temperature 0. The hosted models reject sampling
+    parameters outright; here they are available and worth using, because a
+    recorded demo has to replay identically.
+    """
+
+    model: str = ""
+    host: str = ""
+    timeout: float = 0.0
+    think: bool = False
+    calls: list[tuple[str, str]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        from latch.config import LOCAL_MODEL, LOCAL_TIMEOUT_SEC, OLLAMA_HOST
+
+        self.model = self.model or LOCAL_MODEL
+        self.host = self.host or OLLAMA_HOST
+        self.timeout = self.timeout or LOCAL_TIMEOUT_SEC
+
+    def complete_json(
+        self,
+        *,
+        model: str,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        purpose: str,
+    ) -> ModelResponse:
+        import httpx
+
+        # The caller names a hosted model; locally there is only the one we
+        # loaded. Recording what actually ran matters more than honouring a
+        # request the local server cannot satisfy.
+        del model
+        self.calls.append((purpose, self.model))
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "format": schema,
+            "think": self.think,
+            "options": {"temperature": 0, "num_predict": max_tokens},
+        }
+
+        try:
+            response = httpx.post(
+                f"{self.host}/api/chat", json=payload, timeout=self.timeout
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise RuntimeError(
+                f"local model call for {purpose} failed: {exc}. "
+                f"Is `ollama serve` running on {self.host}?"
+            ) from exc
+
+        body = response.json()
+        content = body.get("message", {}).get("content", "")
+        if not content.strip():
+            raise RuntimeError(
+                f"local model returned empty content for {purpose}; "
+                "the schema constraint may be unsatisfiable for this prompt"
+            )
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"local model returned unparseable JSON for {purpose}: "
+                f"{content[:200]!r}"
+            ) from exc
+
+        return ModelResponse(
+            data=data,
+            model=self.model,
+            input_tokens=int(body.get("prompt_eval_count", 0)),
+            output_tokens=int(body.get("eval_count", 0)),
+        )
