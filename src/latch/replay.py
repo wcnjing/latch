@@ -17,7 +17,7 @@ import re
 import sqlite3
 import tempfile
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from enum import StrEnum
 from pathlib import Path
@@ -147,7 +147,7 @@ class EtaRevision:
 
 @dataclass(frozen=True, slots=True)
 class CausalArrivalUpdate:
-    """Watcher-facing replay input with no retrospective outcome fields.
+    """Causal values from a retrospectively segmented historical call.
 
     Historical call membership is segmented retrospectively, but every value
     that can influence a prediction is causal at ``observed_at``.
@@ -159,7 +159,6 @@ class CausalArrivalUpdate:
     prediction_status: PredictionStatus
     reference_arrival: datetime | None
     predicted_arrival: datetime | None
-    observation_age_minutes: float
     data_quality: DataQuality
     quality_reason_codes: tuple[str, ...]
     source_type: str
@@ -175,7 +174,7 @@ class DerivedArrivalEvent:
     first_eligible_pre_event_observation: VesselObservation | None
     eligible_pre_event_observations: int
     pre_event_lookback: timedelta
-    usable: bool
+    benchmark_eligible: bool
     exclusion_reasons: tuple[str, ...]
     quality_reason_codes: tuple[str, ...]
     data_quality: DataQuality
@@ -183,18 +182,6 @@ class DerivedArrivalEvent:
     crossing_source_row_number: int
     arrival_updates: tuple[CausalArrivalUpdate, ...]
     eta_revisions: tuple[EtaRevision, ...]
-
-    @property
-    def observations_before_event(self) -> int:
-        """Backward-compatible name for eligible pre-event observations."""
-
-        return self.eligible_pre_event_observations
-
-    @property
-    def available_lookback(self) -> timedelta:
-        """Backward-compatible name for pre-event lookback."""
-
-        return self.pre_event_lookback
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,17 +201,18 @@ class FeasibilityResult:
     raw_candidate_crossings: int
     crossings_suppressed_before_reset: int
     accepted_calls: int
-    usable_derived_arrival_events: int
+    benchmark_eligible_calls: int
     excluded_calls: int
     sufficient_for_historical_experiment: bool
     event_sufficiency_threshold: int
-    observations_before_event: dict[str, float]
-    available_lookback_hours: dict[str, float]
+    eligible_pre_event_observations: dict[str, float]
+    pre_event_lookback_hours: dict[str, float]
     quality_flag_counts: dict[str, int]
     event_exclusion_reasons: dict[str, int]
     events_by_day: dict[str, int]
     call_data_quality_distribution: dict[str, int]
-    arrival_update_status_distribution: dict[str, int]
+    all_accepted_arrival_update_status_distribution: dict[str, int]
+    benchmark_eligible_arrival_update_status_distribution: dict[str, int]
     example_eta_revisions: tuple[DerivedArrivalEvent, ...]
     validation_samples: tuple[ValidationSample, ...]
     assumed_timezone: str
@@ -236,11 +224,6 @@ class FeasibilityResult:
     def as_dict(self) -> dict[str, object]:
         value = _json_value(asdict(self))
         assert isinstance(value, dict)
-        for event in value["example_eta_revisions"]:
-            event["observations_before_event"] = event[
-                "eligible_pre_event_observations"
-            ]
-            event["available_lookback"] = event["pre_event_lookback"]
         return value
 
 
@@ -272,6 +255,21 @@ def parse_primary_timestamp(value: str, assumed_timezone: tzinfo = UTC) -> datet
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=assumed_timezone)
     return parsed.astimezone(assumed_timezone)
+
+
+def calculate_data_age_minutes(
+    observed_at: datetime,
+    assessed_at: datetime,
+) -> float:
+    """Return downstream data age at assessment time in elapsed minutes."""
+
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError("observed_at must be timezone-aware")
+    if assessed_at.tzinfo is None or assessed_at.utcoffset() is None:
+        raise ValueError("assessed_at must be timezone-aware")
+    if assessed_at < observed_at:
+        raise ValueError("assessed_at must not be before observed_at")
+    return (assessed_at - observed_at).total_seconds() / 60
 
 
 def _optional_float(value: str | None) -> float | None:
@@ -396,13 +394,6 @@ def _create_replay_database(csv_path: Path, config: ReplayConfig) -> tuple[sqlit
             """
             CREATE INDEX observations_replay_order
                 ON observations(observed_sort, source_row);
-            CREATE INDEX observations_vessel
-                ON observations(vessel_id);
-            CREATE TEMP TABLE vessel_counts AS
-                SELECT vessel_id, COUNT(*) AS observation_count
-                FROM observations
-                GROUP BY vessel_id;
-            CREATE INDEX vessel_counts_id ON vessel_counts(vessel_id);
             """
         )
         connection.commit()
@@ -429,9 +420,8 @@ def iter_replay_observations(
         SELECT o.source_row, o.vessel_id, o.observed_epoch,
                o.latitude, o.longitude, o.speed, o.course, o.heading,
                o.rate_of_turn, o.navigation_status, o.vessel_type,
-               o.ais_eta_epoch, c.observation_count
+               o.ais_eta_epoch
         FROM observations AS o
-        JOIN vessel_counts AS c USING (vessel_id)
         ORDER BY o.observed_sort, o.source_row
     """
     try:
@@ -449,12 +439,9 @@ def iter_replay_observations(
                 navigation_status,
                 vessel_type,
                 ais_eta_epoch,
-                observation_count,
             ) = row
             observed_at = datetime.fromtimestamp(observed_epoch, config.timezone)
             flags: list[QualityFlag] = []
-            if observation_count < config.minimum_track_observations:
-                flags.append(QualityFlag.SPARSE_VESSEL_TRACK)
             previous = prior_by_vessel.get(vessel_id)
             if previous is not None:
                 gap = observed_at - previous
@@ -555,6 +542,7 @@ def causal_eta(
 @dataclass(slots=True)
 class _TrackState:
     previous_distance_km: float | None = None
+    observations_seen: int = 0
     armed: bool = False
     episode_observations: list[tuple[VesselObservation, float]] | None = None
     reset_confirmation_observations: list[tuple[VesselObservation, float]] | None = None
@@ -687,9 +675,6 @@ def _event_from_crossing(
                 ),
                 reference_arrival=reference,
                 predicted_arrival=(revision.estimated_arrival if is_available else None),
-                # Replay advances on source event time, so an observation is
-                # age zero when consumed. Gaps are separate quality signals.
-                observation_age_minutes=0.0,
                 data_quality=(
                     DataQuality.DEGRADED if reason_codes else DataQuality.GOOD
                 ),
@@ -731,7 +716,7 @@ def _event_from_crossing(
         first_eligible_pre_event_observation=first_observation,
         eligible_pre_event_observations=len(available),
         pre_event_lookback=lookback,
-        usable=not exclusion_reasons,
+        benchmark_eligible=not exclusion_reasons,
         exclusion_reasons=tuple(sorted(exclusion_reasons)),
         quality_reason_codes=tuple(sorted(episode_reasons)),
         data_quality=quality,
@@ -787,6 +772,7 @@ def _analyse_arrivals(
             config.boundary.longitude,
         )
         state = states.setdefault(observation.vessel_id, _TrackState())
+        state.observations_seen += 1
         previous_distance = state.previous_distance_km
 
         if previous_distance is None:
@@ -818,7 +804,6 @@ def _analyse_arrivals(
                     state, observation, config, revisions_per_example
                 )
                 events.append(event)
-                exclusions.update(event.exclusion_reasons)
                 state.armed = False
                 state.episode_observations = None
                 state.reset_confirmation_observations = []
@@ -865,6 +850,37 @@ def _analyse_arrivals(
                     state.episode_observations.append((observation, distance))
         state.previous_distance_km = distance
 
+    sparse_reason = QualityFlag.SPARSE_VESSEL_TRACK.value
+    for state in states.values():
+        if state.observations_seen < config.minimum_track_observations:
+            quality_counts[sparse_reason] += state.observations_seen
+    for index, event in enumerate(events):
+        if (
+            states[event.vessel_id].observations_seen
+            >= config.minimum_track_observations
+        ):
+            continue
+        event_reasons = set(event.quality_reason_codes)
+        event_reasons.add(sparse_reason)
+        exclusion_reasons = set(event.exclusion_reasons)
+        if QualityFlag.SPARSE_VESSEL_TRACK in config.excluded_quality_flags:
+            exclusion_reasons.add(sparse_reason)
+        events[index] = replace(
+            event,
+            benchmark_eligible=not exclusion_reasons,
+            exclusion_reasons=tuple(sorted(exclusion_reasons)),
+            quality_reason_codes=tuple(sorted(event_reasons)),
+            data_quality=(
+                DataQuality.EXCLUDED
+                if exclusion_reasons
+                else DataQuality.DEGRADED
+            ),
+        )
+
+    exclusions.update(
+        reason for event in events for reason in event.exclusion_reasons
+    )
+
     events.sort(
         key=lambda event: (
             event.derived_geofence_arrival,
@@ -872,21 +888,36 @@ def _analyse_arrivals(
             event.call_id,
         )
     )
-    usable = [event for event in events if event.usable]
+    benchmark_eligible = [event for event in events if event.benchmark_eligible]
     event_days = Counter(event.derived_geofence_arrival.date().isoformat() for event in events)
     data_quality = Counter(event.data_quality.value for event in events)
-    update_statuses = Counter(
+    all_accepted_update_statuses = Counter(
         update.prediction_status.value
-        for event in usable
+        for event in events
         for update in event.arrival_updates
     )
-    observation_counts = [float(event.eligible_pre_event_observations) for event in usable]
-    lookbacks = [event.pre_event_lookback.total_seconds() / 3_600 for event in usable]
+    benchmark_eligible_update_statuses = Counter(
+        update.prediction_status.value
+        for event in benchmark_eligible
+        for update in event.arrival_updates
+    )
+    observation_counts = [
+        float(event.eligible_pre_event_observations) for event in benchmark_eligible
+    ]
+    lookbacks = [
+        event.pre_event_lookback.total_seconds() / 3_600
+        for event in benchmark_eligible
+    ]
 
     samples: list[ValidationSample] = list(suppression_samples)
     categories: dict[str, DerivedArrivalEvent | None] = {
         "normal_approach": next(
-            (event for event in usable if event.data_quality is DataQuality.GOOD), None
+            (
+                event
+                for event in benchmark_eligible
+                if event.data_quality is DataQuality.GOOD
+            ),
+            None,
         ),
         "sparse_track": next(
             (
@@ -914,7 +945,9 @@ def _analyse_arrivals(
         ),
     }
     notes = {
-        "normal_approach": "usable approach with no detected quality degradation",
+        "normal_approach": (
+            "benchmark-eligible approach with no detected quality degradation"
+        ),
         "sparse_track": "call retains the sparse-vessel-track provenance flag",
         "stale_track": "episode contains an observation following the stale threshold",
         "moving_away": "moving-away observation was retained but not used for prediction",
@@ -935,7 +968,7 @@ def _analyse_arrivals(
             )
         )
 
-    examples = tuple(usable[:example_vessels])
+    examples = tuple(benchmark_eligible[:example_vessels])
     result = FeasibilityResult(
         vessels_assessed=len(states),
         observations_assessed=observations_assessed,
@@ -943,17 +976,24 @@ def _analyse_arrivals(
         raw_candidate_crossings=raw_crossings,
         crossings_suppressed_before_reset=suppressed_crossings,
         accepted_calls=len(events),
-        usable_derived_arrival_events=len(usable),
-        excluded_calls=len(events) - len(usable),
-        sufficient_for_historical_experiment=len(usable) >= config.sufficient_arrival_events,
+        benchmark_eligible_calls=len(benchmark_eligible),
+        excluded_calls=len(events) - len(benchmark_eligible),
+        sufficient_for_historical_experiment=(
+            len(benchmark_eligible) >= config.sufficient_arrival_events
+        ),
         event_sufficiency_threshold=config.sufficient_arrival_events,
-        observations_before_event=_summary(observation_counts),
-        available_lookback_hours=_summary(lookbacks),
+        eligible_pre_event_observations=_summary(observation_counts),
+        pre_event_lookback_hours=_summary(lookbacks),
         quality_flag_counts=dict(sorted(quality_counts.items())),
         event_exclusion_reasons=dict(sorted(exclusions.items())),
         events_by_day=dict(sorted(event_days.items())),
         call_data_quality_distribution=dict(sorted(data_quality.items())),
-        arrival_update_status_distribution=dict(sorted(update_statuses.items())),
+        all_accepted_arrival_update_status_distribution=dict(
+            sorted(all_accepted_update_statuses.items())
+        ),
+        benchmark_eligible_arrival_update_status_distribution=dict(
+            sorted(benchmark_eligible_update_statuses.items())
+        ),
         example_eta_revisions=examples,
         validation_samples=tuple(samples),
         assumed_timezone=config.assumed_timezone,
@@ -993,20 +1033,19 @@ def derive_arrival_calls(
     ).calls
 
 
-def iter_causal_arrival_updates(
+def iter_retrospectively_segmented_arrival_updates(
     csv_path: str | Path,
     config: ReplayConfig = ReplayConfig(),
 ) -> Iterator[CausalArrivalUpdate]:
-    """Yield Watcher-facing usable-call inputs in stable event-time order.
+    """Yield updates from every accepted retrospectively segmented call.
 
-    Call membership is segmented retrospectively for this historical
-    benchmark. The projection deliberately contains no crossing outcome.
-    Predictions and references use only their observation and prior segment
-    state.
+    The values in each update are causal, but membership in this historical
+    stream is known only after a later boundary crossing defines the call. The
+    projection deliberately contains no crossing or benchmark outcome.
     """
 
     calls = derive_arrival_calls(csv_path, config)
-    updates = [update for call in calls if call.usable for update in call.arrival_updates]
+    updates = [update for call in calls for update in call.arrival_updates]
     yield from sorted(
         updates,
         key=lambda update: (
@@ -1017,13 +1056,27 @@ def iter_causal_arrival_updates(
     )
 
 
-def iter_arrival_updates(
+def iter_eligible_benchmark_updates(
     csv_path: str | Path,
     config: ReplayConfig = ReplayConfig(),
 ) -> Iterator[CausalArrivalUpdate]:
-    """Backward-compatible alias for :func:`iter_causal_arrival_updates`."""
+    """Yield updates only from retrospectively benchmark-eligible calls."""
 
-    yield from iter_causal_arrival_updates(csv_path, config)
+    calls = derive_arrival_calls(csv_path, config)
+    updates = [
+        update
+        for call in calls
+        if call.benchmark_eligible
+        for update in call.arrival_updates
+    ]
+    yield from sorted(
+        updates,
+        key=lambda update: (
+            update.observed_at,
+            update.source_observation.source_row_number,
+            update.call_id,
+        ),
+    )
 
 
 def _parser() -> argparse.ArgumentParser:

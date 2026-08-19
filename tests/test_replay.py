@@ -2,6 +2,8 @@ import csv
 from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from latch.replay import (
     ArrivalBoundary,
     CausalArrivalUpdate,
@@ -10,11 +12,12 @@ from latch.replay import (
     QualityFlag,
     ReplayConfig,
     assess_arrival_feasibility,
+    calculate_data_age_minutes,
     causal_eta,
     derive_arrival_calls,
-    iter_arrival_updates,
-    iter_causal_arrival_updates,
+    iter_eligible_benchmark_updates,
     iter_replay_observations,
+    iter_retrospectively_segmented_arrival_updates,
 )
 
 
@@ -162,10 +165,10 @@ def test_low_quality_rows_are_preserved_and_can_be_excluded_from_events(tmp_path
     call = derive_arrival_calls(path, replay_config)[0]
 
     assert len(observations) == 2
-    assert QualityFlag.SPARSE_VESSEL_TRACK in observations[0].quality_flags
+    assert QualityFlag.SPARSE_VESSEL_TRACK not in observations[0].quality_flags
     assert QualityFlag.IMPLAUSIBLE_SPEED in observations[0].quality_flags
     assert result.vessels_crossing_boundary == 1
-    assert result.usable_derived_arrival_events == 0
+    assert result.benchmark_eligible_calls == 0
     assert result.event_exclusion_reasons == {
         "fewer_than_10_vessel_observations": 1,
         "insufficient_eligible_pre_arrival_observations": 1,
@@ -173,6 +176,10 @@ def test_low_quality_rows_are_preserved_and_can_be_excluded_from_events(tmp_path
     assert call.arrival_updates[0].prediction_status is PredictionStatus.INELIGIBLE
     assert call.arrival_updates[0].predicted_arrival is None
     assert "implausible_speed" in call.arrival_updates[0].quality_reason_codes
+    assert "fewer_than_10_vessel_observations" not in (
+        call.arrival_updates[0].quality_reason_codes
+    )
+    assert "fewer_than_10_vessel_observations" in call.quality_reason_codes
 
 
 def test_stale_and_long_gap_rows_are_preserved_and_flagged(tmp_path):
@@ -211,12 +218,12 @@ def test_feasibility_is_deterministic_and_names_event_as_derived(tmp_path):
 
     assert first == second
     assert first.vessels_crossing_boundary == 1
-    assert first.usable_derived_arrival_events == 1
+    assert first.benchmark_eligible_calls == 1
     assert first.sufficient_for_historical_experiment
     event = first.example_eta_revisions[0]
     assert event.derived_geofence_arrival == datetime(2023, 1, 1, 2, tzinfo=UTC)
-    assert event.observations_before_event == 2
-    assert event.available_lookback == timedelta(hours=2)
+    assert event.eligible_pre_event_observations == 2
+    assert event.pre_event_lookback == timedelta(hours=2)
 
 
 def test_crossings_require_confirmed_reset_before_a_repeat_call(tmp_path):
@@ -261,8 +268,8 @@ def test_call_ids_and_predictions_are_deterministic(tmp_path):
     )
 
     assert derive_arrival_calls(path, config()) == derive_arrival_calls(path, config())
-    assert tuple(iter_arrival_updates(path, config())) == tuple(
-        iter_arrival_updates(path, config())
+    assert tuple(iter_retrospectively_segmented_arrival_updates(path, config())) == tuple(
+        iter_retrospectively_segmented_arrival_updates(path, config())
     )
 
 
@@ -272,7 +279,7 @@ def test_update_predictions_do_not_use_future_points_or_crossing_time(tmp_path):
         tmp_path,
         early + [row("v1", "2023-01-01 01:00:00", 0, speed=2)],
     )
-    update_a = tuple(iter_arrival_updates(path_a, config()))[0]
+    update_a = tuple(iter_retrospectively_segmented_arrival_updates(path_a, config()))[0]
     path_b = write_csv(
         tmp_path,
         early
@@ -281,7 +288,7 @@ def test_update_predictions_do_not_use_future_points_or_crossing_time(tmp_path):
             row("v1", "2023-01-01 02:00:00", 0, speed=20),
         ],
     )
-    update_b = tuple(iter_arrival_updates(path_b, config()))[0]
+    update_b = tuple(iter_retrospectively_segmented_arrival_updates(path_b, config()))[0]
 
     assert update_a.predicted_arrival == update_b.predicted_arrival
     assert update_a.reference_arrival == update_b.reference_arrival
@@ -302,7 +309,7 @@ def test_reference_is_first_eligible_prediction_and_ineligible_rows_are_retained
     )
     call = derive_arrival_calls(path, config())[0]
 
-    assert call.usable
+    assert call.benchmark_eligible
     assert call.first_eligible_pre_event_observation.observed_at == datetime(
         2023, 1, 1, 0, 10, tzinfo=UTC
     )
@@ -333,7 +340,7 @@ def test_stale_observation_is_not_used_for_prediction(tmp_path):
     )
     call = derive_arrival_calls(path, config())[0]
 
-    assert call.usable
+    assert call.benchmark_eligible
     assert len(call.arrival_updates) == 2
     assert call.arrival_updates[0].observed_at == datetime(2023, 1, 1, tzinfo=UTC)
     assert call.arrival_updates[1].prediction_status is PredictionStatus.INELIGIBLE
@@ -353,20 +360,130 @@ def test_update_stream_is_stably_sorted_and_preserves_provenance_and_flags(tmp_p
             row("later-call", "2023-01-01 00:30:00", 0),
         ],
     )
-    updates = tuple(iter_arrival_updates(path, config()))
+    updates = tuple(iter_retrospectively_segmented_arrival_updates(path, config()))
 
     assert [update.vessel_id for update in updates] == ["later-call", "first-call"]
     assert [update.source_observation.source_row_number for update in updates] == [2, 3]
     flagged = updates[1]
     assert flagged.source_type == "real_ais_observation"
-    assert flagged.observation_age_minutes == 0
     assert flagged.source_observation.true_heading_degrees is None
     assert QualityFlag.HEADING_UNAVAILABLE in flagged.source_observation.quality_flags
     assert QualityFlag.HEADING_UNAVAILABLE.value in flagged.quality_reason_codes
     assert flagged.data_quality is DataQuality.DEGRADED
-    assert "derived_geofence_arrival" not in {
+    retrospective_fields = {
+        "usable",
+        "benchmark_usable",
+        "benchmark_eligible",
+        "derived_geofence_arrival",
+        "exclusion_reasons",
+    }
+    assert retrospective_fields.isdisjoint(
+        field.name for field in fields(CausalArrivalUpdate)
+    )
+    assert "observation_age_minutes" not in {
         field.name for field in fields(CausalArrivalUpdate)
     }
+
+
+def test_excluded_call_updates_remain_in_retrospectively_segmented_stream(tmp_path):
+    path = write_csv(
+        tmp_path,
+        [
+            row("excluded", "2023-01-01 00:00:00", 0.2),
+            row("eligible", "2023-01-01 00:05:00", 0.3),
+            row("eligible", "2023-01-01 00:10:00", 0.2),
+            row("excluded", "2023-01-01 00:15:00", 0),
+            row("eligible", "2023-01-01 00:20:00", 0),
+        ],
+    )
+    replay_config = config(minimum_pre_arrival_observations=2)
+
+    calls = derive_arrival_calls(path, replay_config)
+    result = assess_arrival_feasibility(path, replay_config)
+    all_updates = tuple(
+        iter_retrospectively_segmented_arrival_updates(path, replay_config)
+    )
+    benchmark_updates = tuple(iter_eligible_benchmark_updates(path, replay_config))
+
+    excluded_call = next(call for call in calls if call.vessel_id == "excluded")
+    assert not excluded_call.benchmark_eligible
+    assert excluded_call.exclusion_reasons == (
+        "insufficient_eligible_pre_arrival_observations",
+    )
+    assert any(update.vessel_id == "excluded" for update in all_updates)
+    assert all(update.vessel_id != "excluded" for update in benchmark_updates)
+    assert [update.vessel_id for update in benchmark_updates] == [
+        "eligible",
+        "eligible",
+    ]
+    assert result.all_accepted_arrival_update_status_distribution == {
+        "available": 3
+    }
+    assert result.benchmark_eligible_arrival_update_status_distribution == {
+        "available": 2
+    }
+
+
+def test_later_benchmark_eligibility_does_not_change_non_empty_early_causal_records(
+    tmp_path,
+):
+    shared = [
+        row("v1", "2023-01-01 00:00:00", 0.3, speed=12),
+        row("v1", "2023-01-01 00:10:00", 0.2, speed=8),
+        row("v1", "2023-01-01 00:20:00", 0, speed=5),
+    ]
+    replay_config = config(
+        minimum_track_observations=4,
+        minimum_pre_arrival_observations=2,
+        excluded_quality_flags=frozenset({QualityFlag.SPARSE_VESSEL_TRACK}),
+    )
+    path_a = write_csv(tmp_path, shared)
+    excluded_call = derive_arrival_calls(path_a, replay_config)[0]
+    excluded_updates = tuple(
+        iter_retrospectively_segmented_arrival_updates(path_a, replay_config)
+    )
+    excluded_benchmark_updates = tuple(
+        iter_eligible_benchmark_updates(path_a, replay_config)
+    )
+
+    path_b = write_csv(
+        tmp_path,
+        shared + [row("v1", "2023-01-01 00:30:00", 0, speed=5)],
+    )
+    eligible_call = derive_arrival_calls(path_b, replay_config)[0]
+    eligible_updates = tuple(
+        iter_retrospectively_segmented_arrival_updates(path_b, replay_config)
+    )
+
+    assert not excluded_call.benchmark_eligible
+    assert eligible_call.benchmark_eligible
+    assert excluded_benchmark_updates == ()
+    assert tuple(iter_eligible_benchmark_updates(path_b, replay_config))
+    cutoff = datetime(2023, 1, 1, 0, 10, tzinfo=UTC)
+
+    def causal_fields(update):
+        return (
+            update.source_observation,
+            update.observed_at,
+            update.prediction_status,
+            update.reference_arrival,
+            update.predicted_arrival,
+            update.quality_reason_codes,
+        )
+
+    eligible_early = [
+        causal_fields(update)
+        for update in eligible_updates
+        if update.observed_at <= cutoff
+    ]
+    excluded_early = [
+        causal_fields(update)
+        for update in excluded_updates
+        if update.observed_at <= cutoff
+    ]
+    assert eligible_early
+    assert excluded_early
+    assert eligible_early == excluded_early
 
 
 def test_unavailable_or_implausible_speed_can_exclude_a_call_without_fabrication(tmp_path):
@@ -379,7 +496,7 @@ def test_unavailable_or_implausible_speed_can_exclude_a_call_without_fabrication
     )
     call = derive_arrival_calls(path, config())[0]
 
-    assert not call.usable
+    assert not call.benchmark_eligible
     assert len(call.arrival_updates) == 1
     assert call.arrival_updates[0].prediction_status is PredictionStatus.INELIGIBLE
     assert call.arrival_updates[0].predicted_arrival is None
@@ -390,7 +507,7 @@ def test_unavailable_or_implausible_speed_can_exclude_a_call_without_fabrication
     assert "insufficient_eligible_pre_arrival_observations" in call.exclusion_reasons
 
 
-def test_watcher_projection_has_no_retrospective_crossing_outcome(tmp_path):
+def test_causal_projection_has_no_retrospective_crossing_outcome(tmp_path):
     path = write_csv(
         tmp_path,
         [
@@ -399,11 +516,45 @@ def test_watcher_projection_has_no_retrospective_crossing_outcome(tmp_path):
         ],
     )
 
-    update = tuple(iter_causal_arrival_updates(path, config()))[0]
+    update = tuple(iter_retrospectively_segmented_arrival_updates(path, config()))[0]
 
     assert isinstance(update, CausalArrivalUpdate)
     assert not hasattr(update, "derived_geofence_arrival")
     assert derive_arrival_calls(path, config())[0].derived_geofence_arrival > update.observed_at
+
+
+def test_calculate_data_age_minutes_uses_assessment_time():
+    observed_at = datetime(2023, 1, 1, 12, tzinfo=UTC)
+    assessed_at = datetime(2023, 1, 1, 14, tzinfo=UTC)
+
+    assert calculate_data_age_minutes(observed_at, assessed_at) == 120
+
+
+@pytest.mark.parametrize(
+    ("observed_at", "assessed_at", "message"),
+    [
+        (
+            datetime(2023, 1, 1, 12),
+            datetime(2023, 1, 1, 14, tzinfo=UTC),
+            "observed_at must be timezone-aware",
+        ),
+        (
+            datetime(2023, 1, 1, 12, tzinfo=UTC),
+            datetime(2023, 1, 1, 14),
+            "assessed_at must be timezone-aware",
+        ),
+        (
+            datetime(2023, 1, 1, 14, tzinfo=UTC),
+            datetime(2023, 1, 1, 12, tzinfo=UTC),
+            "assessed_at must not be before observed_at",
+        ),
+    ],
+)
+def test_calculate_data_age_minutes_rejects_invalid_times(
+    observed_at, assessed_at, message
+):
+    with pytest.raises(ValueError, match=message):
+        calculate_data_age_minutes(observed_at, assessed_at)
 
 
 def test_long_gap_starts_a_new_reference_segment(tmp_path):
@@ -441,7 +592,7 @@ def test_future_observations_cannot_change_predictions_at_or_before_t(tmp_path):
         tmp_path,
         shared + [row("v1", "2023-01-01 00:20:00", 0, speed=5)],
     )
-    before = tuple(iter_causal_arrival_updates(path_a, config()))
+    before = tuple(iter_retrospectively_segmented_arrival_updates(path_a, config()))
     path_b = write_csv(
         tmp_path,
         shared
@@ -450,7 +601,7 @@ def test_future_observations_cannot_change_predictions_at_or_before_t(tmp_path):
             row("v1", "2023-01-01 00:50:00", 0, speed=1),
         ],
     )
-    after = tuple(iter_causal_arrival_updates(path_b, config()))
+    after = tuple(iter_retrospectively_segmented_arrival_updates(path_b, config()))
 
     cutoff = datetime(2023, 1, 1, 0, 10, tzinfo=UTC)
     causal_fields = lambda update: (
@@ -461,6 +612,12 @@ def test_future_observations_cannot_change_predictions_at_or_before_t(tmp_path):
         update.quality_reason_codes,
         update.source_observation,
     )
-    assert [causal_fields(update) for update in before if update.observed_at <= cutoff] == [
+    early_before = [
+        causal_fields(update) for update in before if update.observed_at <= cutoff
+    ]
+    early_after = [
         causal_fields(update) for update in after if update.observed_at <= cutoff
     ]
+    assert early_before
+    assert early_after
+    assert early_before == early_after
