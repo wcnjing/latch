@@ -8,9 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
-
+.idea/
 # latch
 .env
 data/
 logs/
 traces/
+.DS_Store
