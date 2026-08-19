@@ -307,10 +307,39 @@ class SuiteReport:
         return "\n".join(lines)
 
 
-def run_suite(client: Any, model_label: str, suite=None) -> SuiteReport:
+def run_suite(
+    client: Any,
+    model_label: str,
+    suite=None,
+    on_progress: Any = None,
+) -> SuiteReport:
+    """Run the suite, reporting each result as it lands.
+
+    `on_progress` exists because a judgement run takes minutes against a local
+    model, and a run with no output is indistinguishable from a hung one. The
+    rails run is instant and does not need it; the slow path is exactly where
+    silence is most expensive.
+    """
     from latch.scenario_suite import SUITE
 
     scenarios = suite if suite is not None else SUITE
-    return SuiteReport(
-        tuple(run_scenario(s, client) for s in scenarios), model_label
+    results: list[ScenarioResult] = []
+    for index, scenario in enumerate(scenarios, start=1):
+        result = run_scenario(scenario, client)
+        results.append(result)
+        if on_progress is not None:
+            on_progress(index, len(scenarios), result)
+    return SuiteReport(tuple(results), model_label)
+
+
+def print_progress(index: int, total: int, result: ScenarioResult) -> None:
+    """A default `on_progress` that writes one line per scenario to stderr."""
+    import sys
+
+    mark = "ok  " if result.passed else "MISS"
+    print(
+        f"[{index:2}/{total}] {mark} {result.scenario.scenario_id}  "
+        f"{result.scenario.description}",
+        file=sys.stderr,
+        flush=True,
     )

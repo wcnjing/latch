@@ -14,7 +14,7 @@ import argparse
 import sys
 
 from latch.config import LOCAL_MODEL
-from latch.scenarios import PolicyModel, run_suite
+from latch.scenarios import PolicyModel, print_progress, run_suite
 
 
 def main() -> int:
@@ -45,7 +45,9 @@ def main() -> int:
             print(f"no scenarios in family {args.family!r}", file=sys.stderr)
             return 2
 
-    report = run_suite(client, label, suite=suite)
+    # Progress only where silence is expensive: the rails run is instant.
+    progress = print_progress if args.model != "policy" else None
+    report = run_suite(client, label, suite=suite, on_progress=progress)
     print(report.render())
     return 0 if not report.misses() else 1
 
