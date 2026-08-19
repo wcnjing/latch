@@ -58,9 +58,22 @@ def test_low_confidence_escalates_on_its_own():
 
 
 def test_escalations_compound_up_the_ladder():
-    decision = evaluate(plan(Rung.MOVE, confidence=0.62, cost=5_000), boxes_at_risk=84)
+    decision = evaluate(plan(Rung.MOVE, confidence=0.62, cost=12_000), boxes_at_risk=84)
     assert decision.required_role is ApprovalRole.DUTY_MANAGER
     assert decision.escalation_reason.count(";") == 2
+
+
+def test_cost_gate_is_independent_of_the_volume_gate():
+    """At SGD 2,000 the cost gate fired at roughly 42 road boxes, which the
+    40-box volume gate already caught — two criteria carrying one signal, so
+    every large move escalated twice. They have to be able to fire alone."""
+    volume_only = evaluate(plan(Rung.MOVE, cost=4_032), boxes_at_risk=84)
+    assert volume_only.required_role is ApprovalRole.VESSEL_OPS
+    assert "cost" not in volume_only.escalation_reason
+
+    cost_only = evaluate(plan(Rung.MOVE, cost=12_000), boxes_at_risk=20)
+    assert cost_only.required_role is ApprovalRole.VESSEL_OPS
+    assert "boxes" not in cost_only.escalation_reason
 
 
 def test_escalation_stops_at_the_top_rather_than_wrapping():

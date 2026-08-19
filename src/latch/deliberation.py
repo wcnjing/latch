@@ -108,6 +108,7 @@ class DeliberationResult:
     chosen: Plan | None
     tool_results: tuple[ToolResult, ...]
     rationale: str
+    advisories: tuple[Plan, ...] = ()
     excluded: tuple[ExcludedOption, ...] = ()
     model: str = ""
     input_tokens: int = 0
@@ -169,13 +170,20 @@ def build_candidates(
     itt_slots: list[Any],
     outbound: list[Any],
     provenance: tuple[Provenance, ...],
-) -> tuple[list[Plan], list[ExcludedOption]]:
-    """Enumerate every option the tools support, and record what was ruled out.
+) -> tuple[list[Plan], list[Plan], list[ExcludedOption]]:
+    """Enumerate options. Returns (actionable, advisory, excluded).
 
-    Deterministic. Returns both, because an option rejected for a stateable
-    reason is part of the reasoning and belongs in the trace.
+    The three-way split matters. Rung 1 is an *advisory*: it surfaces a number
+    to a planner and changes nothing about this connection on its own. Offered
+    as a peer of Rung 3 and Rung 4 it can be selected as **the** action, which
+    leaves the boxes exactly where they were while someone reads a score.
+
+    So advisories are emitted alongside whatever action is chosen, never
+    instead of one. The model only ever chooses among things that actually move
+    cargo or hand the decision to someone who can.
     """
-    plans: list[Plan] = []
+    actionable: list[Plan] = []
+    advisory: list[Plan] = []
     excluded: list[ExcludedOption] = []
     breakdown: ConfidenceBreakdown = score(provenance)
 
@@ -187,7 +195,7 @@ def build_candidates(
             connections_served=event.affected_boxes,
             connections_stranded=0,
         )
-        plans.append(
+        advisory.append(
             Plan(
                 plan_id=f"{risk.risk_id}-r1-prevent",
                 risk_id=risk.risk_id,
@@ -226,7 +234,7 @@ def build_candidates(
                 )
             )
             continue
-        plans.append(
+        actionable.append(
             Plan(
                 plan_id=f"{risk.risk_id}-r3-{slot.slot_id}",
                 risk_id=risk.risk_id,
@@ -256,7 +264,7 @@ def build_candidates(
     # Rung 4 — always available while any outbound service is still callable.
     # This is the floor, not the failure case.
     if outbound:
-        plans.append(
+        actionable.append(
             Plan(
                 plan_id=f"{risk.risk_id}-r4-offer",
                 risk_id=risk.risk_id,
@@ -276,7 +284,7 @@ def build_candidates(
             )
         )
 
-    return plans, excluded
+    return actionable, advisory, excluded
 
 
 def _prompt(risk: ConnectionRisk, event: RiskEvent, plans: list[Plan]) -> str:
@@ -318,7 +326,7 @@ def deliberate(
             for r in tool_results
         ]
     )
-    plans, excluded = build_candidates(
+    plans, advisories, excluded = build_candidates(
         risk, event, itt_slots, outbound, provenance
     )
 
@@ -329,6 +337,7 @@ def deliberate(
             tool_results=tuple(tool_results),
             rationale="No feasible option: no viable transfer and no outbound "
             "service still callable.",
+            advisories=tuple(advisories),
             excluded=tuple(excluded),
         )
 
@@ -364,6 +373,7 @@ def deliberate(
         chosen=chosen,
         tool_results=tuple(tool_results),
         rationale=rationale,
+        advisories=tuple(advisories),
         excluded=tuple(excluded),
         model=response.model,
         input_tokens=response.input_tokens,

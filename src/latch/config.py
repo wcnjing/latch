@@ -18,6 +18,9 @@ PRICING: Final[dict[str, tuple[float, float]]] = {
     # model: (input $/MTok, output $/MTok)
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-opus-5": (5.00, 25.00),
+    # Not a model: a deterministic policy that always takes the top candidate.
+    # Named distinctly so a trace never claims a model call that did not happen.
+    "policy-baseline": (0.00, 0.00),
     # Local inference: zero marginal cost, not zero cost. See LOCAL_MODEL below.
     "qwen3:8b": (0.00, 0.00),
     "qwen3:4b": (0.00, 0.00),
@@ -49,7 +52,14 @@ SLACK_CONSUMED_TRIGGER: Final = 0.60
 
 CONFIDENCE_ESCALATION_THRESHOLD: Final = 0.70
 AUTO_APPROVE_MAX_BOXES: Final = 40
-AUTO_APPROVE_MAX_COST_SGD: Final = 2_000.0
+
+# The cost gate exists to catch a move that is expensive *for its size* —
+# premium haulage, an awkward routing — not to re-detect volume. At SGD 2,000
+# it fired at roughly 42 road boxes, which the 40-box volume gate already
+# catches, so the two criteria were one signal wearing two hats and every
+# large move escalated two steps instead of one. SGD 8,000 is about 166 road
+# boxes: genuinely unusual, and independent of the volume check.
+AUTO_APPROVE_MAX_COST_SGD: Final = 8_000.0
 
 
 # --- Lock Table -------------------------------------------------------------

@@ -101,6 +101,15 @@ def _record_deliberation(trace: Trace, result: DeliberationResult) -> None:
             result.output_tokens,
             purpose="deliberation",
         )
+    for advisory in result.advisories:
+        # Recorded, surfaced to the planner, and explicitly not the action:
+        # a Rung 1 advisory alone leaves the boxes where they were.
+        trace.decision(
+            rung=advisory.rung.value,
+            chosen=False,
+            confidence=advisory.confidence,
+            rationale="; ".join(a.detail for a in advisory.actions),
+        )
     for ruled_out in result.excluded:
         trace.observation(
             f"ruled out {ruled_out.option_id}: {ruled_out.reason}",

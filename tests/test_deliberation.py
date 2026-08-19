@@ -39,10 +39,23 @@ def run(payload: dict, chosen: str = "", **kwargs):
     return event, deliberate(event.to_connection_risk(), event, client, **kwargs)
 
 
-def test_avoidable_case_offers_prevention_move_and_offer():
+def test_prevention_is_an_advisory_not_a_competing_option():
+    """Rung 1 surfaces a number to a planner and changes nothing about this
+    connection on its own. Offered as a peer of Rung 3 and Rung 4 it can be
+    chosen as *the* action, which leaves the boxes exactly where they were
+    while someone reads a score."""
     _, result = run(AVOIDABLE)
-    rungs = {p.rung for p in result.plans}
-    assert rungs == {Rung.INFORM, Rung.MOVE, Rung.OFFER}
+
+    assert {p.rung for p in result.plans} == {Rung.MOVE, Rung.OFFER}
+    assert [p.rung for p in result.advisories] == [Rung.INFORM]
+
+
+def test_advisories_are_still_produced_and_carried():
+    """Not competing is not the same as not existing — the planner still needs
+    the number."""
+    _, result = run(AVOIDABLE)
+    assert result.advisories
+    assert "recover" in result.advisories[0].actions[0].detail
 
 
 def test_only_modes_that_arrive_in_time_are_offered():

@@ -1,0 +1,319 @@
+[
+  {
+    "trace_id": "cr_2026_08_30_0417_0001",
+    "risk_id": "cr_0001",
+    "ucid": "UCID-SGSIN-0001",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 361,
+      "slack_consumed_pct": 0.847,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "resolution": "connection_held",
+    "service_success": true,
+    "boxes": 34,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": {
+      "value": 0.6172,
+      "band": "escalate",
+      "threshold": 0.7,
+      "derivation": "source=0.85 (cache) x age=0.938 (8m) x tool=0.90 (retried) - unverified=0.10 (2 of 3) = 0.62",
+      "waterfall": [
+        {
+          "label": "Source",
+          "detail": "cache",
+          "kind": "multiply",
+          "factor": 0.85,
+          "running": 0.85
+        },
+        {
+          "label": "Data age",
+          "detail": "8 min old",
+          "kind": "multiply",
+          "factor": 0.9375,
+          "running": 0.7969
+        },
+        {
+          "label": "Tool outcome",
+          "detail": "retried",
+          "kind": "multiply",
+          "factor": 0.9,
+          "running": 0.7172
+        },
+        {
+          "label": "Unverified inputs",
+          "detail": "2 of them",
+          "kind": "subtract",
+          "factor": 0.1,
+          "running": 0.6172
+        }
+      ]
+    },
+    "confidence_headline": "0.62 \u2014 below 0.70, approval escalated one level",
+    "ladder": [
+      {
+        "option_id": "rung_3_move",
+        "rung": "rung_3_move",
+        "detail": "Barge slot covers all 34 boxes within the window at lower emissions than road; capacity read is from cache, so the number is provisional.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [
+      {
+        "rung": "rung_3_move",
+        "role": "vessel_ops",
+        "escalated": false,
+        "reason": "",
+        "status": "pending"
+      },
+      {
+        "rung": "rung_3_move",
+        "role": "duty_manager",
+        "escalated": true,
+        "reason": "confidence < 0.7",
+        "status": "approved"
+      }
+    ],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    },
+    "step_count": 19
+  },
+  {
+    "trace_id": "cr_2026_08_30_0419_0003",
+    "risk_id": "cr_0003",
+    "ucid": "UCID-SGSIN-0003",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 330,
+      "slack_consumed_pct": 0.842,
+      "inbound_terminal": "brani",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "resolution": "connection_held",
+    "service_success": true,
+    "boxes": 52,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": {
+      "value": 1.0,
+      "band": "auto",
+      "threshold": 0.7,
+      "derivation": "source=1.00 (live_api) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.00 (0 of 1) = 1.00",
+      "waterfall": [
+        {
+          "label": "Source",
+          "detail": "live_api",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 1.0
+        },
+        {
+          "label": "Data age",
+          "detail": "0 min old",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 1.0
+        },
+        {
+          "label": "Tool outcome",
+          "detail": "ok",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 1.0
+        }
+      ]
+    },
+    "confidence_headline": "1.00 \u2014 within policy, no signature required",
+    "ladder": [
+      {
+        "option_id": "rung_3_move",
+        "rung": "rung_3_move",
+        "detail": "Higher boxes-at-risk over remaining slack; takes the contested slot.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    },
+    "step_count": 12
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0002",
+    "risk_id": "cr_0002",
+    "ucid": "UCID-SGSIN-0002",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 290,
+      "slack_consumed_pct": 0.903,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "resolution": "window_lapsed_no_response",
+    "service_success": false,
+    "boxes": 18,
+    "decision_lead_time_h": 6.2,
+    "options_alive_at_send": 3,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [
+      {
+        "option_id": "rung_4_offer",
+        "rung": "rung_4_offer",
+        "detail": "Nothing left to resolve internally. Three outbound services still callable \u2014 put them to the line while they exist.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [],
+    "customer_gate": {
+      "options_sent": 3,
+      "window_min": 180,
+      "outcome": "LAPSED_NO_RESPONSE"
+    },
+    "cost": {
+      "model_calls": 3,
+      "input_tokens": 17440,
+      "output_tokens": 1950,
+      "usd": 0.12679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.1245
+      }
+    },
+    "step_count": 20
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0004",
+    "risk_id": "cr_0004",
+    "ucid": "UCID-SGSIN-0004",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 370,
+      "slack_consumed_pct": 0.206,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "resolution": "dismissed_no_action",
+    "service_success": false,
+    "boxes": 6,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 1840,
+      "output_tokens": 90,
+      "usd": 0.00229,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229
+      }
+    },
+    "step_count": 4
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0005",
+    "risk_id": "cr_0005",
+    "ucid": "UCID-SGSIN-0005",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 300,
+      "slack_consumed_pct": 0.824,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "terminal"
+    },
+    "resolution": "superseded",
+    "service_success": false,
+    "boxes": 22,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    },
+    "step_count": 9
+  },
+  {
+    "trace_id": "cr_2026_08_30_0417_0006",
+    "risk_id": "cr_0006",
+    "ucid": "UCID-SGSIN-0006",
+    "trigger": {
+      "source": "oceans_x.vessel_movements",
+      "eta_deviation_min": 280,
+      "slack_consumed_pct": 0.848,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "inferred"
+    },
+    "resolution": "customer_declined_all",
+    "service_success": true,
+    "boxes": 29,
+    "decision_lead_time_h": 4.8,
+    "options_alive_at_send": 2,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [
+      {
+        "option_id": "rung_4_offer",
+        "rung": "rung_4_offer",
+        "detail": "Two outbound services still callable. Escalating before internal evaluation completes: option count decays faster than certainty improves.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [],
+    "customer_gate": {
+      "options_sent": 2,
+      "window_min": 180,
+      "outcome": "DECLINED_ALL"
+    },
+    "cost": {
+      "model_calls": 2,
+      "input_tokens": 11040,
+      "output_tokens": 1230,
+      "usd": 0.07679,
+      "by_model": {
+        "claude-haiku-4-5": 0.00229,
+        "claude-opus-5": 0.0745
+      }
+    },
+    "step_count": 15
+  }
+]

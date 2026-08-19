@@ -34,6 +34,7 @@ from latch.models import (
     ToolOutcome,
     VesselCall,
 )
+from latch.console import case_view
 from latch.serde import risk_to_dict
 from latch.state import RiskState, mermaid, transition
 from latch.trace import Trace, TraceStore
@@ -411,6 +412,9 @@ def main() -> None:
     print("writing fixtures:")
     write("risks.json", [risk_to_dict(s.risk) for s in scenarios])
     write("traces.json", [s.trace.as_dict() for s in scenarios])
+    # What the console actually renders. Emitted alongside the raw traces so C
+    # builds against the view model rather than re-deriving it from steps.
+    write("console_views.json", [case_view(s.trace) for s in scenarios])
 
     (FIXTURES / "state_diagram.mmd").write_text(mermaid() + "\n", encoding="utf-8")
     print("  fixtures/state_diagram.mmd")
