@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
 import re
 import sqlite3
 import tempfile
-from collections import Counter, deque
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
 from enum import StrEnum
@@ -29,8 +30,21 @@ class QualityFlag(StrEnum):
     STALE_OBSERVATION = "stale_observation"
     LONG_OBSERVATION_GAP = "long_observation_gap"
     IMPLAUSIBLE_SPEED = "implausible_speed"
+    SPEED_UNAVAILABLE = "speed_unavailable"
+    COURSE_UNAVAILABLE = "course_unavailable"
     HEADING_UNAVAILABLE = "heading_unavailable"
     RATE_OF_TURN_UNAVAILABLE = "rate_of_turn_unavailable"
+
+
+class DataQuality(StrEnum):
+    GOOD = "good"
+    DEGRADED = "degraded"
+    EXCLUDED = "excluded"
+
+
+class PredictionStatus(StrEnum):
+    AVAILABLE = "available"
+    INELIGIBLE = "ineligible"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +55,7 @@ class ArrivalBoundary:
     longitude: float = 103.840
     radius_km: float = 5.0
     label: str = "exploratory_singapore_waypoint_not_official"
+    version: str = "exploratory-circle-v1"
 
     def __post_init__(self) -> None:
         if not -90 <= self.latitude <= 90:
@@ -49,6 +64,8 @@ class ArrivalBoundary:
             raise ValueError("boundary longitude must be between -180 and 180")
         if self.radius_km <= 0:
             raise ValueError("boundary radius_km must be positive")
+        if not self.version.strip():
+            raise ValueError("boundary version must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +85,9 @@ class ReplayConfig:
     minimum_track_observations: int = 10
     minimum_pre_arrival_observations: int = 3
     minimum_eta_speed_knots: float = 0.5
+    boundary_reset_distance_km: float = 2.0
+    reset_confirmation_observations: int = 2
+    moving_away_tolerance_km: float = 0.05
     sufficient_arrival_events: int = 30
     boundary: ArrivalBoundary = ArrivalBoundary()
     excluded_quality_flags: frozenset[QualityFlag] = frozenset()
@@ -84,6 +104,16 @@ class ReplayConfig:
             raise ValueError("long_gap_after must be >= stale_after")
         if self.minimum_track_observations < 1:
             raise ValueError("minimum_track_observations must be positive")
+        if self.minimum_pre_arrival_observations < 1:
+            raise ValueError("minimum_pre_arrival_observations must be positive")
+        if self.minimum_eta_speed_knots <= 0:
+            raise ValueError("minimum_eta_speed_knots must be positive")
+        if self.boundary_reset_distance_km <= 0:
+            raise ValueError("boundary_reset_distance_km must be positive")
+        if self.reset_confirmation_observations < 1:
+            raise ValueError("reset_confirmation_observations must be positive")
+        if self.moving_away_tolerance_km < 0:
+            raise ValueError("moving_away_tolerance_km must not be negative")
 
     @property
     def timezone(self) -> tzinfo:
@@ -116,14 +146,64 @@ class EtaRevision:
 
 
 @dataclass(frozen=True, slots=True)
+class CausalArrivalUpdate:
+    """Watcher-facing replay input with no retrospective outcome fields.
+
+    Historical call membership is segmented retrospectively, but every value
+    that can influence a prediction is causal at ``observed_at``.
+    """
+
+    call_id: str
+    vessel_id: str
+    observed_at: datetime
+    prediction_status: PredictionStatus
+    reference_arrival: datetime | None
+    predicted_arrival: datetime | None
+    observation_age_minutes: float
+    data_quality: DataQuality
+    quality_reason_codes: tuple[str, ...]
+    source_type: str
+    boundary_version: str
+    source_observation: VesselObservation
+
+
+@dataclass(frozen=True, slots=True)
 class DerivedArrivalEvent:
     vessel_id: str
+    call_id: str
     derived_geofence_arrival: datetime
-    observations_before_event: int
-    available_lookback: timedelta
+    first_eligible_pre_event_observation: VesselObservation | None
+    eligible_pre_event_observations: int
+    pre_event_lookback: timedelta
     usable: bool
     exclusion_reasons: tuple[str, ...]
+    quality_reason_codes: tuple[str, ...]
+    data_quality: DataQuality
+    boundary_version: str
+    crossing_source_row_number: int
+    arrival_updates: tuple[CausalArrivalUpdate, ...]
     eta_revisions: tuple[EtaRevision, ...]
+
+    @property
+    def observations_before_event(self) -> int:
+        """Backward-compatible name for eligible pre-event observations."""
+
+        return self.eligible_pre_event_observations
+
+    @property
+    def available_lookback(self) -> timedelta:
+        """Backward-compatible name for pre-event lookback."""
+
+        return self.pre_event_lookback
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationSample:
+    category: str
+    vessel_id: str
+    call_id: str | None
+    observed_at: datetime
+    note: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,31 +211,49 @@ class FeasibilityResult:
     vessels_assessed: int
     observations_assessed: int
     vessels_crossing_boundary: int
+    raw_candidate_crossings: int
+    crossings_suppressed_before_reset: int
+    accepted_calls: int
     usable_derived_arrival_events: int
+    excluded_calls: int
     sufficient_for_historical_experiment: bool
     event_sufficiency_threshold: int
     observations_before_event: dict[str, float]
     available_lookback_hours: dict[str, float]
     quality_flag_counts: dict[str, int]
     event_exclusion_reasons: dict[str, int]
+    events_by_day: dict[str, int]
+    call_data_quality_distribution: dict[str, int]
+    arrival_update_status_distribution: dict[str, int]
     example_eta_revisions: tuple[DerivedArrivalEvent, ...]
+    validation_samples: tuple[ValidationSample, ...]
     assumed_timezone: str
     timezone_assumption_confirmed: bool
     boundary: ArrivalBoundary
+    boundary_reset_distance_km: float
+    reset_confirmation_observations: int
 
     def as_dict(self) -> dict[str, object]:
-        value = asdict(self)
+        value = _json_value(asdict(self))
+        assert isinstance(value, dict)
         for event in value["example_eta_revisions"]:
-            event["derived_geofence_arrival"] = event[
-                "derived_geofence_arrival"
-            ].isoformat()
-            event["available_lookback"] = event["available_lookback"].total_seconds()
-            for revision in event["eta_revisions"]:
-                revision["observed_at"] = revision["observed_at"].isoformat()
-                revision["estimated_arrival"] = revision[
-                    "estimated_arrival"
-                ].isoformat()
+            event["observations_before_event"] = event[
+                "eligible_pre_event_observations"
+            ]
+            event["available_lookback"] = event["pre_event_lookback"]
         return value
+
+
+def _json_value(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return value.total_seconds()
+    if isinstance(value, dict):
+        return {key: _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    return value
 
 
 _FRACTION_AFTER_MICROSECONDS = re.compile(r"(\.\d{6})\d+")
@@ -179,7 +277,15 @@ def parse_primary_timestamp(value: str, assumed_timezone: tzinfo = UTC) -> datet
 def _optional_float(value: str | None) -> float | None:
     if value is None or not value.strip():
         return None
-    return float(value)
+    parsed = float(value)
+    return parsed if math.isfinite(parsed) else None
+
+
+def _required_float(value: str | None, field: str, source_row: int) -> float:
+    parsed = _optional_float(value)
+    if parsed is None:
+        raise ValueError(f"CSV row {source_row} has no finite {field}")
+    return parsed
 
 
 def _parse_ais_eta(row: dict[str, str], observed_at: datetime) -> datetime | None:
@@ -245,16 +351,25 @@ def _create_replay_database(csv_path: Path, config: ReplayConfig) -> tuple[sqlit
                 missing = sorted(required.difference(reader.fieldnames or ()))
                 raise ValueError(f"CSV missing required columns: {missing}")
             for source_row, row in enumerate(reader, start=2):
+                vessel_id = row["UserID"].strip()
+                if not vessel_id:
+                    raise ValueError(f"CSV row {source_row} has no vessel ID")
                 observed_at = parse_primary_timestamp(row["timestamp"], config.timezone)
+                latitude = _required_float(row["Latitude"], "latitude", source_row)
+                longitude = _required_float(row["Longitude"], "longitude", source_row)
+                if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+                    raise ValueError(
+                        f"CSV row {source_row} has invalid latitude/longitude"
+                    )
                 ais_eta = _parse_ais_eta(row, observed_at)
                 batch.append(
                     (
                         source_row,
-                        row["UserID"],
+                        vessel_id,
                         row["timestamp"].strip(),
                         observed_at.timestamp(),
-                        float(row["Latitude"]),
-                        float(row["Longitude"]),
+                        latitude,
+                        longitude,
                         _optional_float(row.get("speed")),
                         _optional_float(row.get("Cog")),
                         _optional_float(row.get("TrueHeading")),
@@ -351,10 +466,16 @@ def iter_replay_observations(
 
             if speed == _AIS_SPEED_UNAVAILABLE:
                 speed = None
+                flags.append(QualityFlag.SPEED_UNAVAILABLE)
             elif speed is not None and speed > config.implausible_speed_knots:
                 flags.append(QualityFlag.IMPLAUSIBLE_SPEED)
+            elif speed is None:
+                flags.append(QualityFlag.SPEED_UNAVAILABLE)
             if course == _AIS_COURSE_UNAVAILABLE:
                 course = None
+                flags.append(QualityFlag.COURSE_UNAVAILABLE)
+            elif course is None:
+                flags.append(QualityFlag.COURSE_UNAVAILABLE)
             if heading == _AIS_HEADING_UNAVAILABLE:
                 heading = None
                 flags.append(QualityFlag.HEADING_UNAVAILABLE)
@@ -400,11 +521,20 @@ def haversine_km(latitude_a: float, longitude_a: float, latitude_b: float, longi
     return 2 * earth_radius_km * math.asin(math.sqrt(value))
 
 
-def causal_eta(observation: VesselObservation, boundary: ArrivalBoundary, minimum_speed_knots: float = 0.5) -> EtaRevision | None:
+def causal_eta(
+    observation: VesselObservation,
+    boundary: ArrivalBoundary,
+    minimum_speed_knots: float = 0.5,
+    maximum_speed_knots: float | None = None,
+) -> EtaRevision | None:
     """Straight-line boundary ETA from only the current observation."""
 
     speed = observation.speed_over_ground_knots
-    if speed is None or speed < minimum_speed_knots:
+    if (
+        speed is None
+        or speed < minimum_speed_knots
+        or (maximum_speed_knots is not None and speed > maximum_speed_knots)
+    ):
         return None
     distance_to_center = haversine_km(
         observation.latitude,
@@ -424,29 +554,415 @@ def causal_eta(observation: VesselObservation, boundary: ArrivalBoundary, minimu
 
 @dataclass(slots=True)
 class _TrackState:
-    first_observation: datetime
-    observations_seen: int = 0
     previous_distance_km: float | None = None
-    arrived: bool = False
-    revisions: deque[EtaRevision] | None = None
+    armed: bool = False
+    episode_observations: list[tuple[VesselObservation, float]] | None = None
+    reset_confirmation_observations: list[tuple[VesselObservation, float]] | None = None
+
+
+def _percentile(ordered: list[float], fraction: float) -> float:
+    if len(ordered) == 1:
+        return ordered[0]
+    position = fraction * (len(ordered) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
 def _summary(values: list[float]) -> dict[str, float]:
     if not values:
-        return {"minimum": 0.0, "median": 0.0, "mean": 0.0, "maximum": 0.0}
+        return {
+            "minimum": 0.0,
+            "p05": 0.0,
+            "p25": 0.0,
+            "median": 0.0,
+            "p75": 0.0,
+            "p95": 0.0,
+            "mean": 0.0,
+            "maximum": 0.0,
+        }
     ordered = sorted(values)
-    middle = len(ordered) // 2
-    median = (
-        ordered[middle]
-        if len(ordered) % 2
-        else (ordered[middle - 1] + ordered[middle]) / 2
-    )
     return {
         "minimum": min(ordered),
-        "median": median,
+        "p05": _percentile(ordered, 0.05),
+        "p25": _percentile(ordered, 0.25),
+        "median": _percentile(ordered, 0.5),
+        "p75": _percentile(ordered, 0.75),
+        "p95": _percentile(ordered, 0.95),
         "mean": sum(ordered) / len(ordered),
         "maximum": max(ordered),
     }
+
+
+def _call_id(observation: VesselObservation, boundary: ArrivalBoundary) -> str:
+    identity = "|".join(
+        (
+            boundary.version,
+            observation.vessel_id,
+            observation.observed_at.isoformat(),
+            str(observation.source_row_number),
+        )
+    )
+    return f"call_{hashlib.sha256(identity.encode()).hexdigest()[:20]}"
+
+
+def _observation_reason_codes(
+    observation: VesselObservation,
+    distance_km: float,
+    previous_distance_km: float | None,
+    config: ReplayConfig,
+) -> tuple[str, ...]:
+    reasons = {flag.value for flag in observation.quality_flags}
+    speed = observation.speed_over_ground_knots
+    if speed is None:
+        reasons.add("speed_unavailable")
+    elif speed < config.minimum_eta_speed_knots:
+        reasons.add("zero_or_near_zero_speed")
+    elif speed > config.implausible_speed_knots:
+        reasons.add("implausible_speed")
+    if (
+        previous_distance_km is not None
+        and distance_km > previous_distance_km + config.moving_away_tolerance_km
+    ):
+        reasons.add("moving_away_from_boundary")
+    return tuple(sorted(reasons))
+
+
+_PREDICTION_BLOCKING_REASONS = frozenset(
+    {
+        "speed_unavailable",
+        "zero_or_near_zero_speed",
+        "implausible_speed",
+        "stale_observation",
+        "long_observation_gap",
+        "moving_away_from_boundary",
+    }
+)
+
+
+def _event_from_crossing(
+    state: _TrackState,
+    crossing: VesselObservation,
+    config: ReplayConfig,
+    revisions_per_example: int,
+) -> DerivedArrivalEvent:
+    call_id = _call_id(crossing, config.boundary)
+    available: list[tuple[VesselObservation, EtaRevision]] = []
+    updates: list[CausalArrivalUpdate] = []
+    observations = state.episode_observations or []
+    episode_reasons: set[str] = set()
+    previous_episode_distance: float | None = None
+    reference: datetime | None = None
+    for observation, distance in observations:
+        reason_codes = _observation_reason_codes(
+            observation, distance, previous_episode_distance, config
+        )
+        episode_reasons.update(reason_codes)
+        revision = causal_eta(
+            observation,
+            config.boundary,
+            config.minimum_eta_speed_knots,
+            config.implausible_speed_knots,
+        )
+        is_available = (
+            revision is not None
+            and not _PREDICTION_BLOCKING_REASONS.intersection(reason_codes)
+        )
+        if is_available:
+            assert revision is not None
+            available.append((observation, revision))
+            if reference is None:
+                reference = revision.estimated_arrival
+        updates.append(
+            CausalArrivalUpdate(
+                call_id=call_id,
+                vessel_id=crossing.vessel_id,
+                observed_at=observation.observed_at,
+                prediction_status=(
+                    PredictionStatus.AVAILABLE
+                    if is_available
+                    else PredictionStatus.INELIGIBLE
+                ),
+                reference_arrival=reference,
+                predicted_arrival=(revision.estimated_arrival if is_available else None),
+                # Replay advances on source event time, so an observation is
+                # age zero when consumed. Gaps are separate quality signals.
+                observation_age_minutes=0.0,
+                data_quality=(
+                    DataQuality.DEGRADED if reason_codes else DataQuality.GOOD
+                ),
+                quality_reason_codes=reason_codes,
+                source_type="real_ais_observation",
+                boundary_version=config.boundary.version,
+                source_observation=observation,
+            )
+        )
+        previous_episode_distance = distance
+
+    exclusion_reasons: set[str] = set()
+    if len(available) < config.minimum_pre_arrival_observations:
+        exclusion_reasons.add("insufficient_eligible_pre_arrival_observations")
+    exclusion_reasons.update(
+        flag.value
+        for flag in crossing.quality_flags
+        if flag in config.excluded_quality_flags
+    )
+    episode_reasons.update(flag.value for flag in crossing.quality_flags)
+    quality = (
+        DataQuality.EXCLUDED
+        if exclusion_reasons
+        else DataQuality.DEGRADED
+        if episode_reasons
+        else DataQuality.GOOD
+    )
+    first_observation = available[0][0] if available else None
+    lookback = (
+        crossing.observed_at - first_observation.observed_at
+        if first_observation is not None
+        else timedelta(0)
+    )
+    revisions = tuple(item[1] for item in available[-revisions_per_example:])
+    return DerivedArrivalEvent(
+        vessel_id=crossing.vessel_id,
+        call_id=call_id,
+        derived_geofence_arrival=crossing.observed_at,
+        first_eligible_pre_event_observation=first_observation,
+        eligible_pre_event_observations=len(available),
+        pre_event_lookback=lookback,
+        usable=not exclusion_reasons,
+        exclusion_reasons=tuple(sorted(exclusion_reasons)),
+        quality_reason_codes=tuple(sorted(episode_reasons)),
+        data_quality=quality,
+        boundary_version=config.boundary.version,
+        crossing_source_row_number=crossing.source_row_number,
+        arrival_updates=tuple(updates),
+        eta_revisions=revisions,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _Analysis:
+    result: FeasibilityResult
+    calls: tuple[DerivedArrivalEvent, ...]
+
+
+def _sample_for_event(category: str, event: DerivedArrivalEvent, note: str) -> ValidationSample:
+    return ValidationSample(
+        category=category,
+        vessel_id=event.vessel_id,
+        call_id=event.call_id,
+        observed_at=event.derived_geofence_arrival,
+        note=note,
+    )
+
+
+def _analyse_arrivals(
+    csv_path: str | Path,
+    config: ReplayConfig,
+    *,
+    example_vessels: int,
+    revisions_per_example: int,
+) -> _Analysis:
+    """Build deterministic approach episodes, calls, and causal updates."""
+
+    states: dict[str, _TrackState] = {}
+    events: list[DerivedArrivalEvent] = []
+    quality_counts: Counter[str] = Counter()
+    exclusions: Counter[str] = Counter()
+    suppression_samples: list[ValidationSample] = []
+    observations_assessed = 0
+    raw_crossings = 0
+    suppressed_crossings = 0
+    reset_radius = config.boundary.radius_km + config.boundary_reset_distance_km
+
+    for observation in iter_replay_observations(csv_path, config):
+        observations_assessed += 1
+        quality_counts.update(flag.value for flag in observation.quality_flags)
+        distance = haversine_km(
+            observation.latitude,
+            observation.longitude,
+            config.boundary.latitude,
+            config.boundary.longitude,
+        )
+        state = states.setdefault(observation.vessel_id, _TrackState())
+        previous_distance = state.previous_distance_km
+
+        if previous_distance is None:
+            if distance > config.boundary.radius_km:
+                state.armed = True
+                state.episode_observations = [(observation, distance)]
+            state.previous_distance_km = distance
+            continue
+
+        long_gap = QualityFlag.LONG_OBSERVATION_GAP in observation.quality_flags
+        if state.armed and long_gap:
+            # A discontinuity invalidates the earlier approach segment. Keep
+            # the gap-bearing outside observation itself for audit, but it is
+            # ineligible to predict and cannot become the new reference.
+            state.episode_observations = (
+                [(observation, distance)]
+                if distance > config.boundary.radius_km
+                else []
+            )
+
+        crossing = (
+            previous_distance > config.boundary.radius_km
+            and distance <= config.boundary.radius_km
+        )
+        if crossing:
+            raw_crossings += 1
+            if state.armed:
+                event = _event_from_crossing(
+                    state, observation, config, revisions_per_example
+                )
+                events.append(event)
+                exclusions.update(event.exclusion_reasons)
+                state.armed = False
+                state.episode_observations = None
+                state.reset_confirmation_observations = []
+            else:
+                suppressed_crossings += 1
+                state.reset_confirmation_observations = []
+                if len(suppression_samples) < 3:
+                    suppression_samples.append(
+                        ValidationSample(
+                            category="suspected_duplicate_recrossing",
+                            vessel_id=observation.vessel_id,
+                            call_id=None,
+                            observed_at=observation.observed_at,
+                            note=(
+                                "outside-to-inside recrossing ignored because the vessel "
+                                "had not completed the configured reset confirmation "
+                                f"beyond {reset_radius:.2f} km from the centre"
+                            ),
+                        )
+                    )
+        elif distance > config.boundary.radius_km:
+            if not state.armed:
+                if distance >= reset_radius:
+                    confirmations = state.reset_confirmation_observations
+                    if confirmations is None or long_gap:
+                        confirmations = []
+                    confirmations.append((observation, distance))
+                    state.reset_confirmation_observations = confirmations
+                    if (
+                        len(confirmations)
+                        >= config.reset_confirmation_observations
+                    ):
+                        state.armed = True
+                        state.episode_observations = list(confirmations)
+                        state.reset_confirmation_observations = []
+                else:
+                    state.reset_confirmation_observations = []
+            if state.armed:
+                assert state.episode_observations is not None
+                if (
+                    not state.episode_observations
+                    or state.episode_observations[-1][0] != observation
+                ):
+                    state.episode_observations.append((observation, distance))
+        state.previous_distance_km = distance
+
+    events.sort(
+        key=lambda event: (
+            event.derived_geofence_arrival,
+            event.crossing_source_row_number,
+            event.call_id,
+        )
+    )
+    usable = [event for event in events if event.usable]
+    event_days = Counter(event.derived_geofence_arrival.date().isoformat() for event in events)
+    data_quality = Counter(event.data_quality.value for event in events)
+    update_statuses = Counter(
+        update.prediction_status.value
+        for event in usable
+        for update in event.arrival_updates
+    )
+    observation_counts = [float(event.eligible_pre_event_observations) for event in usable]
+    lookbacks = [event.pre_event_lookback.total_seconds() / 3_600 for event in usable]
+
+    samples: list[ValidationSample] = list(suppression_samples)
+    categories: dict[str, DerivedArrivalEvent | None] = {
+        "normal_approach": next(
+            (event for event in usable if event.data_quality is DataQuality.GOOD), None
+        ),
+        "sparse_track": next(
+            (
+                event
+                for event in events
+                if QualityFlag.SPARSE_VESSEL_TRACK.value in event.quality_reason_codes
+            ),
+            None,
+        ),
+        "stale_track": next(
+            (
+                event
+                for event in events
+                if QualityFlag.STALE_OBSERVATION.value in event.quality_reason_codes
+            ),
+            None,
+        ),
+        "moving_away": next(
+            (
+                event
+                for event in events
+                if "moving_away_from_boundary" in event.quality_reason_codes
+            ),
+            None,
+        ),
+    }
+    notes = {
+        "normal_approach": "usable approach with no detected quality degradation",
+        "sparse_track": "call retains the sparse-vessel-track provenance flag",
+        "stale_track": "episode contains an observation following the stale threshold",
+        "moving_away": "moving-away observation was retained but not used for prediction",
+    }
+    for category, event in categories.items():
+        if event is not None:
+            samples.append(_sample_for_event(category, event, notes[category]))
+    calls_per_vessel = Counter(event.vessel_id for event in events)
+    repeated = next(
+        (event for event in events if calls_per_vessel[event.vessel_id] > 1), None
+    )
+    if repeated is not None:
+        samples.append(
+            _sample_for_event(
+                "repeated_visit",
+                repeated,
+                f"vessel has {calls_per_vessel[repeated.vessel_id]} separately reset calls",
+            )
+        )
+
+    examples = tuple(usable[:example_vessels])
+    result = FeasibilityResult(
+        vessels_assessed=len(states),
+        observations_assessed=observations_assessed,
+        vessels_crossing_boundary=len({event.vessel_id for event in events}),
+        raw_candidate_crossings=raw_crossings,
+        crossings_suppressed_before_reset=suppressed_crossings,
+        accepted_calls=len(events),
+        usable_derived_arrival_events=len(usable),
+        excluded_calls=len(events) - len(usable),
+        sufficient_for_historical_experiment=len(usable) >= config.sufficient_arrival_events,
+        event_sufficiency_threshold=config.sufficient_arrival_events,
+        observations_before_event=_summary(observation_counts),
+        available_lookback_hours=_summary(lookbacks),
+        quality_flag_counts=dict(sorted(quality_counts.items())),
+        event_exclusion_reasons=dict(sorted(exclusions.items())),
+        events_by_day=dict(sorted(event_days.items())),
+        call_data_quality_distribution=dict(sorted(data_quality.items())),
+        arrival_update_status_distribution=dict(sorted(update_statuses.items())),
+        example_eta_revisions=examples,
+        validation_samples=tuple(samples),
+        assumed_timezone=config.assumed_timezone,
+        timezone_assumption_confirmed=config.timezone_assumption_confirmed,
+        boundary=config.boundary,
+        boundary_reset_distance_km=config.boundary_reset_distance_km,
+        reset_confirmation_observations=config.reset_confirmation_observations,
+    )
+    return _Analysis(result=result, calls=tuple(events))
 
 
 def assess_arrival_feasibility(
@@ -456,95 +972,58 @@ def assess_arrival_feasibility(
     example_vessels: int = 5,
     revisions_per_example: int = 5,
 ) -> FeasibilityResult:
-    """Assess first outside-to-inside crossing per vessel.
+    """Report validated calls around the exploratory, non-official boundary."""
 
-    A crossing is named ``derived_geofence_arrival`` and never
-    ``actual_arrival``.  ETA revisions are calculated as each observation is
-    emitted, before any later observation is visible.
+    return _analyse_arrivals(
+        csv_path,
+        config,
+        example_vessels=example_vessels,
+        revisions_per_example=revisions_per_example,
+    ).result
+
+
+def derive_arrival_calls(
+    csv_path: str | Path,
+    config: ReplayConfig = ReplayConfig(),
+) -> tuple[DerivedArrivalEvent, ...]:
+    """Return accepted calls, including excluded calls and their reasons."""
+
+    return _analyse_arrivals(
+        csv_path, config, example_vessels=0, revisions_per_example=5
+    ).calls
+
+
+def iter_causal_arrival_updates(
+    csv_path: str | Path,
+    config: ReplayConfig = ReplayConfig(),
+) -> Iterator[CausalArrivalUpdate]:
+    """Yield Watcher-facing usable-call inputs in stable event-time order.
+
+    Call membership is segmented retrospectively for this historical
+    benchmark. The projection deliberately contains no crossing outcome.
+    Predictions and references use only their observation and prior segment
+    state.
     """
 
-    states: dict[str, _TrackState] = {}
-    events: list[DerivedArrivalEvent] = []
-    quality_counts: Counter[str] = Counter()
-    exclusions: Counter[str] = Counter()
-    observations = 0
-    for observation in iter_replay_observations(csv_path, config):
-        observations += 1
-        quality_counts.update(flag.value for flag in observation.quality_flags)
-        state = states.get(observation.vessel_id)
-        if state is None:
-            state = _TrackState(
-                first_observation=observation.observed_at,
-                revisions=deque(maxlen=revisions_per_example),
-            )
-            states[observation.vessel_id] = state
-        distance = haversine_km(
-            observation.latitude,
-            observation.longitude,
-            config.boundary.latitude,
-            config.boundary.longitude,
-        )
-        revision = causal_eta(observation, config.boundary, config.minimum_eta_speed_knots)
-        if revision is not None and distance > config.boundary.radius_km:
-            assert state.revisions is not None
-            state.revisions.append(revision)
-
-        crossing = (
-            not state.arrived
-            and state.previous_distance_km is not None
-            and state.previous_distance_km > config.boundary.radius_km
-            and distance <= config.boundary.radius_km
-        )
-        if crossing:
-            reasons: list[str] = []
-            if state.observations_seen < config.minimum_pre_arrival_observations:
-                reasons.append("insufficient_pre_arrival_observations")
-            reasons.extend(
-                flag.value
-                for flag in observation.quality_flags
-                if flag in config.excluded_quality_flags
-            )
-            exclusions.update(reasons)
-            assert state.revisions is not None
-            events.append(
-                DerivedArrivalEvent(
-                    vessel_id=observation.vessel_id,
-                    derived_geofence_arrival=observation.observed_at,
-                    observations_before_event=state.observations_seen,
-                    available_lookback=observation.observed_at - state.first_observation,
-                    usable=not reasons,
-                    exclusion_reasons=tuple(reasons),
-                    eta_revisions=tuple(state.revisions),
-                )
-            )
-            state.arrived = True
-        state.observations_seen += 1
-        state.previous_distance_km = distance
-
-    usable = [event for event in events if event.usable]
-    examples = tuple(
-        sorted(usable, key=lambda event: (event.derived_geofence_arrival, event.vessel_id))[
-            :example_vessels
-        ]
+    calls = derive_arrival_calls(csv_path, config)
+    updates = [update for call in calls if call.usable for update in call.arrival_updates]
+    yield from sorted(
+        updates,
+        key=lambda update: (
+            update.observed_at,
+            update.source_observation.source_row_number,
+            update.call_id,
+        ),
     )
-    observation_counts = [float(event.observations_before_event) for event in usable]
-    lookbacks = [event.available_lookback.total_seconds() / 3_600 for event in usable]
-    return FeasibilityResult(
-        vessels_assessed=len(states),
-        observations_assessed=observations,
-        vessels_crossing_boundary=len(events),
-        usable_derived_arrival_events=len(usable),
-        sufficient_for_historical_experiment=len(usable) >= config.sufficient_arrival_events,
-        event_sufficiency_threshold=config.sufficient_arrival_events,
-        observations_before_event=_summary(observation_counts),
-        available_lookback_hours=_summary(lookbacks),
-        quality_flag_counts=dict(sorted(quality_counts.items())),
-        event_exclusion_reasons=dict(sorted(exclusions.items())),
-        example_eta_revisions=examples,
-        assumed_timezone=config.assumed_timezone,
-        timezone_assumption_confirmed=config.timezone_assumption_confirmed,
-        boundary=config.boundary,
-    )
+
+
+def iter_arrival_updates(
+    csv_path: str | Path,
+    config: ReplayConfig = ReplayConfig(),
+) -> Iterator[CausalArrivalUpdate]:
+    """Backward-compatible alias for :func:`iter_causal_arrival_updates`."""
+
+    yield from iter_causal_arrival_updates(csv_path, config)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -555,16 +1034,28 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--latitude", type=float, default=default_boundary.latitude)
     parser.add_argument("--longitude", type=float, default=default_boundary.longitude)
     parser.add_argument("--radius-km", type=float, default=default_boundary.radius_km)
+    parser.add_argument("--boundary-version", default=default_boundary.version)
+    parser.add_argument("--reset-distance-km", type=float, default=2.0)
+    parser.add_argument("--reset-confirmation-observations", type=int, default=2)
+    parser.add_argument("--moving-away-tolerance-km", type=float, default=0.05)
     parser.add_argument("--sufficient-events", type=int, default=30)
     return parser
 
 
 def main() -> None:
     args = _parser().parse_args()
-    boundary = ArrivalBoundary(args.latitude, args.longitude, args.radius_km)
+    boundary = ArrivalBoundary(
+        latitude=args.latitude,
+        longitude=args.longitude,
+        radius_km=args.radius_km,
+        version=args.boundary_version,
+    )
     config = ReplayConfig(
         assumed_timezone=args.timezone,
         boundary=boundary,
+        boundary_reset_distance_km=args.reset_distance_km,
+        reset_confirmation_observations=args.reset_confirmation_observations,
+        moving_away_tolerance_km=args.moving_away_tolerance_km,
         sufficient_arrival_events=args.sufficient_events,
         excluded_quality_flags=frozenset(
             {

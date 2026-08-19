@@ -53,6 +53,21 @@ This confirms that the AIS dataset provides sufficient historical event volume t
 
 > **Important:** Derived geofence events are used for prototype evaluation and are not claimed to be actual PSA vessel arrivals or berth events.
 
+### Stage 3 — Validated Calls & Causal Arrival Updates
+
+The replay now requires two consecutive observations beyond a configurable
+2 km outside reset before a vessel can create another call, assigns
+deterministic call IDs, and retains both available and ineligible causal
+updates. Long gaps begin a new reference segment, and Watcher-facing updates
+exclude retrospective crossing outcomes. On the full dataset, 1,853 raw
+crossings produced 1,382 reset-confirmed calls: 471 crossings were suppressed
+before reset, 886 calls were usable, and 496 were excluded with explicit
+reasons. The boundary (`exploratory-circle-v1`), calls, reference arrivals,
+and outcomes remain derived and non-official.
+
+See the appended Stage 3 findings in
+[`Data Inspection/singapore_ais_dataset_assessment.md`](Data%20Inspection/singapore_ais_dataset_assessment.md).
+
 ### Git LFS
 
 The AIS CSV is approximately 205 MB, so it is stored using **Git LFS** rather than normal Git storage.

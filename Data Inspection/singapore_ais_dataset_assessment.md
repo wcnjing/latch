@@ -460,3 +460,154 @@ Proceed to a fuller ETA experiment only after treating the following as gates:
 5. freeze a train/evaluation split so route or vessel statistics cannot leak future evaluation observations.
 
 Until those gates are met, the Stage 2 result supports **event-volume feasibility**, not arrival-label validity or ETA accuracy. No synthetic UCID generator was built in this stage.
+
+## Stage 3: Arrival-event validation and causal arrival updates
+
+### Stage 3 conclusion
+
+The Stage 2 event-volume gate remains passed after replacing the one-event-per-vessel shortcut with deterministic approach episodes. The corrected run found 1,853 raw outside-to-inside candidate crossings. It accepted 1,382 reset-confirmed calls and neutrally classified 471 crossings as `crossings_suppressed_before_reset`. Of the accepted calls, 886 are usable for the causal update experiment and 496 are excluded with explicit reasons.
+
+These remain `derived_geofence_arrival` events at an **exploratory, non-official** boundary. They are not official PSA calls, schedules, berth arrivals, or accuracy labels. `reference_arrival` is also derived: it is the first eligible causal prediction in an approach episode, not an official schedule.
+
+No synthetic UCID generator or Watcher was implemented. The raw AIS CSV was not modified, and the analysis retained no generated replay dataset, cache, or temporary database.
+
+### Crossing and reset rule
+
+An accepted call must be an observed outside-to-inside crossing: the immediately preceding vessel position is more than 5.0 km from the configured centre and the crossing position is at or within 5.0 km. The implementation uses boundary hysteresis to define approach episodes:
+
+1. An initially outside vessel begins an armed approach episode.
+2. An armed outside-to-inside crossing becomes one accepted call.
+3. After that crossing, the vessel is disarmed.
+4. It can be rearmed only after **two consecutive vessel observations** are each at least 2.0 km beyond the boundary, or 7.0 km from the configured centre.
+5. A point inside the reset radius clears a partial confirmation. One isolated point beyond the reset radius therefore cannot create a repeat call.
+6. Outside-to-inside recrossings before confirmation are counted neutrally as `crossings_suppressed_before_reset` rather than asserted to be jitter or duplicates.
+
+This deterministic rule permits reset-separated visits by the same vessel while reducing sensitivity to one noisy reset-distance point. It does not prove that every accepted event is an official or genuinely distinct port call. The 2.0 km distance and two-observation confirmation are exploratory assumptions and are emitted in the report configuration. Changing boundary geometry requires a new `boundary.version`; the current geometry version is `exploratory-circle-v1`.
+
+`call_id` is separate from `vessel_id` and is the stable prefix `call_` plus the first 20 hexadecimal characters of SHA-256 over boundary version, vessel ID, crossing timestamp, and crossing source-row number. Thus identical input and configuration reproduce the same ID, while reset-separated visits by one vessel receive different IDs.
+
+### Causal update rule and schema
+
+For every usable call, the update stream is ordered by `observed_at`, original source-row number, then `call_id`. Each available `predicted_arrival` is the observation time plus straight-line distance to the boundary divided by that observation's speed over ground. It uses only that row and prior continuous-segment state. No later trajectory point, crossing time, total future track length, or later AIS value is a prediction input.
+
+`CausalArrivalUpdate` is the Watcher-facing projection. It contains no `derived_geofence_arrival` or other crossing outcome. `DerivedArrivalEvent` separately owns the retrospective crossing timestamp and call-level evaluation metadata. Historical `call_id` membership is necessarily segmented retrospectively for this AIS benchmark; it is an association key, not a claim that the future crossing was known at update time.
+
+Every retained pre-event observation produces a causal update with `prediction_status = AVAILABLE` or `INELIGIBLE`. Ineligible updates have `predicted_arrival = null` and retain their reason codes. Only available updates count toward `eligible_pre_event_observations`. The first available prediction in the current continuous segment becomes the derived `reference_arrival`. Earlier ineligible updates have `reference_arrival = null`; later updates carry the reference already known by then.
+
+In source event-time replay, an observation is consumed at its own timestamp, so `observation_age_minutes` is deterministically `0.0`. Time since the preceding vessel message is represented separately by stale and long-gap reason codes.
+
+Each update contains:
+
+- `call_id`, `vessel_id`, and `observed_at`;
+- `prediction_status`, derived causal `reference_arrival`, and nullable causal `predicted_arrival`;
+- `observation_age_minutes`, `data_quality`, and `quality_reason_codes`;
+- `source_type = real_ais_observation` and `boundary_version`; and
+- the complete `source_observation`, including original source-row provenance and retained real AIS fields.
+
+The source observation is nested rather than overwritten. Recognised AIS unavailable sentinels become `None` with explicit flags; no real speed, course, heading, turn rate, status, position, or AIS-reported ETA is replaced by a derived prediction.
+
+### Prediction eligibility and quality handling
+
+| Condition | Deterministic handling |
+| --- | --- |
+| Zero or speed below 0.5 knots | Retain observation; add `zero_or_near_zero_speed`; do not predict from it |
+| Speed above 50 knots | Retain value; add `implausible_speed`; do not predict from it |
+| AIS speed unavailable (`102.3` or blank) | Preserve as unavailable; add `speed_unavailable`; do not predict from it |
+| Stale observation (>60 minutes since prior vessel message) | Retain and flag; do not predict from it |
+| Long gap (>6 hours) | Break the prior continuous approach segment; retain the gap-bearing outside row as `INELIGIBLE`; derive any new reference only from a later eligible outside row |
+| Moving away by more than 0.05 km versus the prior episode point | Retain; add `moving_away_from_boundary`; do not predict from it |
+| Fewer than 3 eligible pre-event observations after the most recent continuity break | Accept crossing identity but exclude call from the Watcher-facing stream; retain its updates on the retrospective event for audit |
+| Missing/unavailable course, heading, turn rate, navigation status, or AIS ETA | Preserve as unavailable with applicable flags; these non-speed fields are not fabricated and do not drive the baseline ETA |
+| Missing required vessel ID, timestamp, latitude, or longitude | Reject explicitly during CSV validation/parsing; a crossing cannot be derived without these fields |
+
+Configured call exclusions continue to apply to crossing-row quality. The full-data run used the Stage 2 convention that sparse tracks, crossing rows after long gaps, and crossing rows with implausible speed are excluded. Reasons can overlap, so reason totals need not equal excluded-call totals.
+
+### Aggregate validation report
+
+| Result | Value |
+| --- | ---: |
+| Vessels assessed | 5,879 |
+| Raw candidate crossings | 1,853 |
+| Crossings suppressed before reset confirmation | 471 |
+| Accepted calls | 1,382 |
+| Vessels represented by accepted calls | 688 |
+| Usable calls | 886 |
+| Excluded calls | 496 |
+
+Accepted-call data quality was 158 `good`, 728 `degraded`, and 496 `excluded`. Across usable calls, the auditable stream contains 6,303 `AVAILABLE` and 24,529 `INELIGIBLE` updates. Degraded does not mean discarded: for example, unavailable heading or a moving-away row remains visible in provenance while eligible rows in the same call can still produce predictions.
+
+Exclusion reasons were:
+
+| Reason | Calls |
+| --- | ---: |
+| Fewer than 3 eligible pre-event observations in the current segment | 494 |
+| Crossing after a long observation gap | 111 |
+| Sparse vessel track | 2 |
+
+Eligible pre-event history percentiles for usable calls were:
+
+| Metric | Min | P05 | P25 | P50 | P75 | P95 | Mean | Max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Eligible observations | 3 | 3 | 4 | 6 | 8 | 15 | 7.11 | 44 |
+| Lookback hours | 1.02 | 1.66 | 3.17 | 7.98 | 25.24 | 55.38 | 16.57 | 109.79 |
+
+Observation-level quality counts were 5,808 sparse-track, 26,484 stale, 9,320 long-gap, 2 implausible-speed, 1,616 speed-unavailable, 17,141 course-unavailable, 64,331 heading-unavailable, and 70,481 rate-of-turn-unavailable flags.
+
+Accepted calls by day:
+
+| UTC-assumed day | Calls | UTC-assumed day | Calls | UTC-assumed day | Calls |
+| --- | ---: | --- | ---: | --- | ---: |
+| Oct 1 | 54 | Oct 10 | 44 | Oct 19 | 60 |
+| Oct 2 | 70 | Oct 11 | 32 | Oct 20 | 59 |
+| Oct 3 | 66 | Oct 12 | 43 | Oct 21 | 69 |
+| Oct 4 | 59 | Oct 13 | 55 | Oct 22 | 6 |
+| Oct 5 | 64 | Oct 14 | 51 | Oct 25 | 57 |
+| Oct 6 | 50 | Oct 15 | 28 | Oct 26 | 54 |
+| Oct 8 | 25 | Oct 16 | 60 | Oct 27 | 58 |
+| Oct 9 | 61 | Oct 17 | 67 | Oct 28 | 46 |
+|  |  | Oct 18 | 49 | Oct 29 / Oct 30 | 50 / 45 |
+
+Days absent from the table had zero accepted calls under this boundary and reset rule.
+
+### Human-readable validation sample
+
+| Category | Vessel / call | Evidence |
+| --- | --- | --- |
+| Normal approach | `1342` / `call_c61c839ab9468d39473a` | Three eligible, unflagged updates before the 2023-10-01 01:37:59 crossing |
+| Sparse track | `1369` / `call_fdbe1b5141e466c794a4` | Seven eligible observations retained; call excluded by the fewer-than-10-total-observations convention |
+| Stale track | `4712` / `call_6d8dec6507db08a91053` | Stale and zero/near-zero-speed rows retained; only two eligible rows, so call excluded |
+| Suspected duplicate recrossing | `4499` at 2023-10-01 02:12:06 | Recrossing suppressed because the vessel had not completed two observations beyond the 7.0 km reset radius |
+| Repeated visits | `4678` | Eleven calls were separated by the confirmed reset; each has a distinct deterministic `call_id` |
+| Moving away | `4564` / `call_38b3fae3f7ebf3d68df2` | Moving-away and zero/near-zero-speed rows are retained as ineligible updates; six available predictions remain |
+
+The repeated-visit sample demonstrates the configured episode semantics, not twelve independently verified official port calls.
+
+### Example causal call timelines
+
+Times below use the unconfirmed UTC assumption. The outcome is shown for retrospective interpretation only.
+
+| Call | Observed at | Status | Predicted arrival | Reference arrival | Retrospective outcome |
+| --- | --- | --- | --- | --- | --- |
+| `call_c61c839ab9468d39473a` | 2023-10-01 00:14:57 | available | 2023-10-01 01:01:45 | 2023-10-01 01:01:45 | 2023-10-01 01:37:59 |
+|  | 2023-10-01 00:28:18 | available | 2023-10-01 01:10:13 | 2023-10-01 01:01:45 |  |
+|  | 2023-10-01 01:14:09 | available | 2023-10-01 01:19:03 | 2023-10-01 01:01:45 |  |
+| `call_38b3fae3f7ebf3d68df2` | 2023-10-01 01:13:00 | available | 2023-10-01 02:46:56 | 2023-10-01 02:46:56 | 2023-10-01 06:12:01 |
+|  | 2023-10-01 03:10:00 | ineligible: moving away, near-zero speed | null | 2023-10-01 02:46:56 |  |
+|  | 2023-10-01 03:44:09 | ineligible: near-zero speed | null | 2023-10-01 02:46:56 |  |
+|  | 2023-10-01 05:14:20 | available | 2023-10-01 05:40:01 | 2023-10-01 02:46:56 |  |
+| `call_f95b53341cab0374559f` | 2023-10-01 23:10:57 | ineligible: long gap | null | null | 2023-10-02 02:39:33 |
+|  | 2023-10-01 23:44:46 | available | 2023-10-02 01:33:32 | 2023-10-02 01:33:32 |  |
+|  | 2023-10-02 00:13:52 | available | 2023-10-02 01:13:43 | 2023-10-02 01:33:32 |  |
+|  | 2023-10-02 01:29:04 | available | 2023-10-02 01:39:23 | 2023-10-02 01:33:32 |  |
+
+The `call_f95…` example demonstrates the continuity rule: its gap-bearing row is retained, but the reference begins at the first later available update rather than spanning the prior track. The examples also show the limitations of a straight-line current-speed baseline: an update can remain substantially early when a vessel later slows, turns, waits, or follows a channel. The retrospective outcome column is presented only for assessment and is absent from `CausalArrivalUpdate`.
+
+### Stage 3 verification
+
+The automated suite covers future-data isolation at and before a cutoff, deterministic call IDs and predictions, retained ineligible updates, the outcome-free Watcher projection, confirmed reset suppression, multiple reset-separated calls by one vessel, stable chronological sorting, stale and long-gap segment handling, first-available reference selection, missing/sentinel speed, and preservation of source provenance and quality flags.
+
+```bash
+UV_CACHE_DIR=/tmp/latch-uv-cache uv run pytest -q
+```
+
+Result after the Stage 3 correctness pass: **99 passed**.
