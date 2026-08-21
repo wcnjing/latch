@@ -62,15 +62,27 @@ def script(rationale: str) -> FakeModel:
     )
 
 
+ASSUMED_TRANSFER_H = 1.5
+
+
 def risk(
     connection_id: str,
     boxes: int,
-    margin_h: float,
     no_itt_h: float,
     inbound: Terminal,
     outbound: Terminal,
     detected_offset_min: float = 0.0,
 ) -> RiskEvent:
+    """Build a scenario risk.
+
+    The current-plan margin is derived from the no-transfer figure rather than
+    set alongside it. Setting both by hand let them drift, and the options
+    panel caught it: a scripted rationale claiming the barge arrived too late
+    while the barge sat in the considered list, cheaper and cleaner than the
+    option actually taken.
+    """
+    transfer_h = ASSUMED_TRANSFER_H if inbound is not outbound else 0.0
+    margin_h = round(no_itt_h - transfer_h, 2)
     return RiskEvent(
         connection_id=connection_id,
         state=RiskSeverity.AT_RISK if margin_h <= 0 else RiskSeverity.WATCH,
@@ -104,7 +116,10 @@ def risk(
 
 def scene_baseline(store: TraceStore):
     """§7.1 — the guaranteed take. A tool dies and the gate tightens by itself."""
-    event = risk("DEMO-BASE", 34, -0.4, 3.6, Terminal.TUAS, Terminal.PASIR_PANJANG)
+    # 1.4h without the transfer: road (55m) still reaches the modelled cutoff,
+    # the barge sailing (190m) does not. The cheaper, cleaner option losing to
+    # the clock is the beat worth recording.
+    event = risk("DEMO-BASE", 34, 1.4, Terminal.TUAS, Terminal.PASIR_PANJANG)
     # The live inventory call fails twice; a cached read from eight minutes ago
     # carries the day, and the staleness is what moves confidence.
     cached = CacheEntry(
@@ -134,9 +149,9 @@ def scene_baseline(store: TraceStore):
 def scene_contention(store: TraceStore):
     """§7.2 — two risks, one slot, and the loser is not abandoned."""
     locks = LockTable()
-    minor = risk("DEMO-MINOR", 18, -0.3, 2.2, Terminal.TUAS, Terminal.PASIR_PANJANG)
+    minor = risk("DEMO-MINOR", 18, 1.4, Terminal.TUAS, Terminal.PASIR_PANJANG)
     urgent = risk(
-        "DEMO-URGENT", 92, -0.6, 2.4, Terminal.TUAS, Terminal.PASIR_PANJANG,
+        "DEMO-URGENT", 92, 1.3, Terminal.TUAS, Terminal.PASIR_PANJANG,
         detected_offset_min=2,
     )
     first = handle(

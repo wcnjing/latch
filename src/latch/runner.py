@@ -207,11 +207,26 @@ def handle(
         return _run_customer_gate(trace, event, (), customer, now, state, locks)
 
     chosen = result.chosen
+    trace.options(
+        [
+            {
+                "option_id": plan.plan_id,
+                "rung": plan.rung.value,
+                "detail": "; ".join(a.detail for a in plan.actions if a.detail),
+                "cost_sgd": round(plan.cost_sgd, 2),
+                "emissions_kg_co2e": round(plan.emissions_kg_co2e, 2),
+                "chosen": plan.plan_id == chosen.plan_id,
+            }
+            for plan in result.plans
+        ]
+    )
     trace.decision(
         rung=chosen.rung.value,
         chosen=True,
         confidence=chosen.confidence,
         rationale=chosen.rationale,
+        cost_sgd=chosen.cost_sgd,
+        emissions_kg_co2e=chosen.emissions_kg_co2e,
     )
 
     # --- locks --------------------------------------------------------------
@@ -301,6 +316,7 @@ def handle(
         if not locks.commit(resource, risk.risk_id):
             trace.observation(f"lost {resource} between claiming and committing")
     trace.tool_call("book_itt_leg", status="ok", latency_ms=850)
+    trace.commit_action_cost(chosen.cost_sgd, chosen.emissions_kg_co2e)
     return _resolve(
         trace, locks, risk.risk_id, state, Resolution.CONNECTION_HELD, chosen, gate
     )

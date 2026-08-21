@@ -115,7 +115,14 @@ class OptionRow:
     option_id: str
     rung: str
     detail: str
-    status: str  # "chosen" | "offered" | "ruled_out" | "advisory"
+    status: str  # "chosen" | "considered" | "ruled_out" | "advisory"
+    cost_sgd: float = 0.0
+    emissions_kg_co2e: float = 0.0
+
+    @property
+    def has_cost(self) -> bool:
+        """Rung 1 and Rung 4 move no cargo, so a zero here is real, not missing."""
+        return self.cost_sgd > 0 or self.emissions_kg_co2e > 0
 
 
 def ladder_view(trace: Trace) -> tuple[OptionRow, ...]:
@@ -129,13 +136,35 @@ def ladder_view(trace: Trace) -> tuple[OptionRow, ...]:
     rows: list[OptionRow] = []
 
     for step in trace.steps:
-        if step.type == "decision":
+        if step.type == "options":
+            # The comparison the agent actually made. This is what a detail
+            # panel renders — road against barge on time, cost and emissions —
+            # and it is the substance of a Rung 3 decision rather than its
+            # summary.
+            for candidate in step.payload.get("candidates", []):
+                rows.append(
+                    OptionRow(
+                        option_id=str(candidate.get("option_id", "")),
+                        rung=str(candidate.get("rung", "")),
+                        detail=str(candidate.get("detail", "")),
+                        status="chosen" if candidate.get("chosen") else "considered",
+                        cost_sgd=float(candidate.get("cost_sgd", 0.0)),
+                        emissions_kg_co2e=float(
+                            candidate.get("emissions_kg_co2e", 0.0)
+                        ),
+                    )
+                )
+        elif step.type == "decision" and not step.payload.get("chosen"):
             rows.append(
                 OptionRow(
                     option_id=str(step.payload.get("rung", "")),
                     rung=str(step.payload.get("rung", "")),
                     detail=str(step.payload.get("rationale", "")),
-                    status="chosen" if step.payload.get("chosen") else "advisory",
+                    status="advisory",
+                    cost_sgd=float(step.payload.get("cost_sgd", 0.0)),
+                    emissions_kg_co2e=float(
+                        step.payload.get("emissions_kg_co2e", 0.0)
+                    ),
                 )
             )
         elif step.type == "observation" and step.payload.get("considered"):

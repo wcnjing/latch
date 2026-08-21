@@ -22,15 +22,17 @@ Run:  uv run python scripts/run_historical.py --limit 50000
 
 import argparse
 from collections import Counter
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 from latch.cases import CaseRegistry
 from latch.connections import ConnectionParams
 from latch.events import RiskSeverity
 from latch.llm import FakeModel, OllamaModel
-from latch.replay import ArrivalBoundary, ReplayConfig, causal_eta, iter_replay_observations
+from latch.replay import (
+    ArrivalBoundary,
+    ReplayConfig,
+    iter_retrospectively_segmented_arrival_updates,
+)
 from latch.runner import AutoApprove, CustomerSilent, handle
 from latch.trace import TraceStore
 from latch.watcher import events_from_signals
@@ -42,56 +44,34 @@ DEFAULT_CSV = (
 )
 
 
-@dataclass
-class ArrivalSignalRow:
-    """Built from main's replay primitives.
-
-    Mirrors the shape of A's `CausalArrivalUpdate` without importing it, since
-    that type currently lives only in an unmerged branch. The adapter takes a
-    structural protocol, so A's richer version drops in with no change here.
-    """
-
-    call_id: str
-    vessel_id: str
-    observed_at: datetime
-    predicted_arrival: datetime | None
-    reference_arrival: datetime | None
-    data_quality: str
-
-
 def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
-    """Yield one signal per observation that supports a causal ETA.
+    """Workstream A's Watcher-facing output, consumed directly.
 
-    `reference_arrival` is the vessel's first eligible prediction — its
-    original expected arrival. Everything after is measured against it, so a
-    slipping vessel eats into slack rather than moving its own goalposts.
+    `CausalArrivalUpdate` already satisfies the `ArrivalSignal` protocol the
+    adapter takes, so nothing converts between the two — the seam was built for
+    exactly this and the payoff is that A owns crossing detection, reset
+    confirmation and quality assessment, and B owns none of it.
+
+    The *unfiltered* stream is deliberate. `iter_eligible_benchmark_updates`
+    applies a retrospective quality filter, so a connection appears there only
+    if the episode later turned out clean. Feeding B that stream would mean the
+    agent only ever sees risks that resolved well, which is survivorship
+    dressed up as a live feed.
     """
-    references: dict[str, datetime] = {}
-    for index, observation in enumerate(iter_replay_observations(csv_path, config)):
+    for index, update in enumerate(
+        iter_retrospectively_segmented_arrival_updates(csv_path, config)
+    ):
         if limit is not None and index >= limit:
             break
-        revision = causal_eta(
-            observation, config.boundary, config.minimum_eta_speed_knots
-        )
-        if revision is None:
-            continue
-        reference = references.setdefault(
-            observation.vessel_id, revision.estimated_arrival
-        )
-        yield ArrivalSignalRow(
-            call_id=f"call_{observation.vessel_id}",
-            vessel_id=observation.vessel_id,
-            observed_at=observation.observed_at,
-            predicted_arrival=revision.estimated_arrival,
-            reference_arrival=reference,
-            data_quality="degraded" if observation.quality_flags else "good",
-        )
+        yield update
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
-    parser.add_argument("--limit", type=int, default=50_000, help="observations to read")
+    parser.add_argument(
+        "--limit", type=int, default=50_000, help="arrival updates to read from A"
+    )
     parser.add_argument(
         "--max-agent-runs",
         type=int,
@@ -122,7 +102,7 @@ def main() -> None:
             admitted.append((event, decision))
 
     total = sum(severities.values())
-    print(f"observations read      {args.limit:,}")
+    print(f"arrival updates read   {args.limit:,}  (workstream A)")
     print(f"risk events derived    {total:,}")
     for state in ("SAFE", "WATCH", "AT_RISK"):
         share = severities[state] / total if total else 0.0

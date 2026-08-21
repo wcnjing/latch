@@ -126,6 +126,11 @@ class Trace:
     cost: CostMeter = field(default_factory=CostMeter)
     resolution: Resolution | None = None
     boxes: int = 0
+    # Operational cost of the action actually taken. Deliberately separate
+    # from `cost`, which is model tokens in USD — adding Singapore dollars to
+    # inference dollars would be a category error on a slide.
+    committed_cost_sgd: float = 0.0
+    committed_emissions_kg: float = 0.0
     options_alive_at_send: int = 0
     offer_sent_at: datetime | None = None
 
@@ -165,8 +170,25 @@ class Trace:
             "state_change", from_state=from_state, to_state=to_state, reason=reason
         )
 
+    def options(self, candidates: list[dict[str, Any]]) -> TraceStep:
+        """Every option considered, with what each would cost.
+
+        Cost and emissions were computed per option and shown to the model,
+        then discarded — so the console had nothing to put in a detail panel
+        and the cost narrative had nothing to aggregate. The comparison
+        between options is the substance of a Rung 3 decision; recording only
+        the winner throws away the reasoning.
+        """
+        return self._append("options", candidates=candidates)
+
     def decision(
-        self, rung: str, chosen: bool, confidence: float, rationale: str = ""
+        self,
+        rung: str,
+        chosen: bool,
+        confidence: float,
+        rationale: str = "",
+        cost_sgd: float = 0.0,
+        emissions_kg_co2e: float = 0.0,
     ) -> TraceStep:
         return self._append(
             "decision",
@@ -174,6 +196,8 @@ class Trace:
             chosen=chosen,
             confidence=round(confidence, 4),
             rationale=rationale,
+            cost_sgd=round(cost_sgd, 2),
+            emissions_kg_co2e=round(emissions_kg_co2e, 2),
         )
 
     def tool_call(
@@ -261,6 +285,11 @@ class Trace:
 
     # --- outcome ------------------------------------------------------------
 
+    def commit_action_cost(self, cost_sgd: float, emissions_kg_co2e: float) -> None:
+        """Record what the executed action actually costs, once it fires."""
+        self.committed_cost_sgd = round(cost_sgd, 2)
+        self.committed_emissions_kg = round(emissions_kg_co2e, 2)
+
     def close(
         self,
         resolution: Resolution,
@@ -301,6 +330,8 @@ class Trace:
                     else None
                 ),
                 "options_alive_at_send": self.options_alive_at_send,
+                "action_cost_sgd": self.committed_cost_sgd,
+                "action_emissions_kg_co2e": self.committed_emissions_kg,
             },
             "cost": self.cost.as_dict(),
         }
@@ -377,6 +408,12 @@ class TraceStore:
         return {
             "closed": len(closed),
             "at_risk": len(at_risk),
+            "action_cost_sgd": round(
+                sum(t.committed_cost_sgd for t in closed), 2
+            ),
+            "action_emissions_kg_co2e": round(
+                sum(t.committed_emissions_kg for t in closed), 2
+            ),
             "served": len(served),
             "service_rate": (len(served) / len(at_risk)) if at_risk else None,
             "excluded_dismissed": sum(

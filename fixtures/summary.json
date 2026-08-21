@@ -2,6 +2,8 @@
   "scenarios": 6,
   "closed": 6,
   "at_risk": 4,
+  "action_cost_sgd": 0.0,
+  "action_emissions_kg_co2e": 0.0,
   "served": 3,
   "service_rate": 0.75,
   "excluded_dismissed": 1,

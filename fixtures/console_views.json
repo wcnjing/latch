@@ -53,14 +53,7 @@
       ]
     },
     "confidence_headline": "0.62 \u2014 below 0.70, approval escalated one level",
-    "ladder": [
-      {
-        "option_id": "rung_3_move",
-        "rung": "rung_3_move",
-        "detail": "Barge slot covers all 34 boxes within the window at lower emissions than road; capacity read is from cache, so the number is provisional.",
-        "status": "chosen"
-      }
-    ],
+    "ladder": [],
     "approvals": [
       {
         "rung": "rung_3_move",
@@ -137,14 +130,7 @@
       ]
     },
     "confidence_headline": "1.00 \u2014 within policy, no signature required",
-    "ladder": [
-      {
-        "option_id": "rung_3_move",
-        "rung": "rung_3_move",
-        "detail": "Higher boxes-at-risk over remaining slack; takes the contested slot.",
-        "status": "chosen"
-      }
-    ],
+    "ladder": [],
     "approvals": [],
     "customer_gate": null,
     "cost": {
@@ -178,14 +164,7 @@
     "options_alive_at_send": 3,
     "confidence": null,
     "confidence_headline": null,
-    "ladder": [
-      {
-        "option_id": "rung_4_offer",
-        "rung": "rung_4_offer",
-        "detail": "Nothing left to resolve internally. Three outbound services still callable \u2014 put them to the line while they exist.",
-        "status": "chosen"
-      }
-    ],
+    "ladder": [],
     "approvals": [],
     "customer_gate": {
       "options_sent": 3,
@@ -290,14 +269,7 @@
     "options_alive_at_send": 2,
     "confidence": null,
     "confidence_headline": null,
-    "ladder": [
-      {
-        "option_id": "rung_4_offer",
-        "rung": "rung_4_offer",
-        "detail": "Two outbound services still callable. Escalating before internal evaluation completes: option count decays faster than certainty improves.",
-        "status": "chosen"
-      }
-    ],
+    "ladder": [],
     "approvals": [],
     "customer_gate": {
       "options_sent": 2,
