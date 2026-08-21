@@ -27,7 +27,14 @@ from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from latch.connections import ConnectionParams, SyntheticConnection, connection_for
-from latch.events import ReasonCode, RiskEvent, RiskSeverity, WatcherConfidence
+from latch.events import (
+    Assumptions,
+    ConnectionType,
+    ReasonCode,
+    RiskEvent,
+    RiskSeverity,
+    WatcherConfidence,
+)
 from latch.models import TerminalResolution
 
 # A's DataQuality values, mapped to how much B should trust the assessment.
@@ -166,6 +173,17 @@ def to_risk_event(
         reason_codes=_reason_codes(breakdown, connection),
         detected_at=signal.observed_at,
         ucid=f"UCID-SYNTH-{connection.connection_id.removeprefix('conn_')}",
+        assumptions=Assumptions(
+            connection_type=(
+                ConnectionType.INTER_TERMINAL
+                if connection.requires_transfer
+                else ConnectionType.SAME_TERMINAL
+            ),
+            transfer_scenario=(
+                "configured reference transfer scenario "
+                f"({connection.params.planned_transfer_h:.1f}h assumed transfer)"
+            ),
+        ),
         inbound_terminal=connection.inbound_terminal,
         outbound_terminal=connection.outbound_terminal,
         # The terminals are ours, not the feed's. This lowers confidence

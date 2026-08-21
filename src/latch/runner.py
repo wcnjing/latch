@@ -75,7 +75,9 @@ class Outcome:
     gate: GateDecision | None = None
 
 
-def _record_deliberation(trace: Trace, result: DeliberationResult) -> None:
+def _record_deliberation(
+    trace: Trace, result: DeliberationResult, qualifier: str
+) -> None:
     for tool in result.tool_results:
         trace.tool_call(
             tool.tool,
@@ -112,7 +114,8 @@ def _record_deliberation(trace: Trace, result: DeliberationResult) -> None:
         )
     for ruled_out in result.excluded:
         trace.observation(
-            f"ruled out {ruled_out.option_id}: {ruled_out.reason}",
+            f"{qualifier.lower()}, ruled out "
+            f"{ruled_out.option_id}: {ruled_out.reason}",
             rung=ruled_out.rung.value,
             considered=True,
         )
@@ -149,13 +152,23 @@ def handle(
     trace = store.open(risk)
     state = RiskState.DETECTED
 
+    # Every derived figure below is a scenario output, not an observation.
+    # Stating them flat would put "PSA confirmed this needs 5.2 hours" into an
+    # audit trail — a fabricated claim about the real world.
+    assumptions = event.assumptions
     trace.observation(
-        f"{event.state.value}: {event.affected_boxes} boxes, "
-        f"{event.current_plan_slack_hours:+.1f}h slack, "
-        f"{event.no_itt_slack_hours:+.1f}h without the transfer",
+        f"{assumptions.qualifier}: {event.state.value}, "
+        f"{event.affected_boxes} boxes, "
+        f"{event.current_plan_slack_hours:+.1f}h remaining margin "
+        f"({event.no_itt_slack_hours:+.1f}h if the transfer requirement were removed)",
+        connection_type=assumptions.connection_type.value,
         reason_codes=[c.value for c in event.reason_codes],
         watcher_confidence=event.watcher_confidence.value,
         priority=round(event.priority, 2),
+    )
+    trace.observation(
+        "assumption basis for every figure in this trace",
+        **assumptions.as_dict(),
     )
 
     # --- triage -------------------------------------------------------------
@@ -179,7 +192,7 @@ def handle(
 
     # --- deliberate ---------------------------------------------------------
     result = deliberate(risk, event, client, failures=failures, itt_cache=itt_cache)
-    _record_deliberation(trace, result)
+    _record_deliberation(trace, result, assumptions.qualifier)
 
     breakdown = score(result.chosen.provenance) if result.chosen else None
     if breakdown is not None:

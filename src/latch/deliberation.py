@@ -84,7 +84,15 @@ survive, go to Rung 4 while the choice is still real. A choice offered early is 
 a decision; the same choice offered late is a notification.
 
 Where Rung 3 options differ on speed, cost and emissions, say which tradeoff you \
-made rather than leaving it implicit."""
+made rather than leaving it implicit.
+
+Every figure you are given — margins, transfer times, box counts, terminals — is \
+the output of a configured scenario, not something anyone has confirmed about a \
+real container. Write your rationale so it stays true under that reading. Say \
+"the assumed road transfer arrives before the modelled cutoff", never "PSA \
+confirmed this container needs 5.2 hours to transfer". You are reasoning about a \
+model of the port, and the rationale goes into an audit trail that must not \
+claim otherwise."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,8 +236,9 @@ def build_candidates(
                     option_id=slot.slot_id,
                     rung=Rung.MOVE,
                     reason=(
-                        f"{slot.mode.value} transit is {transit}m against a "
-                        f"{window:.0f}m window; arrives after the cutoff"
+                        f"assumed {slot.mode.value} transit of {transit}m "
+                        f"exceeds the {window:.0f}m window; would arrive after "
+                        "the modelled cutoff"
                     ),
                 )
             )

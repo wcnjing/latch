@@ -18,7 +18,7 @@ A's confidence is an *input* to B's. It never overwrites it, and a HIGH from
 the Watcher cannot make a plan built on stale cache data trustworthy.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -50,6 +50,67 @@ class WatcherConfidence(StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
+
+
+class ConnectionType(StrEnum):
+    """Whether the cargo has to cross terminals. The one structural fact the
+    agent reasons about, and it is assumed rather than observed."""
+
+    SAME_TERMINAL = "SAME_TERMINAL"
+    INTER_TERMINAL = "INTER_TERMINAL"
+
+
+@dataclass(frozen=True, slots=True)
+class Assumptions:
+    """The narrow slice of provenance that changes how the agent reasons.
+
+    Deliberately not the full assumption register — B does not need to carry
+    A's methodology. It needs exactly the facts that determine whether a
+    statement in a trace is an observation or a scenario output, because an
+    agent that writes "PSA confirmed this container needs 5.2 hours to
+    transfer" has fabricated a claim about the real world.
+
+    Everything here defaults to synthetic. An event that arrives without
+    provenance is treated as invented, because assuming the safer thing about
+    unlabelled data is the only default that cannot mislead.
+    """
+
+    connection_type: ConnectionType = ConnectionType.SAME_TERMINAL
+    ucid_synthetic: bool = True
+    pairing_synthetic: bool = True
+    terminals_synthetic: bool = True
+    boxes_synthetic: bool = True
+    transfer_scenario: str = "configured reference transfer scenario"
+
+    @property
+    def any_synthetic(self) -> bool:
+        return (
+            self.ucid_synthetic
+            or self.pairing_synthetic
+            or self.terminals_synthetic
+            or self.boxes_synthetic
+        )
+
+    @property
+    def qualifier(self) -> str:
+        """The phrase every derived figure is stated under.
+
+        Used verbatim so the hedge is consistent, and so a reader who sees it
+        once learns what it covers rather than parsing a new caveat each time.
+        """
+        return f"Under the {self.transfer_scenario}"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "connection_type": self.connection_type.value,
+            "ucid_synthetic": self.ucid_synthetic,
+            "pairing_synthetic": self.pairing_synthetic,
+            "terminals_synthetic": self.terminals_synthetic,
+            "boxes_synthetic": self.boxes_synthetic,
+            "transfer_scenario": self.transfer_scenario,
+            "slack_is_scenario_output": True,
+            "no_itt_slack_means": "margin if the transfer requirement were removed",
+        }
 
 
 class ReasonCode(StrEnum):
@@ -96,6 +157,7 @@ class RiskEvent:
     inbound_terminal: Terminal = Terminal.UNKNOWN
     outbound_terminal: Terminal = Terminal.UNKNOWN
     terminal_resolution: TerminalResolution = TerminalResolution.SIMULATED
+    assumptions: "Assumptions" = field(default_factory=lambda: Assumptions())
     inbound_vessel: str = "UNKNOWN"
     outbound_vessel: str = "UNKNOWN"
     source: str = "watcher.mock"
