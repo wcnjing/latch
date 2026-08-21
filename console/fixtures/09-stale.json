@@ -1,0 +1,232 @@
+{
+  "fixture_id": "09-stale",
+  "title": "STALE \u2014 upstream data missing, gates tightened",
+  "what_it_shows": "Both read tools fail with nothing cached. The agent has nothing to propose and says so rather than guessing. Confidence is not computed at all, because a plan resting on nothing we can name is not a plan.",
+  "provenance": {
+    "produced_by": "Trace + transition()",
+    "authored": true,
+    "authored_because": "RiskState.STALE is declared in B's state machine and no code path enters it (CONTRACTS.md section 8). This fixture is reachable-in-principle, not the output of a run. It exists so the console has a defined rendering if B wires the state up; it is not evidence that the behaviour exists today.",
+    "model_responses": "none consulted",
+    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections"
+  },
+  "event": {
+    "connection_id": "SG-CONN-4550",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -1.4,
+    "no_itt_slack_hours": 3.8,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 53,
+    "confidence": "LOW",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "INTER_TERMINAL_TRANSFER_TIME"
+    ],
+    "detected_at": "2026-08-30T04:33:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4550",
+    "inbound_terminal": "tuas",
+    "outbound_terminal": "pasir_panjang",
+    "terminal_resolution": "simulated",
+    "inbound_vessel": "SYNTHETIC PIL",
+    "outbound_vessel": "SYNTHETIC FEEDER IX",
+    "source": "ais_replay+synthetic_connection"
+  },
+  "derived": {
+    "is_actionable": true,
+    "slack_deficit_hours": 1.4,
+    "itt_cost_hours": 5.2,
+    "itt_is_the_problem": true,
+    "priority": 212.0,
+    "watcher_confidence_factor": 0.75
+  },
+  "assumptions": {
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
+  },
+  "risk": {
+    "wire_version": 1,
+    "risk_id": "SG-CONN-4550",
+    "ucid": "UCID-SYNTH-SG-CONN-4550",
+    "detected_at": "2026-08-30T04:33:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC PIL",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T04:33:00+00:00",
+      "estimated": "2026-08-30T05:57:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER IX",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T08:21:00+00:00",
+      "estimated": "2026-08-30T08:21:00+00:00"
+    },
+    "boxes_at_risk": 53,
+    "slack_total_min": 228.0,
+    "slack_remaining_min": -84.0,
+    "source": "ais_replay+synthetic_connection",
+    "data_age_min": 0.0,
+    "derived": {
+      "eta_deviation_min": 84.0,
+      "slack_consumed_pct": 1.0,
+      "priority": 212.0,
+      "crosses_terminals": true
+    }
+  },
+  "trace": {
+    "trace_id": "cr_2026_08_30_0433_4550",
+    "risk_id": "SG-CONN-4550",
+    "ucid": "UCID-SYNTH-SG-CONN-4550",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 84,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713711+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 53 boxes, -1.4h remaining margin (+3.8h if the transfer requirement were removed)",
+        "connection_type": "INTER_TERMINAL",
+        "reason_codes": [
+          "INBOUND_ETA_SLIP",
+          "INTER_TERMINAL_TRANSFER_TIME"
+        ],
+        "watcher_confidence": "LOW",
+        "priority": 212.0
+      },
+      {
+        "seq": 2,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713715+00:00",
+        "summary": "assumption basis for every figure in this trace",
+        "connection_type": "INTER_TERMINAL",
+        "ucid_synthetic": true,
+        "pairing_synthetic": true,
+        "terminals_synthetic": true,
+        "boxes_synthetic": true,
+        "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+        "slack_is_scenario_output": true,
+        "no_itt_slack_means": "margin if the transfer requirement were removed"
+      },
+      {
+        "seq": 3,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.713717+00:00",
+        "tool": "query_itt_slot",
+        "status": "error",
+        "latency_ms": 420,
+        "attempts": 2
+      },
+      {
+        "seq": 4,
+        "type": "error",
+        "at": "2026-08-21T11:29:22.713719+00:00",
+        "tool": "query_itt_slot",
+        "error_class": "error",
+        "retries": 1,
+        "recovery": "no fallback available"
+      },
+      {
+        "seq": 5,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.713720+00:00",
+        "tool": "query_outbound_services",
+        "status": "error",
+        "latency_ms": 520,
+        "attempts": 2
+      },
+      {
+        "seq": 6,
+        "type": "error",
+        "at": "2026-08-21T11:29:22.713721+00:00",
+        "tool": "query_outbound_services",
+        "error_class": "error",
+        "retries": 1,
+        "recovery": "no fallback available"
+      },
+      {
+        "seq": 7,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713722+00:00",
+        "summary": "upstream inventory unavailable and nothing stale to fall back on; proceeding would be inventing capacity"
+      },
+      {
+        "seq": 8,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.713724+00:00",
+        "from_state": "detected",
+        "to_state": "stale",
+        "reason": "upstream data missing; gates tighten"
+      }
+    ],
+    "outcome": {
+      "resolution": null,
+      "service_success": null,
+      "boxes": 53,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "usd": 0,
+      "by_model": {}
+    }
+  },
+  "case_view": {
+    "trace_id": "cr_2026_08_30_0433_4550",
+    "risk_id": "SG-CONN-4550",
+    "ucid": "UCID-SYNTH-SG-CONN-4550",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 84,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "resolution": null,
+    "service_success": null,
+    "boxes": 53,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "usd": 0,
+      "by_model": {}
+    },
+    "step_count": 8
+  },
+  "result": {
+    "state": "stale",
+    "resolution": null,
+    "service_success": null
+  },
+  "gate": null,
+  "model_calls": []
+}

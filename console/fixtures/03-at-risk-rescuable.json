@@ -1,0 +1,458 @@
+{
+  "fixture_id": "03-at-risk-rescuable",
+  "title": "AT RISK \u2014 the transfer is the problem",
+  "what_it_shows": "itt_is_the_problem is true: 2.4h of margin without the transfer, -1.8h with it. B emits a Rung 1 advisory alongside the Rung 3 move, never instead of it, and the barge legs are excluded because their assumed transit misses the modelled cutoff.",
+  "provenance": {
+    "produced_by": "runner.handle()",
+    "authored": false,
+    "model_responses": "scripted",
+    "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
+    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
+  },
+  "event": {
+    "connection_id": "SG-CONN-4490",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -1.8,
+    "no_itt_slack_hours": 2.4,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 84,
+    "confidence": "MEDIUM",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "INTER_TERMINAL_TRANSFER_TIME"
+    ],
+    "detected_at": "2026-08-30T04:21:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4490",
+    "inbound_terminal": "tuas",
+    "outbound_terminal": "pasir_panjang",
+    "terminal_resolution": "simulated",
+    "inbound_vessel": "SYNTHETIC CMA",
+    "outbound_vessel": "SYNTHETIC FEEDER III",
+    "source": "ais_replay+synthetic_connection"
+  },
+  "derived": {
+    "is_actionable": true,
+    "slack_deficit_hours": 1.8,
+    "itt_cost_hours": 4.2,
+    "itt_is_the_problem": true,
+    "priority": 336.0,
+    "watcher_confidence_factor": 0.9
+  },
+  "assumptions": {
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
+  },
+  "risk": {
+    "wire_version": 1,
+    "risk_id": "SG-CONN-4490",
+    "ucid": "UCID-SYNTH-SG-CONN-4490",
+    "detected_at": "2026-08-30T04:21:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC CMA",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T04:21:00+00:00",
+      "estimated": "2026-08-30T06:09:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER III",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T06:45:00+00:00",
+      "estimated": "2026-08-30T06:45:00+00:00"
+    },
+    "boxes_at_risk": 84,
+    "slack_total_min": 144.0,
+    "slack_remaining_min": -108.0,
+    "source": "ais_replay+synthetic_connection",
+    "data_age_min": 0.0,
+    "derived": {
+      "eta_deviation_min": 108.0,
+      "slack_consumed_pct": 1.0,
+      "priority": 336.0,
+      "crosses_terminals": true
+    }
+  },
+  "trace": {
+    "trace_id": "cr_2026_08_30_0421_4490",
+    "risk_id": "SG-CONN-4490",
+    "ucid": "UCID-SYNTH-SG-CONN-4490",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 108,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.706069+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 84 boxes, -1.8h remaining margin (+2.4h if the transfer requirement were removed)",
+        "connection_type": "INTER_TERMINAL",
+        "reason_codes": [
+          "INBOUND_ETA_SLIP",
+          "INTER_TERMINAL_TRANSFER_TIME"
+        ],
+        "watcher_confidence": "MEDIUM",
+        "priority": 336.0
+      },
+      {
+        "seq": 2,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.706083+00:00",
+        "summary": "assumption basis for every figure in this trace",
+        "connection_type": "INTER_TERMINAL",
+        "ucid_synthetic": true,
+        "pairing_synthetic": true,
+        "terminals_synthetic": true,
+        "boxes_synthetic": true,
+        "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+        "slack_is_scenario_output": true,
+        "no_itt_slack_means": "margin if the transfer requirement were removed"
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.706100+00:00",
+        "summary": "84 boxes already past the window by 1.8h; deliberating without asking.",
+        "triage_route": "fast_tracked"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706107+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "fast_tracked"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706110+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.706457+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420,
+        "attempts": 1
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.706464+00:00",
+        "tool": "query_outbound_services",
+        "status": "ok",
+        "latency_ms": 260,
+        "attempts": 1
+      },
+      {
+        "seq": 8,
+        "type": "model_call",
+        "at": "2026-08-21T11:29:22.706475+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 558,
+        "output_tokens": 75,
+        "usd": 0.004665
+      },
+      {
+        "seq": 9,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.706480+00:00",
+        "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1120: assumed barge transit of 190m exceeds the 144m window; would arrive after the modelled cutoff",
+        "rung": "rung_3_move",
+        "considered": true
+      },
+      {
+        "seq": 10,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.706485+00:00",
+        "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1160: assumed barge transit of 190m exceeds the 144m window; would arrive after the modelled cutoff",
+        "rung": "rung_3_move",
+        "considered": true
+      },
+      {
+        "seq": 11,
+        "type": "confidence",
+        "at": "2026-08-21T11:29:22.706515+00:00",
+        "computed": 0.8,
+        "method": "provenance",
+        "factors": {
+          "source": "cache",
+          "source_factor": 0.85,
+          "data_age_min": 0.0,
+          "age_factor": 1.0,
+          "tool_outcome": "ok",
+          "tool_factor": 1.0,
+          "unverified_inputs": 1,
+          "unverified_penalty": 0.05
+        },
+        "derivation": "source=0.85 (cache) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.05 (1 of 3) = 0.80"
+      },
+      {
+        "seq": 12,
+        "type": "decision",
+        "at": "2026-08-21T11:29:22.706523+00:00",
+        "rung": "rung_1_inform",
+        "chosen": false,
+        "confidence": 0.8,
+        "rationale": "co-locating would recover 4.2h of margin (density 1.00)"
+      },
+      {
+        "seq": 13,
+        "type": "decision",
+        "at": "2026-08-21T11:29:22.706527+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 0.8,
+        "rationale": "Lowest on both emissions (1,042 kg CO2e) and cost (SGD 4,032) among the legs that arrive before the modelled cutoff; no tradeoff to make."
+      },
+      {
+        "seq": 14,
+        "type": "lock",
+        "at": "2026-08-21T11:29:22.706546+00:00",
+        "resource": "itt_slot:tuapas_1100",
+        "status": "held",
+        "our_priority": 336.0,
+        "winner_priority": null,
+        "action": "uncontested"
+      },
+      {
+        "seq": 15,
+        "type": "gate",
+        "at": "2026-08-21T11:29:22.706562+00:00",
+        "rung": "rung_3_move",
+        "required_role": "vessel_ops",
+        "escalated": true,
+        "escalation_reason": "84 boxes over the 40-box limit",
+        "status": "required",
+        "latency_s": 0.0
+      },
+      {
+        "seq": 16,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706570+00:00",
+        "from_state": "deliberating",
+        "to_state": "awaiting_approval",
+        "reason": "84 boxes over the 40-box limit"
+      },
+      {
+        "seq": 17,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706573+00:00",
+        "from_state": "awaiting_approval",
+        "to_state": "escalated",
+        "reason": "84 boxes over the 40-box limit"
+      },
+      {
+        "seq": 18,
+        "type": "gate",
+        "at": "2026-08-21T11:29:22.706579+00:00",
+        "rung": "rung_3_move",
+        "required_role": "vessel_ops",
+        "escalated": true,
+        "escalation_reason": "",
+        "status": "approved",
+        "latency_s": 0.0
+      },
+      {
+        "seq": 19,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706582+00:00",
+        "from_state": "escalated",
+        "to_state": "executing",
+        "reason": "approved"
+      },
+      {
+        "seq": 20,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.706593+00:00",
+        "tool": "book_itt_leg",
+        "status": "ok",
+        "latency_ms": 850
+      },
+      {
+        "seq": 21,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.706603+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "connection_held"
+      }
+    ],
+    "outcome": {
+      "resolution": "connection_held",
+      "service_success": true,
+      "boxes": 84,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 558,
+      "output_tokens": 75,
+      "usd": 0.004665,
+      "by_model": {
+        "claude-opus-5": 0.004665
+      }
+    }
+  },
+  "case_view": {
+    "trace_id": "cr_2026_08_30_0421_4490",
+    "risk_id": "SG-CONN-4490",
+    "ucid": "UCID-SYNTH-SG-CONN-4490",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 108,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "resolution": "connection_held",
+    "service_success": true,
+    "boxes": 84,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": {
+      "value": 0.8,
+      "band": "auto",
+      "threshold": 0.7,
+      "derivation": "source=0.85 (cache) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.05 (1 of 3) = 0.80",
+      "waterfall": [
+        {
+          "label": "Source",
+          "detail": "cache",
+          "kind": "multiply",
+          "factor": 0.85,
+          "running": 0.85
+        },
+        {
+          "label": "Data age",
+          "detail": "0 min old",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 0.85
+        },
+        {
+          "label": "Tool outcome",
+          "detail": "ok",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 0.85
+        },
+        {
+          "label": "Unverified inputs",
+          "detail": "1 of them",
+          "kind": "subtract",
+          "factor": 0.05,
+          "running": 0.8
+        }
+      ]
+    },
+    "confidence_headline": "0.80 \u2014 within policy, no signature required",
+    "ladder": [
+      {
+        "option_id": "under the configured reference transfer scenario (1.5h assumed transfer), tuapas_1120",
+        "rung": "rung_3_move",
+        "detail": "assumed barge transit of 190m exceeds the 144m window; would arrive after the modelled cutoff",
+        "status": "ruled_out"
+      },
+      {
+        "option_id": "under the configured reference transfer scenario (1.5h assumed transfer), tuapas_1160",
+        "rung": "rung_3_move",
+        "detail": "assumed barge transit of 190m exceeds the 144m window; would arrive after the modelled cutoff",
+        "status": "ruled_out"
+      },
+      {
+        "option_id": "rung_1_inform",
+        "rung": "rung_1_inform",
+        "detail": "co-locating would recover 4.2h of margin (density 1.00)",
+        "status": "advisory"
+      },
+      {
+        "option_id": "rung_3_move",
+        "rung": "rung_3_move",
+        "detail": "Lowest on both emissions (1,042 kg CO2e) and cost (SGD 4,032) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [
+      {
+        "rung": "rung_3_move",
+        "role": "vessel_ops",
+        "escalated": true,
+        "reason": "84 boxes over the 40-box limit",
+        "status": "required"
+      },
+      {
+        "rung": "rung_3_move",
+        "role": "vessel_ops",
+        "escalated": true,
+        "reason": "",
+        "status": "approved"
+      }
+    ],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 558,
+      "output_tokens": 75,
+      "usd": 0.004665,
+      "by_model": {
+        "claude-opus-5": 0.004665
+      }
+    },
+    "step_count": 21
+  },
+  "result": {
+    "state": "resolved",
+    "resolution": "connection_held",
+    "service_success": true
+  },
+  "gate": {
+    "rung": "rung_3_move",
+    "required_role": "vessel_ops",
+    "escalated": true,
+    "escalation_reason": "84 boxes over the 40-box limit",
+    "auto_approved": false,
+    "blocks": true,
+    "needs_customer": false,
+    "ladder": [
+      "auto",
+      "vessel_ops",
+      "duty_manager"
+    ],
+    "would_have_been": "auto",
+    "confidence_threshold": 0.7
+  },
+  "model_calls": [
+    {
+      "purpose": "deliberation",
+      "model": "claude-opus-5"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "fixture_id": "01-safe",
+  "title": "SAFE \u2014 dismissed at triage",
+  "what_it_shows": "The funnel working. A SAFE event never reaches a model: triage.prefilter dismisses it deterministically, so the trace carries no model_call step and the run costs nothing.",
+  "provenance": {
+    "produced_by": "runner.handle()",
+    "authored": false,
+    "model_responses": "scripted",
+    "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
+    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
+  },
+  "event": {
+    "connection_id": "SG-CONN-4471",
+    "state": "SAFE",
+    "current_plan_slack_hours": 9.6,
+    "no_itt_slack_hours": 13.8,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 12,
+    "confidence": "HIGH",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP"
+    ],
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4471",
+    "inbound_terminal": "tuas",
+    "outbound_terminal": "pasir_panjang",
+    "terminal_resolution": "simulated",
+    "inbound_vessel": "SYNTHETIC EVER",
+    "outbound_vessel": "SYNTHETIC KOTA",
+    "source": "ais_replay+synthetic_connection"
+  },
+  "derived": {
+    "is_actionable": false,
+    "slack_deficit_hours": 0.0,
+    "itt_cost_hours": 4.2,
+    "itt_is_the_problem": false,
+    "priority": 1.25,
+    "watcher_confidence_factor": 1.0
+  },
+  "assumptions": {
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
+  },
+  "risk": {
+    "wire_version": 1,
+    "risk_id": "SG-CONN-4471",
+    "ucid": "UCID-SYNTH-SG-CONN-4471",
+    "detected_at": "2026-08-30T04:17:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC EVER",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T04:17:00+00:00",
+      "estimated": "2026-08-30T04:17:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC KOTA",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T18:05:00+00:00",
+      "estimated": "2026-08-30T18:05:00+00:00"
+    },
+    "boxes_at_risk": 12,
+    "slack_total_min": 828.0,
+    "slack_remaining_min": 576.0,
+    "source": "ais_replay+synthetic_connection",
+    "data_age_min": 0.0,
+    "derived": {
+      "eta_deviation_min": 0.0,
+      "slack_consumed_pct": 0.3043,
+      "priority": 1.25,
+      "crosses_terminals": true
+    }
+  },
+  "trace": {
+    "trace_id": "cr_2026_08_30_0417_4471",
+    "risk_id": "SG-CONN-4471",
+    "ucid": "UCID-SYNTH-SG-CONN-4471",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 0,
+      "slack_consumed_pct": 0.304,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.704465+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): SAFE, 12 boxes, +9.6h remaining margin (+13.8h if the transfer requirement were removed)",
+        "connection_type": "INTER_TERMINAL",
+        "reason_codes": [
+          "INBOUND_ETA_SLIP"
+        ],
+        "watcher_confidence": "HIGH",
+        "priority": 1.25
+      },
+      {
+        "seq": 2,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.704474+00:00",
+        "summary": "assumption basis for every figure in this trace",
+        "connection_type": "INTER_TERMINAL",
+        "ucid_synthetic": true,
+        "pairing_synthetic": true,
+        "terminals_synthetic": true,
+        "boxes_synthetic": true,
+        "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+        "slack_is_scenario_output": true,
+        "no_itt_slack_means": "margin if the transfer requirement were removed"
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.704480+00:00",
+        "summary": "Watcher reports SAFE with 9.6h of slack; nothing to decide.",
+        "triage_route": "dismissed_safe"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.704483+00:00",
+        "from_state": "detected",
+        "to_state": "dismissed",
+        "reason": "Watcher reports SAFE with 9.6h of slack; nothing to decide."
+      }
+    ],
+    "outcome": {
+      "resolution": "dismissed_no_action",
+      "service_success": false,
+      "boxes": 12,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "usd": 0,
+      "by_model": {}
+    }
+  },
+  "case_view": {
+    "trace_id": "cr_2026_08_30_0417_4471",
+    "risk_id": "SG-CONN-4471",
+    "ucid": "UCID-SYNTH-SG-CONN-4471",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 0,
+      "slack_consumed_pct": 0.304,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "resolution": "dismissed_no_action",
+    "service_success": false,
+    "boxes": 12,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "usd": 0,
+      "by_model": {}
+    },
+    "step_count": 4
+  },
+  "result": {
+    "state": "dismissed",
+    "resolution": "dismissed_no_action",
+    "service_success": false
+  },
+  "gate": null,
+  "model_calls": []
+}

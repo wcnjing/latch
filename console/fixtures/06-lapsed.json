@@ -1,0 +1,421 @@
+{
+  "fixture_id": "06-lapsed",
+  "title": "LAPSED \u2014 nobody signed, the default action fired",
+  "what_it_shows": "96 boxes trips the volume gate, so a signature is required. None arrives. B moves the case to LAPSED and fires the default action anyway, because doing nothing is also a decision and is traced as one.",
+  "provenance": {
+    "produced_by": "runner.handle()",
+    "authored": false,
+    "model_responses": "scripted",
+    "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
+    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
+  },
+  "event": {
+    "connection_id": "SG-CONN-4526",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -1.1,
+    "no_itt_slack_hours": 5.5,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 96,
+    "confidence": "MEDIUM",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "INTER_TERMINAL_TRANSFER_TIME"
+    ],
+    "detected_at": "2026-08-30T04:27:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4526",
+    "inbound_terminal": "tuas",
+    "outbound_terminal": "pasir_panjang",
+    "terminal_resolution": "simulated",
+    "inbound_vessel": "SYNTHETIC YANG MING",
+    "outbound_vessel": "SYNTHETIC FEEDER VI",
+    "source": "ais_replay+synthetic_connection"
+  },
+  "derived": {
+    "is_actionable": true,
+    "slack_deficit_hours": 1.1,
+    "itt_cost_hours": 6.6,
+    "itt_is_the_problem": true,
+    "priority": 384.0,
+    "watcher_confidence_factor": 0.9
+  },
+  "assumptions": {
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
+  },
+  "risk": {
+    "wire_version": 1,
+    "risk_id": "SG-CONN-4526",
+    "ucid": "UCID-SYNTH-SG-CONN-4526",
+    "detected_at": "2026-08-30T04:27:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC YANG MING",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T04:27:00+00:00",
+      "estimated": "2026-08-30T05:33:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER VI",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T09:57:00+00:00",
+      "estimated": "2026-08-30T09:57:00+00:00"
+    },
+    "boxes_at_risk": 96,
+    "slack_total_min": 330.0,
+    "slack_remaining_min": -66.0,
+    "source": "ais_replay+synthetic_connection",
+    "data_age_min": 0.0,
+    "derived": {
+      "eta_deviation_min": 66.0,
+      "slack_consumed_pct": 1.0,
+      "priority": 384.0,
+      "crosses_terminals": true
+    }
+  },
+  "trace": {
+    "trace_id": "cr_2026_08_30_0427_4526",
+    "risk_id": "SG-CONN-4526",
+    "ucid": "UCID-SYNTH-SG-CONN-4526",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 66,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.711719+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 96 boxes, -1.1h remaining margin (+5.5h if the transfer requirement were removed)",
+        "connection_type": "INTER_TERMINAL",
+        "reason_codes": [
+          "INBOUND_ETA_SLIP",
+          "INTER_TERMINAL_TRANSFER_TIME"
+        ],
+        "watcher_confidence": "MEDIUM",
+        "priority": 384.0
+      },
+      {
+        "seq": 2,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.711730+00:00",
+        "summary": "assumption basis for every figure in this trace",
+        "connection_type": "INTER_TERMINAL",
+        "ucid_synthetic": true,
+        "pairing_synthetic": true,
+        "terminals_synthetic": true,
+        "boxes_synthetic": true,
+        "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+        "slack_is_scenario_output": true,
+        "no_itt_slack_means": "margin if the transfer requirement were removed"
+      },
+      {
+        "seq": 3,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.711740+00:00",
+        "summary": "96 boxes already past the window by 1.1h; deliberating without asking.",
+        "triage_route": "fast_tracked"
+      },
+      {
+        "seq": 4,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.711745+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "fast_tracked"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.711747+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 6,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.711954+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420,
+        "attempts": 1
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.711957+00:00",
+        "tool": "query_outbound_services",
+        "status": "ok",
+        "latency_ms": 260,
+        "attempts": 1
+      },
+      {
+        "seq": 8,
+        "type": "model_call",
+        "at": "2026-08-21T11:29:22.711963+00:00",
+        "model": "claude-opus-5",
+        "purpose": "deliberation",
+        "input_tokens": 613,
+        "output_tokens": 90,
+        "usd": 0.005315
+      },
+      {
+        "seq": 9,
+        "type": "confidence",
+        "at": "2026-08-21T11:29:22.711980+00:00",
+        "computed": 0.8,
+        "method": "provenance",
+        "factors": {
+          "source": "cache",
+          "source_factor": 0.85,
+          "data_age_min": 0.0,
+          "age_factor": 1.0,
+          "tool_outcome": "ok",
+          "tool_factor": 1.0,
+          "unverified_inputs": 1,
+          "unverified_penalty": 0.05
+        },
+        "derivation": "source=0.85 (cache) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.05 (1 of 3) = 0.80"
+      },
+      {
+        "seq": 10,
+        "type": "decision",
+        "at": "2026-08-21T11:29:22.711983+00:00",
+        "rung": "rung_1_inform",
+        "chosen": false,
+        "confidence": 0.8,
+        "rationale": "co-locating would recover 6.6h of margin (density 1.00)"
+      },
+      {
+        "seq": 11,
+        "type": "decision",
+        "at": "2026-08-21T11:29:22.711986+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 0.8,
+        "rationale": "Lowest on both emissions (394 kg CO2e) and cost (SGD 2,976) among the legs that arrive before the modelled cutoff; no tradeoff to make."
+      },
+      {
+        "seq": 12,
+        "type": "lock",
+        "at": "2026-08-21T11:29:22.711996+00:00",
+        "resource": "itt_slot:tuapas_1120",
+        "status": "held",
+        "our_priority": 384.0,
+        "winner_priority": null,
+        "action": "uncontested"
+      },
+      {
+        "seq": 13,
+        "type": "gate",
+        "at": "2026-08-21T11:29:22.712004+00:00",
+        "rung": "rung_3_move",
+        "required_role": "vessel_ops",
+        "escalated": true,
+        "escalation_reason": "96 boxes over the 40-box limit",
+        "status": "required",
+        "latency_s": 0.0
+      },
+      {
+        "seq": 14,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.712007+00:00",
+        "from_state": "deliberating",
+        "to_state": "awaiting_approval",
+        "reason": "96 boxes over the 40-box limit"
+      },
+      {
+        "seq": 15,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.712009+00:00",
+        "from_state": "awaiting_approval",
+        "to_state": "escalated",
+        "reason": "96 boxes over the 40-box limit"
+      },
+      {
+        "seq": 16,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.712011+00:00",
+        "from_state": "escalated",
+        "to_state": "lapsed",
+        "reason": "approval never came"
+      },
+      {
+        "seq": 17,
+        "type": "gate",
+        "at": "2026-08-21T11:29:22.712014+00:00",
+        "rung": "rung_3_move",
+        "required_role": "vessel_ops",
+        "escalated": true,
+        "escalation_reason": "",
+        "status": "lapsed",
+        "latency_s": 0.0
+      },
+      {
+        "seq": 18,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.712016+00:00",
+        "from_state": "lapsed",
+        "to_state": "executing",
+        "reason": "default action fires"
+      },
+      {
+        "seq": 19,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.712022+00:00",
+        "summary": "released 1 reservation(s)"
+      },
+      {
+        "seq": 20,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.712024+00:00",
+        "from_state": "executing",
+        "to_state": "resolved",
+        "reason": "window_lapsed_no_response"
+      }
+    ],
+    "outcome": {
+      "resolution": "window_lapsed_no_response",
+      "service_success": false,
+      "boxes": 96,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 613,
+      "output_tokens": 90,
+      "usd": 0.005315,
+      "by_model": {
+        "claude-opus-5": 0.005315
+      }
+    }
+  },
+  "case_view": {
+    "trace_id": "cr_2026_08_30_0427_4526",
+    "risk_id": "SG-CONN-4526",
+    "ucid": "UCID-SYNTH-SG-CONN-4526",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 66,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "resolution": "window_lapsed_no_response",
+    "service_success": false,
+    "boxes": 96,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": {
+      "value": 0.8,
+      "band": "auto",
+      "threshold": 0.7,
+      "derivation": "source=0.85 (cache) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.05 (1 of 3) = 0.80",
+      "waterfall": [
+        {
+          "label": "Source",
+          "detail": "cache",
+          "kind": "multiply",
+          "factor": 0.85,
+          "running": 0.85
+        },
+        {
+          "label": "Data age",
+          "detail": "0 min old",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 0.85
+        },
+        {
+          "label": "Tool outcome",
+          "detail": "ok",
+          "kind": "multiply",
+          "factor": 1.0,
+          "running": 0.85
+        },
+        {
+          "label": "Unverified inputs",
+          "detail": "1 of them",
+          "kind": "subtract",
+          "factor": 0.05,
+          "running": 0.8
+        }
+      ]
+    },
+    "confidence_headline": "0.80 \u2014 within policy, no signature required",
+    "ladder": [
+      {
+        "option_id": "rung_1_inform",
+        "rung": "rung_1_inform",
+        "detail": "co-locating would recover 6.6h of margin (density 1.00)",
+        "status": "advisory"
+      },
+      {
+        "option_id": "rung_3_move",
+        "rung": "rung_3_move",
+        "detail": "Lowest on both emissions (394 kg CO2e) and cost (SGD 2,976) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
+        "status": "chosen"
+      }
+    ],
+    "approvals": [
+      {
+        "rung": "rung_3_move",
+        "role": "vessel_ops",
+        "escalated": true,
+        "reason": "96 boxes over the 40-box limit",
+        "status": "required"
+      },
+      {
+        "rung": "rung_3_move",
+        "role": "vessel_ops",
+        "escalated": true,
+        "reason": "",
+        "status": "lapsed"
+      }
+    ],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 613,
+      "output_tokens": 90,
+      "usd": 0.005315,
+      "by_model": {
+        "claude-opus-5": 0.005315
+      }
+    },
+    "step_count": 20
+  },
+  "result": {
+    "state": "resolved",
+    "resolution": "window_lapsed_no_response",
+    "service_success": false
+  },
+  "gate": null,
+  "model_calls": [
+    {
+      "purpose": "deliberation",
+      "model": "claude-opus-5"
+    }
+  ]
+}

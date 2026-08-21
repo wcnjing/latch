@@ -1,0 +1,950 @@
+/**
+ * The only module in the console that touches A's and B's shapes.
+ *
+ * Everything downstream consumes `ConnectionVM`, so swapping fixtures for a
+ * live feed is a change to this file alone.
+ *
+ * Three rules hold throughout:
+ *
+ *   1. Nothing is invented. A field B does not carry becomes a `Missing`
+ *      marker naming the request that would fix it, never a zero or a blank.
+ *   2. Nothing is recomputed that B already computed. Confidence, priority,
+ *      slack consumption, escalation and service-success all come from A or B.
+ *      Where this file does derive something, it says so and — for the
+ *      unverified-field list — checks its answer against B's own count.
+ *   3. Enum strings never reach the screen. Every one is mapped to operator
+ *      English here.
+ *
+ * See CONTRACTS.md for why each gap exists.
+ */
+
+import {
+  GATE_LADDERS,
+  POLICY,
+  SERVICE_SUCCESS_RESOLUTIONS,
+  type ApprovalRole,
+  type ConfidenceStep,
+  type DecisionStep,
+  type ErrorStep,
+  type ExternalGateStep,
+  type GateStep,
+  type LockStep,
+  type ModelCallStep,
+  type ObservationStep,
+  type ReasonCode,
+  type Resolution,
+  type RiskSeverity,
+  type RiskState,
+  type Rung,
+  type StateChangeStep,
+  type Terminal,
+  type TerminalResolution,
+  type ToolCallStep,
+  type TraceStep,
+  type TraceWire,
+} from '../contracts/latch';
+
+import type {
+  ApprovalVM,
+  ConfidenceVM,
+  ConnectionVM,
+  CostVM,
+  CutRungVM,
+  DegradationVM,
+  EscalationVM,
+  FixtureBundle,
+  GateVM,
+  Lifecycle,
+  Missing,
+  OptionVM,
+  OutcomeVM,
+  ProvenanceVM,
+  ReasonVM,
+  RungVM,
+  SlackVM,
+  TimelineEventVM,
+  TimelineKind,
+  TimelineTone,
+  TriageVM,
+  Unverified,
+  VesselLegVM,
+  WaterfallStepVM,
+} from './types';
+
+/* =========================================================================
+ * Vocabulary — every enum the operator would otherwise have to read raw
+ * ====================================================================== */
+
+const RUNGS: Record<Rung, RungVM> = {
+  rung_1_inform: {
+    number: 1,
+    enumValue: 'rung_1_inform',
+    name: 'PREVENT',
+    does: 'Reassign the berth so both vessels work the same terminal, removing the transfer entirely',
+    authority: 'Berth Planner decides',
+    advisoryOnly: true,
+  },
+  rung_3_move: {
+    number: 3,
+    enumValue: 'rung_3_move',
+    name: 'MOVE',
+    does: 'Book the inter-terminal transfer slot',
+    authority: 'Vessel Operations decides',
+    advisoryOnly: false,
+  },
+  rung_4_offer: {
+    number: 4,
+    enumValue: 'rung_4_offer',
+    name: 'OFFER',
+    does: 'Put ranked options to the shipping line while the choice is still real',
+    authority: 'The shipping line decides — PSA cannot decide for them',
+    advisoryOnly: false,
+  },
+};
+
+/** Rendered as a visible gap in the ladder. Never renumbered away. */
+export const CUT_RUNG: CutRungVM = {
+  number: 2,
+  name: 'ABSORB',
+  whyCut:
+    'Resequencing discharge to buy hours was cut deliberately: it needs a stowage and crane model we would get wrong. The gap in the numbering is left visible rather than renumbered away.',
+};
+
+export const RUNG_ORDER: (RungVM | CutRungVM)[] = [
+  RUNGS.rung_1_inform,
+  CUT_RUNG,
+  RUNGS.rung_3_move,
+  RUNGS.rung_4_offer,
+];
+
+const ROLE_LABEL: Record<ApprovalRole, string> = {
+  auto: 'No signature required',
+  berth_planner: 'Berth Planner',
+  vessel_ops: 'Vessel Operations',
+  duty_manager: 'Duty Manager',
+  customer: 'Shipping line',
+};
+
+const TERMINAL_LABEL: Record<Terminal, string> = {
+  tuas: 'Tuas',
+  pasir_panjang: 'Pasir Panjang',
+  brani: 'Brani',
+  keppel: 'Keppel',
+  unknown: 'Terminal unknown',
+};
+
+const TERMINAL_RESOLUTION_LABEL: Record<TerminalResolution, string> = {
+  berth: 'Exact berth from the feed',
+  terminal: 'Terminal named in the feed',
+  inferred: 'Inferred from the service rotation',
+  simulated: 'Simulated — no claim to reality',
+};
+
+const SEVERITY_LABEL: Record<RiskSeverity, string> = {
+  SAFE: 'SAFE',
+  WATCH: 'WATCH',
+  AT_RISK: 'AT RISK',
+};
+
+const STATE_LABEL: Record<RiskState, string> = {
+  detected: 'Detected',
+  triaged: 'Triaged',
+  deliberating: 'Deliberating',
+  awaiting_approval: 'Awaiting approval',
+  escalated: 'Escalated',
+  awaiting_customer: 'Awaiting the line',
+  executing: 'Executing',
+  dismissed: 'Dismissed',
+  superseded: 'Superseded',
+  stale: 'Stale',
+  lost_lock: 'Lost the slot',
+  lapsed: 'Lapsed',
+  resolved: 'Resolved',
+  failed: 'Failed',
+};
+
+/** One line for the off-ramp states, so a badge never stands unexplained. */
+const STATE_NOTE: Partial<Record<RiskState, string>> = {
+  superseded:
+    'The arrival estimate improved while the agent was still working. Abandoned cleanly, and excluded from the metric — this was never a connection genuinely at risk of failing.',
+  stale:
+    'Upstream data went missing and there was nothing cached to fall back on. Confidence was not computed, because a plan resting on nothing we can name is not a plan. Gates tighten.',
+  lapsed:
+    'The approval never came. The default action fired anyway, because doing nothing is also a decision and is traced as one.',
+  lost_lock:
+    'A more urgent connection took the contested slot. This one re-deliberates with that option removed.',
+  dismissed: 'Triage decided there was nothing to act on, and spent nothing deciding it.',
+};
+
+const REASONS: Record<ReasonCode, { title: string; detail: string; emitted: boolean }> = {
+  INBOUND_ETA_SLIP: {
+    title: 'Inbound vessel running late',
+    detail: 'The arrival estimate has slipped against the time the connection was planned around.',
+    emitted: true,
+  },
+  INTER_TERMINAL_TRANSFER_TIME: {
+    title: 'Cargo has to cross terminals',
+    detail:
+      'The inbound and outbound legs are at different terminals, so an inter-terminal transfer sits on the critical path.',
+    emitted: true,
+  },
+  OUTBOUND_CUTOFF_ADVANCED: {
+    title: 'Outbound loading cut-off moved earlier',
+    detail: 'The window closed from the other end rather than the vessel being late.',
+    emitted: false,
+  },
+  BERTH_CONGESTION: {
+    title: 'Berth congestion at arrival',
+    detail: 'The vessel is expected to wait for a berth before discharge can start.',
+    emitted: false,
+  },
+  YARD_CONGESTION: {
+    title: 'Yard congestion',
+    detail: 'Yard density is expected to slow the move between discharge and the transfer.',
+    emitted: false,
+  },
+  DISCHARGE_SEQUENCE: {
+    title: 'Boxes are buried in the discharge sequence',
+    detail: 'The containers come off late in the sequence, eating the margin before the transfer starts.',
+    emitted: false,
+  },
+};
+
+const TRIAGE_LABEL: Record<string, string> = {
+  dismissed_safe: 'Dismissed — Watcher reports SAFE',
+  dismissed_too_small: 'Dismissed — below the volume floor',
+  fast_tracked: 'Fast-tracked — too serious to ask about',
+  model_kept: 'Kept by the triage model',
+  model_dismissed: 'Dismissed by the triage model',
+};
+
+const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: string }> = {
+  connection_held: {
+    label: 'Connection held',
+    what: 'The boxes made the outbound vessel.',
+    why: 'Resolved inside PSA without spending the line’s attention.',
+  },
+  customer_decided: {
+    label: 'The line decided',
+    what: 'The line chose one of the options it was given.',
+    why: 'A live decision held before the window closed. This is what the system is for.',
+  },
+  customer_declined_all: {
+    label: 'The line declined every option',
+    what: 'The boxes rolled to the next service.',
+    why: 'The line was asked, had real options, and said no. That is a served customer, not a service failure.',
+  },
+  window_lapsed_no_response: {
+    label: 'Window lapsed — no response',
+    what: 'The boxes rolled to the next service.',
+    why: 'Nobody answered before the window closed. The box rolls either way; the difference is that this customer was never actually served.',
+  },
+  dismissed_no_action: {
+    label: 'Dismissed at triage',
+    what: 'Nothing was done, and nothing needed to be.',
+    why: 'Excluded from the metric — counting it would punish the system for correctly deciding there was nothing to do.',
+  },
+  superseded: {
+    label: 'Superseded',
+    what: 'The risk evaporated before anything was acted on.',
+    why: 'Excluded from the metric for the same reason as a dismissal.',
+  },
+  failed: {
+    label: 'Failed',
+    what: 'The agent broke.',
+    why: 'This is us failing, not the connection.',
+  },
+};
+
+const EXCLUDED_FROM_METRIC: Resolution[] = ['dismissed_no_action', 'superseded'];
+
+/* =========================================================================
+ * Step helpers
+ * ====================================================================== */
+
+const isType = <T extends TraceStep>(kind: T['type']) => (s: TraceStep): s is T => s.type === kind;
+
+const observations = (t: TraceWire) => t.steps.filter(isType<ObservationStep>('observation'));
+const decisions = (t: TraceWire) => t.steps.filter(isType<DecisionStep>('decision'));
+const toolCalls = (t: TraceWire) => t.steps.filter(isType<ToolCallStep>('tool_call'));
+const errors = (t: TraceWire) => t.steps.filter(isType<ErrorStep>('error'));
+const gates = (t: TraceWire) => t.steps.filter(isType<GateStep>('gate'));
+const modelCalls = (t: TraceWire) => t.steps.filter(isType<ModelCallStep>('model_call'));
+const confidenceStep = (t: TraceWire): ConfidenceStep | null =>
+  t.steps.filter(isType<ConfidenceStep>('confidence')).at(-1) ?? null;
+const externalGate = (t: TraceWire): ExternalGateStep | null =>
+  t.steps.filter(isType<ExternalGateStep>('external_gate')).at(-1) ?? null;
+
+const missing = (label: string, request: string): Missing => ({ missing: true, label, request });
+
+const NOT_IN_TRACE = () =>
+  missing('not carried in trace', 'CONTRACTS.md REQUEST TO B #1 — serialise the ranked options');
+
+/* =========================================================================
+ * Confidence
+ * ====================================================================== */
+
+/**
+ * Rebuild the list of inputs the confidence engine counted as unverified.
+ *
+ * `Provenance` is never serialised (CONTRACTS.md section 6), so the trace gives
+ * a count and not names. The rule is transcribed from `deliberation.py`:
+ *
+ *     provenance = [event.provenance()] + [r.provenance(r.tool,
+ *                      verified=r.ok and r.attempts == 1) for r in tool_results]
+ *
+ * and `ToolResult.provenance` forces `verified` false for anything that is not
+ * a first-attempt live OK. `tool_results` is only what `_gather` ran, so the
+ * tool calls that count are the ones recorded before the confidence step.
+ *
+ * The count is then checked against B's own `unverified_inputs`. If they
+ * disagree the caller is told, and the UI shows the count without naming
+ * fields rather than showing a guess.
+ */
+function reconstructUnverified(
+  trace: TraceWire,
+  conf: ConfidenceStep,
+  watcherConfidence: string,
+): { fields: Unverified[]; reconciled: boolean; inputCount: number } {
+  const gatherTools = toolCalls(trace).filter((s) => s.seq < conf.seq);
+  const fields: Unverified[] = [];
+
+  if (watcherConfidence !== 'HIGH') {
+    fields.push({
+      field: 'watcher_assessment',
+      reason: `the Watcher rates its own assessment ${watcherConfidence}, not HIGH`,
+      ageMin: 0,
+    });
+  }
+
+  for (const call of gatherTools) {
+    const attempts = call.attempts ?? 1;
+    const clean = call.status === 'ok' && attempts === 1;
+    if (clean) continue;
+    fields.push({
+      field: call.tool,
+      reason:
+        call.status === 'cached_fallback'
+          ? `served from cache after ${attempts} live attempts failed`
+          : call.status === 'ok'
+            ? `succeeded only on attempt ${attempts}`
+            : `the call ${call.status === 'timeout' ? 'timed out' : 'errored'} and no live value was obtained`,
+      ageMin: call.status === 'cached_fallback' ? conf.factors.data_age_min : 0,
+    });
+  }
+
+  const inputCount = 1 + gatherTools.length;
+  return {
+    fields,
+    reconciled: fields.length === conf.factors.unverified_inputs,
+    inputCount,
+  };
+}
+
+function buildDegradations(trace: TraceWire): DegradationVM[] {
+  const calls = toolCalls(trace);
+  return errors(trace).map((err) => {
+    const call =
+      calls.filter((c) => c.tool === err.tool && c.seq < err.seq).at(-1) ??
+      calls.find((c) => c.tool === err.tool);
+    const servedStale = /cache/i.test(err.recovery);
+    const ageMatch = err.recovery.match(/T-(\d+(?:\.\d+)?)m/);
+    return {
+      tool: err.tool,
+      what: err.error_class === 'timeout' ? 'timed out' : `failed (${err.error_class})`,
+      attempts: call?.attempts ?? err.retries + 1,
+      retries: err.retries,
+      fallback: err.recovery,
+      servedStale,
+      ageMin: ageMatch ? Number(ageMatch[1]) : 0,
+      latencyMs: call?.latency_ms ?? 0,
+    };
+  });
+}
+
+function buildConfidence(trace: TraceWire, watcherConfidence: string): ConfidenceVM | null {
+  const conf = confidenceStep(trace);
+  if (!conf) return null;
+
+  const f = conf.factors;
+  const waterfall: WaterfallStepVM[] = [];
+  let running = 1;
+
+  const multiply = (label: string, detail: string, factor: number) => {
+    const before = running;
+    running = Number((running * factor).toFixed(4));
+    waterfall.push({
+      label,
+      detail,
+      kind: 'multiply',
+      factor,
+      running,
+      cost: Number((before - running).toFixed(4)),
+    });
+  };
+
+  multiply('Source', `weakest input came from ${f.source}`, f.source_factor);
+  multiply('Data age', `oldest input was ${f.data_age_min.toFixed(0)} min old`, f.age_factor);
+  multiply('Tool outcome', `worst tool outcome was ${f.tool_outcome}`, f.tool_factor);
+
+  if (f.unverified_penalty) {
+    const before = running;
+    running = Number((running - f.unverified_penalty).toFixed(4));
+    waterfall.push({
+      label: 'Unverified inputs',
+      detail: `${f.unverified_inputs} input${f.unverified_inputs === 1 ? '' : 's'} could not be verified`,
+      kind: 'subtract',
+      factor: f.unverified_penalty,
+      running,
+      cost: Number((before - running).toFixed(4)),
+    });
+  }
+
+  const { fields, reconciled, inputCount } = reconstructUnverified(trace, conf, watcherConfidence);
+
+  return {
+    value: conf.computed,
+    band: conf.computed < POLICY.confidenceEscalationThreshold ? 'escalate' : 'auto',
+    threshold: POLICY.confidenceEscalationThreshold,
+    belowThreshold: conf.computed < POLICY.confidenceEscalationThreshold,
+    derivation: conf.derivation,
+    waterfall,
+    weakestSource: String(f.source),
+    oldestInputMin: f.data_age_min,
+    worstToolOutcome: String(f.tool_outcome),
+    degradations: buildDegradations(trace),
+    unverifiedFields: fields,
+    unverifiedFieldsReconciled: reconciled,
+    unverifiedCount: f.unverified_inputs,
+    inputCount,
+  };
+}
+
+/* =========================================================================
+ * Gate and approval
+ * ====================================================================== */
+
+function buildEscalation(
+  rung: Rung,
+  requiredRole: ApprovalRole,
+  escalated: boolean,
+  reason: string,
+  wouldHaveBeen?: ApprovalRole,
+): EscalationVM | null {
+  if (!escalated) return null;
+  const ladder = [...GATE_LADDERS[rung]];
+  const from = wouldHaveBeen ?? ladder[0];
+  const reasons = reason
+    .split(';')
+    .map((r) => r.trim())
+    .filter(Boolean);
+  return {
+    wouldHaveBeen: from,
+    wouldHaveBeenLabel: ROLE_LABEL[from],
+    became: requiredRole,
+    becameLabel: ROLE_LABEL[requiredRole],
+    reasons,
+    triggeredByConfidence: reasons.some((r) => /confidence/i.test(r)),
+    steps: Math.max(ladder.indexOf(requiredRole) - ladder.indexOf(from), 0),
+    ladder,
+  };
+}
+
+function buildGate(bundle: FixtureBundle): GateVM | null {
+  const trace = bundle.trace;
+  const steps = gates(trace);
+  const captured = bundle.gate;
+  if (!captured && steps.length === 0) return null;
+
+  // `Outcome.gate` is null on the lapsed path even though the gate fired
+  // (runner.py `_resolve` is called without it), so the trace is the fallback.
+  const first = steps[0];
+  const last = steps.at(-1);
+  const rung = (captured?.rung ?? first?.rung) as Rung;
+  const requiredRole = (captured?.required_role ?? first?.required_role) as ApprovalRole;
+  const escalated = captured?.escalated ?? first?.escalated ?? false;
+  const reason = captured?.escalation_reason || first?.escalation_reason || '';
+
+  const status: GateVM['status'] = (() => {
+    const s = last?.status;
+    if (s === 'approved') return 'approved';
+    if (s === 'rejected') return 'rejected';
+    if (s === 'lapsed') return 'lapsed';
+    if (s === 'auto') return 'auto';
+    return 'awaiting';
+  })();
+
+  const rungVM = RUNGS[rung];
+  return {
+    rung: rungVM,
+    requiredRole,
+    requiredRoleLabel: ROLE_LABEL[requiredRole],
+    autoApproved: captured?.auto_approved ?? requiredRole === 'auto',
+    blocks: captured?.blocks ?? (rung !== 'rung_1_inform' && requiredRole !== 'auto'),
+    needsCustomer: captured?.needs_customer ?? rung === 'rung_4_offer',
+    escalated,
+    escalation: buildEscalation(rung, requiredRole, escalated, reason, captured?.would_have_been),
+    status,
+    latencyS: last?.latency_s ?? null,
+  };
+}
+
+function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null {
+  if (!gate) return null;
+
+  // Rung 1 changes nothing on its own, so there is nothing to approve. It gets
+  // an acknowledge-and-hand-off affordance instead. gates.py:79 skips every
+  // escalation criterion for it, and `blocks` is false unconditionally.
+  if (gate.rung.advisoryOnly) {
+    return {
+      actionable: false,
+      role: 'berth_planner',
+      roleLabel: ROLE_LABEL.berth_planner,
+      handoff: true,
+      ifNothingHappens:
+        'Nothing. This is a notification, not a request — the boxes stay exactly where they are while it is read. Only the Berth Planner can act on it.',
+      countdown: null,
+    };
+  }
+
+  if (gate.needsCustomer) {
+    return {
+      actionable: false,
+      role: 'customer',
+      roleLabel: ROLE_LABEL.customer,
+      handoff: false,
+      ifNothingHappens:
+        'The window closes and the boxes roll to the next service. The cargo moves either way — the difference is whether the line chose it.',
+      countdown: {
+        windowMin: POLICY.customerWindowMin,
+        source: 'console-timer',
+        note: `${POLICY.customerWindowMin}-minute window from config.CUSTOMER_WINDOW_MIN. The countdown is rendered by this console; B records the window but no deadline.`,
+      },
+    };
+  }
+
+  const open = gate.status === 'awaiting' && state !== 'resolved' && state !== 'failed';
+  return {
+    actionable: gate.blocks,
+    role: gate.requiredRole,
+    roleLabel: gate.requiredRoleLabel,
+    handoff: false,
+    ifNothingHappens:
+      'Auto-declines. The approval lapses, the default action fires, and B records the outcome as WINDOW_LAPSED_NO_RESPONSE — the same resolution used when the shipping line never replies.',
+    countdown: open
+      ? {
+          windowMin: 15,
+          source: 'console-timer',
+          note: 'Console-side timer. B carries no approval deadline — see CONTRACTS.md REQUEST TO B #2.',
+        }
+      : null,
+  };
+}
+
+/* =========================================================================
+ * Options
+ * ====================================================================== */
+
+function buildOptions(trace: TraceWire): OptionVM[] {
+  const out: OptionVM[] = [];
+
+  for (const d of decisions(trace)) {
+    out.push({
+      id: `seq-${d.seq}`,
+      rung: RUNGS[d.rung],
+      status: d.chosen ? 'chosen' : 'advisory',
+      rationale: d.rationale,
+      exclusionReason: null,
+      confidence: d.confidence,
+      costSgd: NOT_IN_TRACE(),
+      emissionsKgCo2e: NOT_IN_TRACE(),
+    });
+  }
+
+  // Options code ruled out before the prompt was built. Recorded by
+  // `runner._record_deliberation` as observations with `considered: true`.
+  for (const o of observations(trace)) {
+    if (!o.considered) continue;
+    const summary = o.summary;
+    const marker = summary.indexOf('ruled out ');
+    const tail = marker >= 0 ? summary.slice(marker + 'ruled out '.length) : summary;
+    const [id, ...rest] = tail.split(': ');
+    out.push({
+      id,
+      rung: RUNGS[(o.rung ?? 'rung_3_move') as Rung],
+      status: 'ruled_out',
+      rationale: '',
+      exclusionReason: rest.join(': '),
+      confidence: null,
+      costSgd: NOT_IN_TRACE(),
+      emissionsKgCo2e: NOT_IN_TRACE(),
+    });
+  }
+
+  const rank = { chosen: 0, advisory: 1, ruled_out: 2 } as const;
+  return out.sort((a, b) => rank[a.status] - rank[b.status]);
+}
+
+/* =========================================================================
+ * Timeline
+ * ====================================================================== */
+
+function toTimelineEvent(step: TraceStep): TimelineEventVM {
+  const base = { seq: step.seq, raw: step as unknown as Record<string, unknown> };
+  const none = { latencyMs: null, toolStatus: null, tokens: null };
+
+  switch (step.type) {
+    case 'observation': {
+      const s = step as ObservationStep;
+      const detail: string[] = [];
+      if (s.reason_codes?.length) {
+        detail.push(s.reason_codes.map((c) => REASONS[c]?.title ?? c).join(' · '));
+      }
+      if (s.triage_route) detail.push(TRIAGE_LABEL[s.triage_route] ?? s.triage_route);
+      if (s.slack_is_scenario_output) {
+        detail.push('Every figure below is a scenario output, not an observation.');
+      }
+      return {
+        ...base,
+        ...none,
+        kind: 'observation',
+        tone: s.considered ? 'muted' : 'normal',
+        label: s.considered ? 'RULED OUT' : 'OBSERVED',
+        title: s.summary,
+        detail,
+      };
+    }
+    case 'state_change': {
+      const s = step as StateChangeStep;
+      const offRamp = ['superseded', 'stale', 'lapsed', 'lost_lock', 'failed'].includes(s.to_state);
+      return {
+        ...base,
+        ...none,
+        kind: 'state_change',
+        tone: offRamp ? 'escalation' : s.to_state === 'resolved' ? 'success' : 'muted',
+        label: 'STATE',
+        title: `${STATE_LABEL[s.from_state]} → ${STATE_LABEL[s.to_state]}`,
+        detail: s.reason ? [s.reason] : [],
+      };
+    }
+    case 'decision': {
+      const s = step as DecisionStep;
+      const rung = RUNGS[s.rung];
+      return {
+        ...base,
+        ...none,
+        kind: 'decision',
+        tone: 'decision',
+        title: s.chosen
+          ? `Chose Rung ${rung.number} — ${rung.name}`
+          : `Rung ${rung.number} — ${rung.name} (advisory, not the action)`,
+        label: 'DECIDED',
+        detail: [s.rationale, `Confidence ${s.confidence.toFixed(4)}`].filter(Boolean),
+      };
+    }
+    case 'tool_call': {
+      const s = step as ToolCallStep;
+      const bad = s.status !== 'ok';
+      return {
+        ...base,
+        kind: 'tool_call',
+        tone: bad ? 'error' : 'normal',
+        label: 'TOOL',
+        title: s.tool,
+        detail:
+          s.attempts && s.attempts > 1 ? [`${s.attempts} attempts`] : [],
+        latencyMs: s.latency_ms,
+        toolStatus: s.status,
+        tokens: null,
+      };
+    }
+    case 'lock': {
+      const s = step as LockStep;
+      return {
+        ...base,
+        ...none,
+        kind: 'lock',
+        tone: s.status === 'lost' ? 'escalation' : 'normal',
+        label: 'LOCK',
+        title:
+          s.status === 'held'
+            ? `Reserved ${s.resource}`
+            : `Lost ${s.resource} to a more urgent connection`,
+        detail: [
+          `Our priority ${s.our_priority}` +
+            (s.winner_priority != null ? ` · winner ${s.winner_priority}` : ''),
+          s.action,
+        ].filter(Boolean),
+      };
+    }
+    case 'error': {
+      const s = step as ErrorStep;
+      return {
+        ...base,
+        ...none,
+        kind: 'error',
+        tone: 'error',
+        label: 'ERROR',
+        title: `${s.tool} — ${s.error_class}`,
+        detail: [`${s.retries} retr${s.retries === 1 ? 'y' : 'ies'}`, `Fell back to: ${s.recovery}`],
+      };
+    }
+    case 'confidence': {
+      const s = step as ConfidenceStep;
+      return {
+        ...base,
+        ...none,
+        kind: 'confidence',
+        tone: s.computed < POLICY.confidenceEscalationThreshold ? 'escalation' : 'normal',
+        label: 'CONFIDENCE',
+        title: `Computed ${s.computed.toFixed(4)}`,
+        detail: [s.derivation],
+      };
+    }
+    case 'gate': {
+      const s = step as GateStep;
+      const rung = RUNGS[s.rung];
+      return {
+        ...base,
+        ...none,
+        kind: 'gate',
+        tone: s.escalated ? 'escalation' : s.status === 'approved' ? 'success' : 'normal',
+        label: 'GATE',
+        title: s.escalated
+          ? `Escalated to ${ROLE_LABEL[s.required_role]}`
+          : `Rung ${rung.number} requires ${ROLE_LABEL[s.required_role]}`,
+        detail: [s.escalation_reason, `Status: ${s.status}`].filter(Boolean),
+      };
+    }
+    case 'external_gate': {
+      const s = step as ExternalGateStep;
+      return {
+        ...base,
+        ...none,
+        kind: 'external_gate',
+        tone: s.outcome === 'LAPSED_NO_RESPONSE' ? 'error' : 'decision',
+        label: 'LINE',
+        title: `${s.options_sent} option${s.options_sent === 1 ? '' : 's'} sent to the ${s.party}`,
+        detail: [
+          `${s.window_min}-minute window`,
+          s.outcome === 'DECIDED'
+            ? 'The line chose.'
+            : s.outcome === 'DECLINED_ALL'
+              ? 'The line declined every option — and was served.'
+              : 'No reply before the window closed.',
+        ],
+      };
+    }
+    case 'model_call': {
+      const s = step as ModelCallStep;
+      return {
+        ...base,
+        kind: 'model_call',
+        tone: 'muted',
+        label: 'MODEL',
+        title: `${s.model} · ${s.purpose}`,
+        detail: [`${s.input_tokens.toLocaleString()} in / ${s.output_tokens.toLocaleString()} out`],
+        latencyMs: null,
+        toolStatus: null,
+        tokens: {
+          model: s.model,
+          purpose: s.purpose,
+          input: s.input_tokens,
+          output: s.output_tokens,
+          usd: s.usd,
+        },
+      };
+    }
+    default: {
+      const s = step as TraceStep;
+      return {
+        ...base,
+        ...none,
+        kind: s.type as TimelineKind,
+        tone: 'normal' as TimelineTone,
+        label: s.type.toUpperCase(),
+        title: s.type,
+        detail: [],
+      };
+    }
+  }
+}
+
+/* =========================================================================
+ * Outcome, cost, triage, provenance
+ * ====================================================================== */
+
+function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
+  const resolution = bundle.result.resolution;
+  if (!resolution) return null;
+  const copy = RESOLUTION_COPY[resolution];
+  const ext = externalGate(bundle.trace);
+  return {
+    resolution,
+    label: copy.label,
+    what: copy.what,
+    serviceSuccess: SERVICE_SUCCESS_RESOLUTIONS.includes(resolution),
+    why: copy.why,
+    excludedFromMetric: EXCLUDED_FROM_METRIC.includes(resolution),
+    customerGate: ext
+      ? { optionsSent: ext.options_sent, windowMin: ext.window_min, outcome: ext.outcome }
+      : null,
+    decisionLeadTimeH: bundle.trace.outcome.decision_lead_time_h,
+  };
+}
+
+function buildCost(trace: TraceWire): CostVM {
+  return {
+    modelCalls: trace.cost.model_calls,
+    inputTokens: trace.cost.input_tokens,
+    outputTokens: trace.cost.output_tokens,
+    usd: trace.cost.usd,
+    byModel: trace.cost.by_model,
+    perDecision: modelCalls(trace).map((s) => ({
+      seq: s.seq,
+      model: s.model,
+      purpose: s.purpose,
+      usd: s.usd,
+      input: s.input_tokens,
+      output: s.output_tokens,
+    })),
+  };
+}
+
+function buildTriage(trace: TraceWire): TriageVM {
+  const step = observations(trace).find((o) => o.triage_route);
+  const route = (step?.triage_route as string) ?? 'unknown';
+  const usedModel = modelCalls(trace).some((m) => m.purpose === 'triage');
+  return {
+    route,
+    routeLabel: TRIAGE_LABEL[route] ?? route,
+    kept: !route.startsWith('dismissed'),
+    decidedFree: !usedModel,
+    reason: step?.summary ?? '',
+  };
+}
+
+function buildProvenance(bundle: FixtureBundle): ProvenanceVM {
+  const a = bundle.assumptions;
+  const synthetic = [
+    a.ucid_synthetic && 'connection id',
+    a.pairing_synthetic && 'which box connects to which vessel',
+    a.terminals_synthetic && 'terminal assignment',
+    a.boxes_synthetic && 'box count',
+  ].filter(Boolean) as string[];
+
+  return {
+    dataBasis: bundle.provenance.data_basis,
+    terminalResolution: bundle.risk.inbound.terminal_resolution,
+    terminalResolutionLabel: TERMINAL_RESOLUTION_LABEL[bundle.risk.inbound.terminal_resolution],
+    anySynthetic: synthetic.length > 0,
+    syntheticFields: synthetic,
+    transferScenario: a.transfer_scenario,
+    modelScripted: bundle.provenance.model_responses !== 'live',
+    modelDisclosure:
+      bundle.provenance.model_disclosure ??
+      'No model was consulted on this run. The trace measures the pipeline, not the agent.',
+    authored: bundle.provenance.authored,
+    authoredBecause: bundle.provenance.authored_because ?? null,
+  };
+}
+
+function buildLeg(
+  call: FixtureBundle['risk']['inbound'],
+  fallbackName: string,
+): VesselLegVM {
+  const deviationMin =
+    (new Date(call.estimated).getTime() - new Date(call.scheduled).getTime()) / 60000;
+  return {
+    name: call.vessel_name === 'UNKNOWN' ? fallbackName : call.vessel_name,
+    terminal: call.terminal,
+    terminalLabel: TERMINAL_LABEL[call.terminal],
+    scheduled: call.scheduled,
+    estimated: call.estimated,
+    deviationMin: Math.round(deviationMin),
+  };
+}
+
+function lifecycleOf(state: RiskState): Lifecycle {
+  if (state === 'resolved' || state === 'failed') return 'resolved';
+  if (state === 'dismissed' || state === 'superseded' || state === 'stale' || state === 'lost_lock') {
+    return 'abandoned';
+  }
+  return 'live';
+}
+
+/* =========================================================================
+ * The one entry point
+ * ====================================================================== */
+
+export function toViewModel(bundle: FixtureBundle): ConnectionVM {
+  const { event, risk, trace, derived } = bundle;
+  const state = bundle.result.state;
+  const gate = buildGate(bundle);
+
+  const slack: SlackVM = {
+    currentPlanHours: event.current_plan_slack_hours,
+    noIttHours: event.no_itt_slack_hours,
+    ittCostHours: derived.itt_cost_hours,
+    deficitHours: derived.slack_deficit_hours,
+    consumedPct: risk.derived.slack_consumed_pct,
+  };
+
+  return {
+    id: event.connection_id,
+    ucid: trace.ucid,
+    severity: event.state,
+    severityLabel: SEVERITY_LABEL[event.state],
+    state,
+    stateLabel: STATE_LABEL[state],
+    stateNote: STATE_NOTE[state] ?? null,
+    lifecycle: lifecycleOf(state),
+    boxes: event.affected_boxes,
+    priority: derived.priority,
+    detectedAt: risk.detected_at,
+
+    slack,
+    rescuableByRemovingItt: derived.itt_is_the_problem,
+    crossesTerminals: risk.derived.crosses_terminals,
+
+    inbound: buildLeg(risk.inbound, event.inbound_vessel ?? 'Unknown vessel'),
+    outbound: buildLeg(risk.outbound, event.outbound_vessel ?? 'Unknown vessel'),
+
+    watcherConfidence: event.confidence,
+    reasons: event.reason_codes.map((code) => ({
+      code,
+      title: REASONS[code].title,
+      detail: REASONS[code].detail,
+      emittedByWatcher: REASONS[code].emitted,
+    })) satisfies ReasonVM[],
+    triage: buildTriage(trace),
+
+    confidence: buildConfidence(trace, event.confidence),
+    gate,
+    approval: buildApproval(gate, state),
+    options: buildOptions(trace),
+    timeline: trace.steps.map(toTimelineEvent),
+    outcome: buildOutcome(bundle),
+    cost: buildCost(trace),
+    provenance: buildProvenance(bundle),
+
+    raw: { event, risk, trace, caseView: bundle.case_view },
+  };
+}
+
+export function toViewModels(bundles: FixtureBundle[]): ConnectionVM[] {
+  return bundles.map(toViewModel);
+}
+
+/** Risk queue ordering: at-risk first, then by B's own priority. */
+export function byCriticality(a: ConnectionVM, b: ConnectionVM): number {
+  const rank: Record<RiskSeverity, number> = { AT_RISK: 0, WATCH: 1, SAFE: 2 };
+  const live = (c: ConnectionVM) => (c.lifecycle === 'live' ? 0 : 1);
+  return (
+    live(a) - live(b) ||
+    rank[a.severity] - rank[b.severity] ||
+    b.priority - a.priority
+  );
+}
+
+export { ROLE_LABEL, RUNGS, STATE_LABEL, TERMINAL_LABEL, SEVERITY_LABEL };

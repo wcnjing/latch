@@ -1,0 +1,28 @@
+{
+  "name": "latch-console",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "LATCH operator console (workstream C)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "fixtures": "python scripts/capture_fixtures.py",
+    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=.smoke/smoke.mjs --log-level=warning && node .smoke/smoke.mjs"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

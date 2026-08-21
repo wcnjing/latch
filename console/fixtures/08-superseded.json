@@ -1,0 +1,278 @@
+{
+  "fixture_id": "08-superseded",
+  "title": "SUPERSEDED \u2014 the risk evaporated mid-deliberation",
+  "what_it_shows": "The arrival estimate improved while the agent was still working, so the case is abandoned cleanly rather than acted on. Excluded from the north-star denominator, because it was never a connection genuinely at risk of failing.",
+  "provenance": {
+    "produced_by": "CaseRegistry.admit() + Trace/transition()",
+    "authored": true,
+    "authored_because": "runner.handle() is atomic and has no supersession path (CONTRACTS.md section 9), so no real run yields a trace that is superseded mid-flight. The AdmissionDecision below is genuine CaseRegistry output; the trace sequence is C's, but every state move goes through B's transition() and would raise if illegal.",
+    "model_responses": "scripted",
+    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections"
+  },
+  "event": {
+    "connection_id": "SG-CONN-4541",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -0.9,
+    "no_itt_slack_hours": 4.2,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 41,
+    "confidence": "MEDIUM",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "INTER_TERMINAL_TRANSFER_TIME"
+    ],
+    "detected_at": "2026-08-30T04:31:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4541",
+    "inbound_terminal": "tuas",
+    "outbound_terminal": "pasir_panjang",
+    "terminal_resolution": "simulated",
+    "inbound_vessel": "SYNTHETIC COSCO",
+    "outbound_vessel": "SYNTHETIC FEEDER VIII",
+    "source": "ais_replay+synthetic_connection"
+  },
+  "superseding_event": {
+    "connection_id": "SG-CONN-4541",
+    "state": "WATCH",
+    "current_plan_slack_hours": 3.6,
+    "no_itt_slack_hours": 4.2,
+    "avoidable_by_terminal_prevention": true,
+    "affected_boxes": 41,
+    "confidence": "MEDIUM",
+    "reason_codes": [
+      "INBOUND_ETA_SLIP",
+      "INTER_TERMINAL_TRANSFER_TIME"
+    ],
+    "detected_at": "2026-08-30T04:44:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4541"
+  },
+  "admission": [
+    {
+      "admission": "new",
+      "connection_id": "SG-CONN-4541",
+      "reason": "first sighting",
+      "superseded_trace_id": null
+    },
+    {
+      "admission": "supersedes",
+      "connection_id": "SG-CONN-4541",
+      "reason": "severity WATCH",
+      "superseded_trace_id": "cr_2026_08_30_0431_4541"
+    }
+  ],
+  "derived": {
+    "is_actionable": true,
+    "slack_deficit_hours": 0.9,
+    "itt_cost_hours": 5.1,
+    "itt_is_the_problem": true,
+    "priority": 164.0,
+    "watcher_confidence_factor": 0.9
+  },
+  "assumptions": {
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
+  },
+  "risk": {
+    "wire_version": 1,
+    "risk_id": "SG-CONN-4541",
+    "ucid": "UCID-SYNTH-SG-CONN-4541",
+    "detected_at": "2026-08-30T04:31:00+00:00",
+    "inbound": {
+      "vessel_name": "SYNTHETIC COSCO",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T04:31:00+00:00",
+      "estimated": "2026-08-30T05:25:00+00:00"
+    },
+    "outbound": {
+      "vessel_name": "SYNTHETIC FEEDER VIII",
+      "imo": null,
+      "service_code": "UNKNOWN",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated",
+      "berth": null,
+      "scheduled": "2026-08-30T08:43:00+00:00",
+      "estimated": "2026-08-30T08:43:00+00:00"
+    },
+    "boxes_at_risk": 41,
+    "slack_total_min": 252.0,
+    "slack_remaining_min": -54.0,
+    "source": "ais_replay+synthetic_connection",
+    "data_age_min": 0.0,
+    "derived": {
+      "eta_deviation_min": 54.0,
+      "slack_consumed_pct": 1.0,
+      "priority": 164.0,
+      "crosses_terminals": true
+    }
+  },
+  "trace": {
+    "trace_id": "cr_2026_08_30_0431_4541",
+    "risk_id": "SG-CONN-4541",
+    "ucid": "UCID-SYNTH-SG-CONN-4541",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 54,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "steps": [
+      {
+        "seq": 1,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713270+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 41 boxes, -0.9h remaining margin (+4.2h if the transfer requirement were removed)",
+        "connection_type": "INTER_TERMINAL",
+        "reason_codes": [
+          "INBOUND_ETA_SLIP",
+          "INTER_TERMINAL_TRANSFER_TIME"
+        ],
+        "watcher_confidence": "MEDIUM",
+        "priority": 164.0
+      },
+      {
+        "seq": 2,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713274+00:00",
+        "summary": "assumption basis for every figure in this trace",
+        "connection_type": "INTER_TERMINAL",
+        "ucid_synthetic": true,
+        "pairing_synthetic": true,
+        "terminals_synthetic": true,
+        "boxes_synthetic": true,
+        "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+        "slack_is_scenario_output": true,
+        "no_itt_slack_means": "margin if the transfer requirement were removed"
+      },
+      {
+        "seq": 3,
+        "type": "model_call",
+        "at": "2026-08-21T11:29:22.713278+00:00",
+        "model": "claude-haiku-4-5",
+        "purpose": "triage",
+        "input_tokens": 1612,
+        "output_tokens": 74,
+        "usd": 0.001982
+      },
+      {
+        "seq": 4,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713279+00:00",
+        "summary": "0.9h past the window with a transfer on the critical path; deliberating",
+        "triage_route": "model_kept"
+      },
+      {
+        "seq": 5,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.713281+00:00",
+        "from_state": "detected",
+        "to_state": "triaged",
+        "reason": "model_kept"
+      },
+      {
+        "seq": 6,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.713283+00:00",
+        "from_state": "triaged",
+        "to_state": "deliberating",
+        "reason": "walking the ladder"
+      },
+      {
+        "seq": 7,
+        "type": "tool_call",
+        "at": "2026-08-21T11:29:22.713284+00:00",
+        "tool": "query_itt_slot",
+        "status": "ok",
+        "latency_ms": 420,
+        "attempts": 1
+      },
+      {
+        "seq": 8,
+        "type": "observation",
+        "at": "2026-08-21T11:29:22.713293+00:00",
+        "summary": "inbound arrival estimate improved 270m mid-deliberation; margin restored to +3.6h",
+        "superseding_event": "SG-CONN-4541",
+        "admission": "supersedes"
+      },
+      {
+        "seq": 9,
+        "type": "state_change",
+        "at": "2026-08-21T11:29:22.713294+00:00",
+        "from_state": "deliberating",
+        "to_state": "superseded",
+        "reason": "severity WATCH"
+      }
+    ],
+    "outcome": {
+      "resolution": "superseded",
+      "service_success": false,
+      "boxes": 41,
+      "decision_lead_time_h": null,
+      "options_alive_at_send": 0
+    },
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 1612,
+      "output_tokens": 74,
+      "usd": 0.001982,
+      "by_model": {
+        "claude-haiku-4-5": 0.001982
+      }
+    }
+  },
+  "case_view": {
+    "trace_id": "cr_2026_08_30_0431_4541",
+    "risk_id": "SG-CONN-4541",
+    "ucid": "UCID-SYNTH-SG-CONN-4541",
+    "trigger": {
+      "source": "ais_replay+synthetic_connection",
+      "eta_deviation_min": 54,
+      "slack_consumed_pct": 1.0,
+      "inbound_terminal": "tuas",
+      "outbound_terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "resolution": "superseded",
+    "service_success": false,
+    "boxes": 41,
+    "decision_lead_time_h": null,
+    "options_alive_at_send": 0,
+    "confidence": null,
+    "confidence_headline": null,
+    "ladder": [],
+    "approvals": [],
+    "customer_gate": null,
+    "cost": {
+      "model_calls": 1,
+      "input_tokens": 1612,
+      "output_tokens": 74,
+      "usd": 0.001982,
+      "by_model": {
+        "claude-haiku-4-5": 0.001982
+      }
+    },
+    "step_count": 9
+  },
+  "result": {
+    "state": "superseded",
+    "resolution": "superseded",
+    "service_success": false
+  },
+  "gate": null,
+  "model_calls": [
+    {
+      "purpose": "triage",
+      "model": "claude-haiku-4-5"
+    }
+  ]
+}
