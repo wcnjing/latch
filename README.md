@@ -22,14 +22,25 @@ LATCH uses one month of real Singapore AIS vessel-movement data to test its hist
 
 ### Dataset
 
-* **Source:** *AIS Data from 11 ports around the globe* (Singapore subset)
+* **Dataset:** [*AIS Data from 11 ports around the globe*, version 1](https://doi.org/10.17632/r37vwd493d.1) (Singapore subset)
+* **DOI:** `10.17632/r37vwd493d.1`
+* **Contributors:** Andreas Hadjipieris, Neofytos Dimitriou, and Ognjen Arandjelovic
+* **Original collection source:** AISStream.io API
+* **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
 * **Period:** October 2023
 * **Records:** 609,975 AIS observations
 * **Vessels:** 5,879 anonymised vessel IDs
 * **File:** `Data Inspection/Singapore_anonymized.csv`
 * **SHA-256:** `a46b6f6f68e5d7f2cc87b3eaa0fe2cc74373cf8e9788b2a3156c4f4644bfad7e`
 
-The AIS dataset provides real timestamped vessel positions and movement information. It does **not** contain PSA's actual container connections, terminal assignments, loading cutoffs, or operational outcomes.
+The AIS dataset provides real timestamped vessel positions and movement
+information. This project uses anonymised vessel identifiers supplied by the
+dataset and modifies/transforms the Singapore source data through chronological
+sorting, AIS unavailable/sentinel handling, exploratory geofence segmentation,
+deterministic derived call identities, and position-derived arrival estimates.
+Those derived fields are not official PSA records. The dataset does **not**
+contain PSA's actual container connections, terminal assignments, loading
+cutoffs, or operational outcomes.
 
 Our historical evaluation therefore separates:
 
@@ -45,13 +56,50 @@ Current results:
 
 * **5,879** vessels assessed
 * **694** vessels crossed the exploratory boundary
-* **611** usable derived arrival events
+* **611** benchmark-eligible derived arrival events under the initial Stage 2 rule
 * Median pre-event history: **27 observations / 30.22 hours**
-* **89 automated tests passing**
+* This initial gate was superseded by the reset-confirmed Stage 3 call analysis below
 
 This confirms that the AIS dataset provides sufficient historical event volume to proceed with synthetic connection generation and Watcher evaluation.
 
 > **Important:** Derived geofence events are used for prototype evaluation and are not claimed to be actual PSA vessel arrivals or berth events.
+
+### Stage 3 — Validated Calls & Causal Arrival Updates
+
+The replay now requires two consecutive observations beyond a configurable
+2 km outside reset before a vessel can create another call, assigns
+deterministic call IDs, and retains both available and ineligible causal
+updates. Long gaps begin a new reference segment. On the full dataset, 1,853
+raw crossings produced 1,382 reset-confirmed accepted calls: 471 crossings
+were suppressed before reset, 886 calls were benchmark-eligible, and 496 were
+benchmark-excluded with explicit reasons. All accepted retrospectively
+segmented calls contain 35,379 updates (6,766 `AVAILABLE`, 28,613
+`INELIGIBLE`); the explicitly selected benchmark population contains 30,832
+updates (6,303 `AVAILABLE`, 24,529 `INELIGIBLE`).
+
+`iter_retrospectively_segmented_arrival_updates` exposes the unfiltered
+historical stream for every accepted call. Its update values are causal, but
+call membership is assigned retrospectively after a crossing is observed; it
+is not a fully live call-membership stream.
+`iter_eligible_benchmark_updates` applies the separate, explicit retrospective
+benchmark selection. Neither stream places crossing outcomes or eligibility on
+`CausalArrivalUpdate`.
+
+PR #2 predicts vessel arrival timing. A later Watcher will predict whether a
+synthetic inbound-to-outbound container connection is feasible, whose positive
+and negative evaluation labels will be **connection feasible** and
+**connection infeasible**—not “vessel crossed the boundary” and “vessel did not
+cross the boundary.” This benchmark is conditioned on reset-confirmed, derived
+boundary-crossing calls. It does not evaluate scheduled calls that were
+cancelled, diverted, disappeared from AIS coverage, or did not cross the
+exploratory boundary during the data window. Unclosed approaches are not
+manufactured into negative outcomes.
+
+The boundary (`exploratory-circle-v1`), calls, reference arrivals, and outcomes
+remain derived and non-official. The complete suite passes **105 tests**.
+
+See the appended Stage 3 findings in
+[`Data Inspection/singapore_ais_dataset_assessment.md`](Data%20Inspection/singapore_ais_dataset_assessment.md).
 
 ### Git LFS
 
