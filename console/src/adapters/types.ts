@@ -219,14 +219,26 @@ export interface ApprovalVM {
 export interface OptionVM {
   id: string;
   rung: RungVM;
-  status: 'chosen' | 'advisory' | 'ruled_out';
-  /** The agent's own words. Empty for ruled-out options, which code excluded. */
+  status: 'chosen' | 'considered' | 'advisory' | 'ruled_out';
+  /** What the option physically is, e.g. "barge, departs 05:37, 190m transit". */
+  detail: string;
+  /** The agent's own words. Only the chosen option and advisories carry one. */
   rationale: string;
   /** Why code excluded it, before the model ever saw it. */
   exclusionReason: string | null;
   confidence: number | null;
+  /**
+   * Singapore dollars. NOT the same unit as `CostVM.usd`, which is inference
+   * cost — B keeps them apart deliberately and so does the console.
+   */
   costSgd: MaybeMissing<number>;
   emissionsKgCo2e: MaybeMissing<number>;
+  /**
+   * False for Rung 1 advisories and Rung 4 offers: neither moves a box, so
+   * zero is the correct value rather than an absent one. B exposes the same
+   * distinction as `OptionRow.has_cost`.
+   */
+  movesCargo: boolean;
 }
 
 /* -------------------------------------------------------------------------
@@ -325,6 +337,9 @@ export interface OutcomeVM {
     outcome: ExternalGateOutcome;
   } | null;
   decisionLeadTimeH: number | null;
+  /** What the executed action actually committed, in SGD. Null when nothing fired. */
+  actionCostSgd: number | null;
+  actionEmissionsKgCo2e: number | null;
 }
 
 export interface CostVM {

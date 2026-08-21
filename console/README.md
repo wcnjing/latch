@@ -74,10 +74,10 @@ Any connection in the queue can be replayed from the dropdown.
 Three things it deliberately does *not* do:
 
 1. **It does not invent fields.** Where B carries no value the console shows a
-   gap marker naming the request that would close it. Option cost (SGD) and
-   emissions (kgCO2e) are the visible example: B computes both and discards
-   them before the trace, and the console will not recompute them from the
-   per-box constants and attribute the result to the agent.
+   gap marker naming the request that would close it, never a zero. Option cost
+   and emissions used to be the visible example; B has since landed them
+   (`6be7bb4`) and the console consumes them through the adapter alone. The
+   remaining gaps are listed in CONTRACTS.md.
 2. **It does not correct B silently.** When B's `service_success` counts an
    outcome the customer took no part in, the console shows B's value and the
    caveat side by side.

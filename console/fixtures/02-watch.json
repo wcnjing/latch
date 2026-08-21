@@ -103,7 +103,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699500+00:00",
+        "at": "2026-08-21T16:43:55.824379+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): WATCH, 22 boxes, +3.1h remaining margin (+7.4h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +116,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699515+00:00",
+        "at": "2026-08-21T16:43:55.824386+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +130,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.699834+00:00",
+        "at": "2026-08-21T16:43:55.824529+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 272,
@@ -140,14 +140,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699841+00:00",
+        "at": "2026-08-21T16:43:55.824532+00:00",
         "summary": "3.1h of margin left against a transfer on the critical path; close enough that the choice between options matters.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.699848+00:00",
+        "at": "2026-08-21T16:43:55.824536+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.699852+00:00",
+        "at": "2026-08-21T16:43:55.824538+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +163,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700348+00:00",
+        "at": "2026-08-21T16:43:55.824954+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -172,7 +172,7 @@
       {
         "seq": 8,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700356+00:00",
+        "at": "2026-08-21T16:43:55.824958+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.700371+00:00",
+        "at": "2026-08-21T16:43:55.824964+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 610,
@@ -191,7 +191,7 @@
       {
         "seq": 10,
         "type": "confidence",
-        "at": "2026-08-21T16:25:23.700406+00:00",
+        "at": "2026-08-21T16:43:55.824977+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -208,17 +208,66 @@
       },
       {
         "seq": 11,
-        "type": "decision",
-        "at": "2026-08-21T16:25:23.700413+00:00",
-        "rung": "rung_3_move",
-        "chosen": true,
-        "confidence": 1.0,
-        "rationale": "Lowest on both emissions (90 kg CO2e) and cost (SGD 682) among the legs that arrive before the modelled cutoff; no tradeoff to make."
+        "type": "options",
+        "at": "2026-08-21T16:43:55.824987+00:00",
+        "candidates": [
+          {
+            "option_id": "SG-CONN-4482-r3-tuapas_1120",
+            "rung": "rung_3_move",
+            "detail": "barge, departs 05:39, 190m transit",
+            "cost_sgd": 682.0,
+            "emissions_kg_co2e": 90.2,
+            "chosen": true
+          },
+          {
+            "option_id": "SG-CONN-4482-r3-tuapas_1160",
+            "rung": "rung_3_move",
+            "detail": "barge, departs 06:59, 190m transit",
+            "cost_sgd": 682.0,
+            "emissions_kg_co2e": 90.2,
+            "chosen": false
+          },
+          {
+            "option_id": "SG-CONN-4482-r3-tuapas_1100",
+            "rung": "rung_3_move",
+            "detail": "road, departs 04:59, 55m transit",
+            "cost_sgd": 1056.0,
+            "emissions_kg_co2e": 272.8,
+            "chosen": false
+          },
+          {
+            "option_id": "SG-CONN-4482-r3-tuapas_1140",
+            "rung": "rung_3_move",
+            "detail": "road, departs 06:19, 55m transit",
+            "cost_sgd": 1056.0,
+            "emissions_kg_co2e": 272.8,
+            "chosen": false
+          },
+          {
+            "option_id": "SG-CONN-4482-r4-offer",
+            "rung": "rung_4_offer",
+            "detail": "3 outbound services still callable",
+            "cost_sgd": 0.0,
+            "emissions_kg_co2e": 0.0,
+            "chosen": false
+          }
+        ]
       },
       {
         "seq": 12,
+        "type": "decision",
+        "at": "2026-08-21T16:43:55.824990+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 1.0,
+        "rationale": "Lowest on both emissions (90 kg CO2e) and cost (SGD 682) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
+        "cost_sgd": 682.0,
+        "emissions_kg_co2e": 90.2
+      },
+      {
+        "seq": 13,
         "type": "lock",
-        "at": "2026-08-21T16:25:23.700440+00:00",
+        "at": "2026-08-21T16:43:55.824999+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 7.1,
@@ -226,9 +275,9 @@
         "action": "uncontested"
       },
       {
-        "seq": 13,
+        "seq": 14,
         "type": "gate",
-        "at": "2026-08-21T16:25:23.700463+00:00",
+        "at": "2026-08-21T16:43:55.825008+00:00",
         "rung": "rung_3_move",
         "required_role": "auto",
         "escalated": false,
@@ -237,25 +286,25 @@
         "latency_s": 0.0
       },
       {
-        "seq": 14,
+        "seq": 15,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.700471+00:00",
+        "at": "2026-08-21T16:43:55.825011+00:00",
         "from_state": "deliberating",
         "to_state": "executing",
         "reason": "auto-approved under policy"
       },
       {
-        "seq": 15,
+        "seq": 16,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700499+00:00",
+        "at": "2026-08-21T16:43:55.825017+00:00",
         "tool": "book_itt_leg",
         "status": "ok",
         "latency_ms": 850
       },
       {
-        "seq": 16,
+        "seq": 17,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.700511+00:00",
+        "at": "2026-08-21T16:43:55.825022+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "connection_held"
@@ -266,7 +315,9 @@
       "service_success": true,
       "boxes": 22,
       "decision_lead_time_h": null,
-      "options_alive_at_send": 0
+      "options_alive_at_send": 0,
+      "action_cost_sgd": 682.0,
+      "action_emissions_kg_co2e": 90.2
     },
     "cost": {
       "model_calls": 2,
@@ -328,10 +379,44 @@
     "confidence_headline": "1.00 \u2014 within policy, no signature required",
     "ladder": [
       {
-        "option_id": "rung_3_move",
+        "option_id": "SG-CONN-4482-r3-tuapas_1120",
         "rung": "rung_3_move",
-        "detail": "Lowest on both emissions (90 kg CO2e) and cost (SGD 682) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
-        "status": "chosen"
+        "detail": "barge, departs 05:39, 190m transit",
+        "status": "chosen",
+        "cost_sgd": 682.0,
+        "emissions_kg_co2e": 90.2
+      },
+      {
+        "option_id": "SG-CONN-4482-r3-tuapas_1160",
+        "rung": "rung_3_move",
+        "detail": "barge, departs 06:59, 190m transit",
+        "status": "considered",
+        "cost_sgd": 682.0,
+        "emissions_kg_co2e": 90.2
+      },
+      {
+        "option_id": "SG-CONN-4482-r3-tuapas_1100",
+        "rung": "rung_3_move",
+        "detail": "road, departs 04:59, 55m transit",
+        "status": "considered",
+        "cost_sgd": 1056.0,
+        "emissions_kg_co2e": 272.8
+      },
+      {
+        "option_id": "SG-CONN-4482-r3-tuapas_1140",
+        "rung": "rung_3_move",
+        "detail": "road, departs 06:19, 55m transit",
+        "status": "considered",
+        "cost_sgd": 1056.0,
+        "emissions_kg_co2e": 272.8
+      },
+      {
+        "option_id": "SG-CONN-4482-r4-offer",
+        "rung": "rung_4_offer",
+        "detail": "3 outbound services still callable",
+        "status": "considered",
+        "cost_sgd": 0.0,
+        "emissions_kg_co2e": 0.0
       }
     ],
     "approvals": [
@@ -354,7 +439,7 @@
         "claude-opus-5": 0.0053
       }
     },
-    "step_count": 16
+    "step_count": 17
   },
   "result": {
     "state": "resolved",

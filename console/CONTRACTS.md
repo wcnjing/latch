@@ -26,6 +26,10 @@ The divergences are all downstream of it, in the shapes the console actually
 renders: B's internal risk model, B's plans, the trace, and B's own console
 view model. Those are covered below.
 
+**Status of the nine requests.** #1 has landed (`6be7bb4`) and is consumed.
+The other eight are open, and the console builds against them as gaps rather
+than waiting: option cost was the only one that blocked a panel.
+
 ---
 
 ## 1. The five shapes the console consumes
@@ -190,44 +194,55 @@ connection, including the safe ones.
 
 ---
 
-## 6. Ranked options never reach the console — largest gap
+## 6. Ranked options — **LANDED**, was the largest gap
 
-The brief asks the connection detail panel for *"B's ranked options with rung,
-cost (SGD), emissions delta (kgCO2e), rationale and confidence"*.
+*Raised as REQUEST TO B #1. Closed by B in `6be7bb4`, "Serialise the options
+the agent compared, with what each would cost".*
 
-`Plan` (`models.py:232`) carries all of that: `rung`, `cost_sgd`,
-`emissions_kg_co2e`, `rationale`, `confidence`, `actions`, `provenance`,
-`resources_required`, `options_alive`.
+**What the gap was.** `Plan` (`models.py:232`) carried `cost_sgd`,
+`emissions_kg_co2e`, `actions` and `provenance`, and B had no serialiser for
+it. `trace.decision(...)` recorded four fields — rung, chosen, confidence,
+rationale — for the chosen plan only. Cost and emissions were computed in
+`build_candidates`, formatted into the model's prompt, and discarded. The
+runners-up never left the process.
 
-**There is no serialiser for `Plan` anywhere in B.** `grep` for `asdict`
-across `src/latch` returns only `console.py` (panel/ladder/approvals) and
-`replay.py`. `runner.handle()` returns an in-process `Outcome`; the only thing
-that crosses the wire is the trace.
+**What B added.** A new `options` trace step carrying every candidate:
 
-What the trace records about a plan is `trace.decision(...)`
-(`trace.py:168`) — four fields:
-
-```python
-rung, chosen, confidence, rationale
+```json
+{ "type": "options", "candidates": [
+  { "option_id": "...-r3-tuapas_1120", "rung": "rung_3_move",
+    "detail": "barge, departs 05:37, 190m transit",
+    "cost_sgd": 1054.0, "emissions_kg_co2e": 139.4, "chosen": true }, ... ] }
 ```
 
-No `plan_id`. No `cost_sgd`. No `emissions_kg_co2e`. No `actions`. And only
-for the chosen plan plus rung-1 advisories (`runner.py`), never for the
-runners-up. `DeliberationResult.plans` holds the full ranking; it is discarded
-when `handle()` returns.
+plus `cost_sgd` / `emissions_kg_co2e` on the `decision` step, and
+`action_cost_sgd` / `action_emissions_kg_co2e` on the trace outcome for what
+the executed action actually committed. `OptionRow` gained the two fields and
+a `has_cost` property, and its `offered` status became `considered`.
 
-Cost and emissions *are* computed — `deliberation.py:build_candidates`
-multiplies `slot.cost_sgd` and `slot.emissions_kg_co2e` by `affected_boxes` —
-and they are put in the model's prompt (`deliberation.py:_prompt`). They are
-then thrown away.
+This is the shape we asked for — option (a), keeping the runners-up — and it
+is what makes a ranking legible as a ranking rather than an assertion about a
+winner. The console now renders the road-against-barge comparison directly:
+barge at S$1,054 and 139 kg CO2e taken over road at S$1,632 and 422 kg.
 
-**Console impact.** Until REQUEST TO B #1 lands, the options table renders
-what genuinely exists: rung, rationale, confidence, and the ruled-out options
-with their reasons (which *are* traced, as `observation` steps with
-`considered: true`). The cost and emissions columns render an explicit
-`not carried in trace` marker rather than a number. We will not recompute them
-in the adapter from `ITT_COST_PER_BOX_SGD × boxes` — that would be the console
-inventing a figure and attributing it to the agent.
+**Two things B got right that the console has to respect.**
+
+1. **Operational cost and model cost are different units.** SGD for the move,
+   USD for inference. B keeps them in differently named fields and has a test
+   asserting they never meet. The console renders them in separate panels and
+   never sums them.
+2. **Zero is a real value on Rung 1 and Rung 4.** Neither moves a box, so their
+   cost is genuinely zero rather than absent. B exposes `has_cost` rather than
+   leaving a renderer to guess; the console shows "moves no cargo" there, which
+   is different from the gap marker it shows when a field is missing.
+
+**What is still not carried.** `PlanAction.kind`, `resources_required` and the
+per-plan `provenance` list remain in-process only. The first two are not needed
+on screen. The third is why the unverified-input field names still have to be
+reconstructed from the trace (§12 and the confidence panel).
+
+The `Missing` path in the adapter is kept rather than deleted, so a trace
+captured before this commit still renders an honest gap instead of a zero.
 
 ---
 
@@ -420,22 +435,10 @@ generation run, so they cannot disagree.
 
 Ordered by how much the console loses without them.
 
-### REQUEST TO B #1 — serialise the ranked options *(blocking for step 2.2)*
+### ~~REQUEST TO B #1 — serialise the ranked options~~ — **LANDED** `6be7bb4`
 
-The detail panel cannot show cost or emissions for any option, and cannot show
-the runners-up at all. Everything needed already exists on `Plan`; it just has
-no encoder.
-
-Asking for: a `plan_to_dict(plan)` in `serde.py`, and either
-(a) a new trace step `options` carrying the ranked list once per deliberation,
-or (b) extra keys on the existing `decision` step: `plan_id`, `cost_sgd`,
-`emissions_kg_co2e`, `actions`, `rank`.
-
-(a) is preferable — it keeps the runners-up, which is what makes the ranking
-legible as a ranking rather than an assertion.
-
-Until then the console renders `cost` and `emissions` as
-`not carried in trace`. It will not recompute them.
+Delivered as option (a), a new `options` trace step keeping the runners-up.
+Consumed through the adapter only; no component changed shape. See §6.
 
 ### REQUEST TO B #2 — an approval deadline on the gate step
 

@@ -30,6 +30,11 @@ Each file is a bundle: the `RiskEvent`, B's `ConnectionRisk`, the full `Trace`,
 B's own `case_view`, the `GateDecision` (which B never serialises), and the
 `RiskEvent` derived properties. The adapter reads the bundle; nothing else does.
 
+Captured against B at `6be7bb4`, which added the `options` trace step, so each
+Rung 3 run carries every candidate it compared with that candidate's cost and
+emissions. `LATCH_SRC=/path/to/src` points the capture at a different checkout
+of A and B.
+
 ## What is real and what is not
 
 Honest in both directions, and both facts are on screen in the console:
@@ -62,6 +67,22 @@ data + derived arrival estimates + synthetic transhipment connections.**
 | `07-customer-declined.json` | AT_RISK | `resolved` | 1.0000 | Vessel Ops | The line declined everything — and was served |
 | `08-superseded.json` | AT_RISK | `superseded` | — | — | The estimate improved mid-deliberation. Partly authored, see below |
 | `09-stale.json` | AT_RISK | `stale` | — | — | Both read tools failed with nothing cached. Authored, see below |
+| `10-contention-winner.json` | AT_RISK | `resolved` | 1.0000 | auto | Claims the contested slot and commits it |
+| `11-contention-loser.json` | AT_RISK | `resolved` | 1.0000 | — | Finds it committed, goes to `LOST_LOCK`, re-deliberates, falls to Rung 4 |
+
+`05b` and `05c` are the other two branches of the failure-injection run, and
+are held out of the risk queue because they share a connection id with `05` —
+two rows for one connection is exactly what the queue must not do. They are
+what the approval panel's decline and auto-decline play instead:
+
+| File | Approval | Ends at |
+|---|---|---|
+| `05-failure-injection.json` | approved | `connection_held` |
+| `05b-approval-declined.json` | declined by Vessel Ops | `customer_declined_all` |
+| `05c-approval-lapsed.json` | nobody signed | `window_lapsed_no_response` |
+
+Same event, same 0.6672, same escalation. The only variable is the human, so
+whichever the operator picks the console continues into a recorded trace.
 
 `04` and `07` are the pair worth designing around. Both end with a rolled box.
 `Resolution.is_service_success` is false for one and true for the other, and
@@ -89,6 +110,21 @@ below 0.70 — is the single most important frame in the demo video.
 
 The confidence is **0.6672**, not the 0.61 in the original design doc and not
 the 0.6172 in the repo's scripted fixture. 0.6672 is what the code computes.
+
+## 10 and 11 — one slot, two connections
+
+Both share a single `LockTable`, so the contention is real: `SG-CONN-4562`
+claims `itt_slot:tuapas_1120` and commits it, and `SG-CONN-4571` finds it taken
+at priority 96 against 152, moves to `LOST_LOCK`, re-deliberates with the
+option removed, and falls to Rung 4.
+
+One limitation, stated because it would otherwise look like the Lock Table only
+handles the easy case. `runner.handle()` takes a risk from detection to
+resolution without yielding, so two deliberations never interleave in one
+process. The reachable contention here is therefore `incumbent_committed` —
+capacity already consumed, which must not be booked twice. Priority preemption
+of an *uncommitted* reservation needs concurrent deliberation and is covered by
+B's own tests rather than by a captured fixture. Neither is simulated here.
 
 ## 08 and 09 are partly authored, and say so
 

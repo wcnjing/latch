@@ -5,6 +5,7 @@
  */
 
 import { CUT_RUNG } from '../adapters/toViewModel';
+import { isMissing } from '../adapters/types';
 import type { ConnectionVM, OptionVM, Unverified } from '../adapters/types';
 import { hhmm, hoursAndMinutes, pct, signedHours, stamp } from '../lib/format';
 import { GapMarker, Note, Panel, Placeholder, SeverityBadge, StateBadge, Stat, UnverifiedMark } from './ui';
@@ -138,15 +139,44 @@ function SlackCompare({ c }: { c: ConnectionVM }) {
 
 const STATUS_STYLE: Record<OptionVM['status'], string> = {
   chosen: 'border-safe-500/50 bg-safe-900/40',
+  considered: 'border-ink-600 bg-ink-800',
   advisory: 'border-flag-500/40 bg-flag-900/30',
-  ruled_out: 'border-ink-700 bg-ink-800/60',
+  ruled_out: 'border-ink-700 bg-ink-800/50',
 };
 
 const STATUS_LABEL: Record<OptionVM['status'], string> = {
   chosen: 'Chosen',
+  considered: 'Considered',
   advisory: 'Advisory — not the action',
   ruled_out: 'Ruled out in code, before the model saw it',
 };
+
+/** SGD, and never rendered next to the model's USD. Different units. */
+const sgd = (v: number) => `S$${v.toLocaleString('en-SG', { maximumFractionDigits: 0 })}`;
+const kg = (v: number) => `${v.toLocaleString('en-SG', { maximumFractionDigits: 0 })} kg`;
+
+function Money({
+  value,
+  movesCargo,
+  format,
+  best,
+}: {
+  value: OptionVM['costSgd'];
+  movesCargo: boolean;
+  format: (v: number) => string;
+  best?: boolean;
+}) {
+  if (isMissing(value)) return <GapMarker value={value} className="tnum text-mist-200" />;
+  // Zero on a rung that moves no cargo is the correct value, not an absent one.
+  if (!movesCargo && value === 0) {
+    return <span className="text-[11px] text-mist-500">moves no cargo</span>;
+  }
+  return (
+    <span className={`tnum ${best ? 'font-semibold text-safe-500' : 'text-mist-200'}`}>
+      {format(value)}
+    </span>
+  );
+}
 
 function Options({
   options,
@@ -159,6 +189,16 @@ function Options({
   if (options.length === 0) {
     return <p className="text-xs text-mist-500">No options were enumerated on this run.</p>;
   }
+
+  // Which candidate is cheapest / cleanest among the ones that move cargo, so
+  // the chosen option can be read against the alternative rather than alone.
+  const priced = options.filter((o) => o.movesCargo && !isMissing(o.costSgd));
+  const cheapest = priced.length
+    ? Math.min(...priced.map((o) => o.costSgd as number))
+    : null;
+  const cleanest = priced.length
+    ? Math.min(...priced.map((o) => o.emissionsKgCo2e as number))
+    : null;
 
   return (
     <div className="space-y-2">
@@ -189,6 +229,7 @@ function Options({
             )}
           </div>
 
+          {o.detail && <p className="mt-1.5 text-xs text-mist-100">{o.detail}</p>}
           {o.rationale && (
             <p className="mt-1.5 text-xs leading-relaxed text-mist-200">{o.rationale}</p>
           )}
@@ -196,14 +237,24 @@ function Options({
             <p className="mt-1.5 text-[11px] leading-relaxed text-mist-400">{o.exclusionReason}</p>
           )}
 
-          <div className="mt-2 flex gap-5 border-t border-ink-700/60 pt-2 text-[11px]">
-            <div>
-              <span className="text-[10px] uppercase tracking-wide text-mist-500">Cost </span>
-              <GapMarker value={o.costSgd} className="tnum text-mist-200" />
+          <div className="mt-2 flex gap-6 border-t border-ink-700/60 pt-2 text-[11px]">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-mist-500">Cost</span>
+              <Money
+                value={o.costSgd}
+                movesCargo={o.movesCargo}
+                format={sgd}
+                best={!isMissing(o.costSgd) && o.costSgd === cheapest}
+              />
             </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wide text-mist-500">Emissions </span>
-              <GapMarker value={o.emissionsKgCo2e} className="tnum text-mist-200" />
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-mist-500">Emissions</span>
+              <Money
+                value={o.emissionsKgCo2e}
+                movesCargo={o.movesCargo}
+                format={kg}
+                best={!isMissing(o.emissionsKgCo2e) && o.emissionsKgCo2e === cleanest}
+              />
             </div>
           </div>
         </div>
@@ -394,10 +445,9 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
         >
           <Options options={c.options} unverified={c.confidence?.unverifiedFields ?? []} />
           <Note>
-            Cost and emissions are computed by B during deliberation and put in the model's prompt,
-            but no serialiser exists for a Plan, so neither reaches the trace. The console shows the
-            gap rather than recomputing the figures and attributing them to the agent —
-            CONTRACTS.md REQUEST TO B #1.
+            Costs are in Singapore dollars and are the operational cost of the move. They are
+            deliberately never added to the model spend below, which is inference cost in USD —
+            different units, and summing them would be a category error.
           </Note>
         </Panel>
 
@@ -504,6 +554,31 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
                   from detection to options reaching them
                 </>
               )}
+            </div>
+          )}
+
+          {c.outcome.actionCostSgd !== null && c.outcome.actionCostSgd > 0 && (
+            <div className="mt-3 flex gap-6 rounded border border-ink-700 bg-ink-800 px-3 py-2">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-mist-500">
+                  What the action committed
+                </div>
+                <div className="tnum mt-0.5 text-base font-semibold text-mist-100">
+                  {sgd(c.outcome.actionCostSgd)}
+                </div>
+              </div>
+              {c.outcome.actionEmissionsKgCo2e !== null && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-mist-500">Emissions</div>
+                  <div className="tnum mt-0.5 text-base font-semibold text-mist-100">
+                    {kg(c.outcome.actionEmissionsKgCo2e)}
+                  </div>
+                </div>
+              )}
+              <p className="max-w-[16rem] self-center text-[10px] leading-relaxed text-mist-500">
+                Operational cost, in Singapore dollars. Kept apart from the model spend below,
+                which is inference cost in USD.
+              </p>
             </div>
           )}
 

@@ -31,6 +31,7 @@ import {
   type LockStep,
   type ModelCallStep,
   type ObservationStep,
+  type OptionsStep,
   type ReasonCode,
   type Resolution,
   type RiskSeverity,
@@ -44,6 +45,7 @@ import {
   type TraceWire,
 } from '../contracts/latch';
 
+import { isMissing } from './types';
 import type {
   ApprovalVM,
   ConfidenceVM,
@@ -292,6 +294,8 @@ const toolCalls = (t: TraceWire) => t.steps.filter(isType<ToolCallStep>('tool_ca
 const errors = (t: TraceWire) => t.steps.filter(isType<ErrorStep>('error'));
 const gates = (t: TraceWire) => t.steps.filter(isType<GateStep>('gate'));
 const modelCalls = (t: TraceWire) => t.steps.filter(isType<ModelCallStep>('model_call'));
+const optionsStep = (t: TraceWire): OptionsStep | null =>
+  t.steps.filter(isType<OptionsStep>('options')).at(-1) ?? null;
 const confidenceStep = (t: TraceWire): ConfidenceStep | null =>
   t.steps.filter(isType<ConfidenceStep>('confidence')).at(-1) ?? null;
 const externalGate = (t: TraceWire): ExternalGateStep | null =>
@@ -299,8 +303,16 @@ const externalGate = (t: TraceWire): ExternalGateStep | null =>
 
 const missing = (label: string, request: string): Missing => ({ missing: true, label, request });
 
+/**
+ * Fallback for traces captured before B landed the `options` step (REQUEST #1,
+ * commit 6be7bb4). Kept rather than deleted so an older trace renders an honest
+ * gap instead of a zero.
+ */
 const NOT_IN_TRACE = () =>
-  missing('not carried in trace', 'CONTRACTS.md REQUEST TO B #1 — serialise the ranked options');
+  missing('not carried in this trace', 'captured before B landed the options step');
+
+const NOT_COSTED = () =>
+  missing('excluded before costing', 'ruled out in code before a plan was built');
 
 /* =========================================================================
  * Confidence
@@ -569,22 +581,53 @@ function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null
 
 function buildOptions(trace: TraceWire): OptionVM[] {
   const out: OptionVM[] = [];
+  const opts = optionsStep(trace);
+  const decisionSteps = decisions(trace);
+  const chosen = decisionSteps.find((d) => d.chosen);
 
-  for (const d of decisions(trace)) {
+  /* --- the comparison the agent actually made --------------------------
+     B's `options` step carries every candidate with its cost and emissions,
+     runners-up included. That is what makes a ranking legible as a ranking
+     rather than an assertion about a winner. */
+  if (opts) {
+    for (const cand of opts.candidates) {
+      const movesCargo = cand.rung === 'rung_3_move';
+      out.push({
+        id: cand.option_id,
+        rung: RUNGS[cand.rung],
+        status: cand.chosen ? 'chosen' : 'considered',
+        detail: cand.detail,
+        rationale: cand.chosen ? (chosen?.rationale ?? '') : '',
+        exclusionReason: null,
+        confidence: cand.chosen ? (chosen?.confidence ?? null) : null,
+        costSgd: cand.cost_sgd,
+        emissionsKgCo2e: cand.emissions_kg_co2e,
+        movesCargo,
+      });
+    }
+  }
+
+  /* --- decisions ------------------------------------------------------
+     Rung 1 advisories are traced as decisions with `chosen: false`. The
+     chosen decision is skipped when the options step already covered it, so
+     one option never appears twice. */
+  for (const d of decisionSteps) {
+    if (d.chosen && opts) continue;
     out.push({
       id: `seq-${d.seq}`,
       rung: RUNGS[d.rung],
       status: d.chosen ? 'chosen' : 'advisory',
+      detail: '',
       rationale: d.rationale,
       exclusionReason: null,
       confidence: d.confidence,
-      costSgd: NOT_IN_TRACE(),
-      emissionsKgCo2e: NOT_IN_TRACE(),
+      costSgd: d.cost_sgd ?? NOT_IN_TRACE(),
+      emissionsKgCo2e: d.emissions_kg_co2e ?? NOT_IN_TRACE(),
+      movesCargo: d.rung === 'rung_3_move',
     });
   }
 
-  // Options code ruled out before the prompt was built. Recorded by
-  // `runner._record_deliberation` as observations with `considered: true`.
+  /* --- ruled out in code, before the prompt was built ------------------ */
   for (const o of observations(trace)) {
     if (!o.considered) continue;
     const summary = o.summary;
@@ -595,16 +638,22 @@ function buildOptions(trace: TraceWire): OptionVM[] {
       id,
       rung: RUNGS[(o.rung ?? 'rung_3_move') as Rung],
       status: 'ruled_out',
+      detail: '',
       rationale: '',
       exclusionReason: rest.join(': '),
       confidence: null,
-      costSgd: NOT_IN_TRACE(),
-      emissionsKgCo2e: NOT_IN_TRACE(),
+      costSgd: NOT_COSTED(),
+      emissionsKgCo2e: NOT_COSTED(),
+      movesCargo: false,
     });
   }
 
-  const rank = { chosen: 0, advisory: 1, ruled_out: 2 } as const;
-  return out.sort((a, b) => rank[a.status] - rank[b.status]);
+  const rank = { chosen: 0, advisory: 1, considered: 2, ruled_out: 3 } as const;
+  return out.sort(
+    (a, b) =>
+      rank[a.status] - rank[b.status] ||
+      (isMissing(a.costSgd) || isMissing(b.costSgd) ? 0 : a.costSgd - b.costSgd),
+  );
 }
 
 /* =========================================================================
@@ -872,6 +921,8 @@ function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
       ? { optionsSent: ext.options_sent, windowMin: ext.window_min, outcome: ext.outcome }
       : null,
     decisionLeadTimeH: bundle.trace.outcome.decision_lead_time_h,
+    actionCostSgd: bundle.trace.outcome.action_cost_sgd ?? null,
+    actionEmissionsKgCo2e: bundle.trace.outcome.action_emissions_kg_co2e ?? null,
   };
 }
 

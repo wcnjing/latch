@@ -47,7 +47,13 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 CONSOLE = HERE.parent
 PROJECT = CONSOLE.parent
-sys.path.insert(0, str(PROJECT / "src"))
+
+# Normally A and B sit beside the console at `../src`. LATCH_SRC points the
+# capture at a different checkout of them, which is what makes it possible to
+# re-capture against a newer B without moving the console first.
+import os  # noqa: E402
+
+sys.path.insert(0, os.environ.get("LATCH_SRC", str(PROJECT / "src")))
 
 from latch.cases import CaseRegistry  # noqa: E402
 from latch.connections import ConnectionParams  # noqa: E402

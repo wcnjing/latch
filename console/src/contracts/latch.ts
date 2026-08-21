@@ -645,6 +645,39 @@ export interface DecisionStep extends TraceStepBase {
   chosen: boolean;
   confidence: number;
   rationale: string;
+  /**
+   * Operational cost of the chosen option, in Singapore dollars. Added when B
+   * landed REQUEST #1. Absent on traces captured before that.
+   *
+   * NOT the same unit as `ModelCallStep.usd`, which is inference cost in USD.
+   * B keeps them in differently named fields and has a test asserting they
+   * never meet; the console must not sum them either.
+   */
+  cost_sgd?: number;
+  emissions_kg_co2e?: number;
+}
+
+/**
+ * trace.py :: options(candidates) — every option the agent compared.
+ *
+ * Added by B in `6be7bb4`, closing CONTRACTS.md REQUEST TO B #1. This is the
+ * substance of a Rung 3 decision: the runners-up are here, not just the winner,
+ * so a ranking can be rendered as a ranking.
+ */
+export interface OptionsStep extends TraceStepBase {
+  type: 'options';
+  candidates: OptionCandidate[];
+}
+
+export interface OptionCandidate {
+  option_id: string;
+  rung: Rung;
+  /** e.g. "barge, departs 05:37, 190m transit". */
+  detail: string;
+  /** Singapore dollars, per-box cost multiplied by the box count. */
+  cost_sgd: number;
+  emissions_kg_co2e: number;
+  chosen: boolean;
 }
 
 /** trace.py :: tool_call(tool, status, latency_ms, **extra) */
@@ -759,6 +792,7 @@ export type TraceStep =
   | ObservationStep
   | StateChangeStep
   | DecisionStep
+  | OptionsStep
   | ToolCallStep
   | LockStep
   | ErrorStep
@@ -800,6 +834,12 @@ export interface TraceWire {
     /** Hours between detection and options reaching the line. Null when none sent. */
     decision_lead_time_h: number | null;
     options_alive_at_send: number;
+    /**
+     * What the executed action actually committed, in Singapore dollars.
+     * Zero when nothing that moves cargo fired. Added with REQUEST #1.
+     */
+    action_cost_sgd?: number;
+    action_emissions_kg_co2e?: number;
   };
   cost: CostWire;
 }
@@ -838,7 +878,10 @@ export interface OptionRowWire {
   option_id: string;
   rung: Rung | '';
   detail: string;
-  status: 'chosen' | 'offered' | 'ruled_out' | 'advisory';
+  /** 'offered' was replaced by 'considered' when B landed the options step. */
+  status: 'chosen' | 'considered' | 'ruled_out' | 'advisory';
+  cost_sgd?: number;
+  emissions_kg_co2e?: number;
 }
 
 /** console.py :: PendingApproval */
