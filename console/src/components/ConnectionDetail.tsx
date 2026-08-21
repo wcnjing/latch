@@ -5,9 +5,9 @@
  */
 
 import { CUT_RUNG } from '../adapters/toViewModel';
-import type { ConnectionVM, OptionVM } from '../adapters/types';
+import type { ConnectionVM, OptionVM, Unverified } from '../adapters/types';
 import { hhmm, hoursAndMinutes, pct, signedHours, stamp } from '../lib/format';
-import { GapMarker, Note, Panel, Placeholder, SeverityBadge, StateBadge, Stat } from './ui';
+import { GapMarker, Note, Panel, Placeholder, SeverityBadge, StateBadge, Stat, UnverifiedMark } from './ui';
 
 /* ---------------------------------------------------------------- legs -- */
 
@@ -148,7 +148,14 @@ const STATUS_LABEL: Record<OptionVM['status'], string> = {
   ruled_out: 'Ruled out in code, before the model saw it',
 };
 
-function Options({ options }: { options: OptionVM[] }) {
+function Options({
+  options,
+  unverified,
+}: {
+  options: OptionVM[];
+  /** Empty when every input was a first-attempt live read. */
+  unverified: Unverified[];
+}) {
   if (options.length === 0) {
     return <p className="text-xs text-mist-500">No options were enumerated on this run.</p>;
   }
@@ -173,8 +180,11 @@ function Options({ options }: { options: OptionVM[] }) {
               {STATUS_LABEL[o.status]}
             </span>
             {o.confidence !== null && (
-              <span className="tnum ml-auto text-[11px] text-mist-400">
-                conf {o.confidence.toFixed(4)}
+              <span className="ml-auto flex items-baseline text-[11px] text-mist-400">
+                <span className="tnum">conf {o.confidence.toFixed(4)}</span>
+                {/* The mark belongs at the number, not in a footnote: this
+                    plan's score rests on an input nobody could verify. */}
+                {unverified.length > 0 && <UnverifiedMark why={unverified[0]} />}
               </span>
             )}
           </div>
@@ -382,7 +392,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           title="Options B ranked"
           subtitle="Code enumerates; the model only ranks. It cannot book a slot that does not exist."
         >
-          <Options options={c.options} />
+          <Options options={c.options} unverified={c.confidence?.unverifiedFields ?? []} />
           <Note>
             Cost and emissions are computed by B during deliberation and put in the model's prompt,
             but no serialiser exists for a Plan, so neither reaches the trace. The console shows the
