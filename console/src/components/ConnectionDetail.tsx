@@ -406,6 +406,52 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
         </Panel>
       </div>
 
+      {/* --- contested resources ---------------------------------------- */}
+      {c.locks.length > 0 && (
+        <Panel
+          title="Contested resources"
+          subtitle="Arbitrated on boxes ÷ remaining slack, never on who asked first"
+        >
+          <div className="space-y-2">
+            {c.locks.map((l, i) => (
+              <div
+                key={`${l.resource}-${i}`}
+                className={`rounded border p-3 ${
+                  l.held ? 'border-safe-500/40 bg-safe-900/30' : 'border-risk-500/40 bg-risk-900/30'
+                }`}
+              >
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <code className="font-mono text-xs text-mist-100">{l.resource}</code>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wide ${
+                      l.held ? 'text-safe-500' : 'text-risk-500'
+                    }`}
+                  >
+                    {l.held ? 'held' : 'lost'}
+                  </span>
+                  <span className="tnum ml-auto text-[11px] text-mist-400">
+                    priority {Math.round(l.ourPriority)}
+                    {l.winnerPriority !== null && (
+                      <>
+                        {' '}
+                        vs{' '}
+                        <span className={l.held ? 'text-safe-500' : 'text-risk-500'}>
+                          {Math.round(l.winnerPriority)}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-mist-200">{l.outcome}</p>
+                {l.consequence && (
+                  <p className="mt-1 text-[11px] leading-relaxed text-mist-400">{l.consequence}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
       {/* --- outcome ---------------------------------------------------- */}
       {c.outcome && (
         <Panel

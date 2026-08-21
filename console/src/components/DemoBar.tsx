@@ -25,6 +25,8 @@ interface Props {
   onRestart: () => void;
   onSpeed: (s: Speed) => void;
   onStep: (dir: 1 | -1) => void;
+  cinema: boolean;
+  onCinema: (v: boolean) => void;
 }
 
 function Btn({
@@ -69,6 +71,8 @@ export function DemoBar({
   onRestart,
   onSpeed,
   onStep,
+  cinema,
+  onCinema,
 }: Props) {
   if (!playback) {
     return (
@@ -170,6 +174,13 @@ export function DemoBar({
           </span>
         )}
 
+        <Btn
+          onClick={() => onCinema(!cinema)}
+          primary={cinema}
+          title="Full-screen layout sized for a screen recording"
+        >
+          {cinema ? '▣ Cinema on' : '▢ Cinema'}
+        </Btn>
         <Btn onClick={onStop}>Exit replay</Btn>
       </div>
 

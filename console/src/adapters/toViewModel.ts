@@ -55,6 +55,7 @@ import type {
   FixtureBundle,
   GateVM,
   Lifecycle,
+  LockVM,
   Missing,
   OptionVM,
   OutcomeVM,
@@ -607,6 +608,57 @@ function buildOptions(trace: TraceWire): OptionVM[] {
 }
 
 /* =========================================================================
+ * Contested resources
+ * ====================================================================== */
+
+/**
+ * `ClaimResult.reason` in operator English, plus what it meant for this
+ * connection. The Lock Table exists so two deliberations cannot both book the
+ * last slot, and a console that only showed "lost" would not say why.
+ */
+const CLAIM_COPY: Record<string, { outcome: string; consequence: string }> = {
+  uncontested: {
+    outcome: 'Reserved — nothing else wanted it',
+    consequence: 'Held through to the booking, then committed.',
+  },
+  already_held: {
+    outcome: 'Re-claimed a reservation this connection already held',
+    consequence: 'The reservation was refreshed rather than duplicated.',
+  },
+  incumbent_committed: {
+    outcome: 'Already committed to another connection',
+    consequence:
+      'A committed slot is consumed capacity — the move has begun and cannot be un-booked. This connection re-deliberated with the option removed.',
+  },
+  preempted_lower_priority: {
+    outcome: 'Taken from a lower-priority connection',
+    consequence:
+      'Arbitrated on boxes over remaining slack, not on who asked first. The other connection was told, so it could re-deliberate.',
+  },
+  outranked: {
+    outcome: 'Outranked by a more urgent connection',
+    consequence: 'This connection re-deliberated with the option removed.',
+  },
+};
+
+function buildLocks(trace: TraceWire): LockVM[] {
+  return trace.steps.filter(isType<LockStep>('lock')).map((s) => {
+    const copy = CLAIM_COPY[s.action] ?? {
+      outcome: s.action || (s.status === 'held' ? 'Reserved' : 'Not granted'),
+      consequence: '',
+    };
+    return {
+      resource: s.resource,
+      held: s.status === 'held',
+      ourPriority: s.our_priority,
+      winnerPriority: s.winner_priority,
+      outcome: copy.outcome,
+      consequence: copy.consequence,
+    };
+  });
+}
+
+/* =========================================================================
  * Timeline
  * ====================================================================== */
 
@@ -953,6 +1005,7 @@ export function toViewModel(bundle: FixtureBundle): ConnectionVM {
     gate,
     approval: buildApproval(gate, state),
     options: buildOptions(trace),
+    locks: buildLocks(trace),
     timeline: trace.steps.map(toTimelineEvent),
     outcome: buildOutcome(bundle),
     cost: buildCost(trace),

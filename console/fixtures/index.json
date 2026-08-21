@@ -153,6 +153,38 @@
       "usd": 0.004623
     },
     {
+      "fixture_id": "10-contention-winner",
+      "file": "10-contention-winner.json",
+      "title": "Took the contested slot",
+      "connection_id": "SG-CONN-4562",
+      "severity": "AT_RISK",
+      "boxes": 38,
+      "state": "resolved",
+      "resolution": "connection_held",
+      "service_success": true,
+      "authored": false,
+      "confidence": 1.0,
+      "required_role": "auto",
+      "escalated": false,
+      "usd": 0.005743
+    },
+    {
+      "fixture_id": "11-contention-loser",
+      "file": "11-contention-loser.json",
+      "title": "Lost the slot, and still had something to offer",
+      "connection_id": "SG-CONN-4571",
+      "severity": "AT_RISK",
+      "boxes": 24,
+      "state": "resolved",
+      "resolution": "window_lapsed_no_response",
+      "service_success": false,
+      "authored": false,
+      "confidence": 1.0,
+      "required_role": null,
+      "escalated": false,
+      "usd": 0.005733
+    },
+    {
       "fixture_id": "08-superseded",
       "file": "08-superseded.json",
       "title": "SUPERSEDED \u2014 the risk evaporated mid-deliberation",

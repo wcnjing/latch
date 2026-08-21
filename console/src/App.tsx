@@ -7,13 +7,14 @@
  * argument, not a decoration on it.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { toViewModel } from './adapters/toViewModel';
 import { ApprovalPanel } from './components/ApprovalPanel';
 import { ConfidencePanel } from './components/ConfidencePanel';
 import { ConnectionDetail } from './components/ConnectionDetail';
 import { DemoBar } from './components/DemoBar';
+import { DemoStage } from './components/DemoStage';
 import { GateTransition } from './components/GateTransition';
 import { RiskQueue } from './components/RiskQueue';
 import { TraceTimeline } from './components/TraceTimeline';
@@ -88,6 +89,7 @@ function Header({ connections }: { connections: ReturnType<typeof useConsole>['c
 export default function App() {
   const console_ = useConsole();
   const { connections, selected, selectedId, playback } = console_;
+  const [cinema, setCinema] = useState(false);
 
   /* The full trace of whatever is being replayed, so the timeline can show the
      steps that have not been revealed yet as greyed rather than absent. */
@@ -122,8 +124,13 @@ export default function App() {
         onRestart={console_.restart}
         onSpeed={console_.setSpeed}
         onStep={(dir) => (dir === 1 ? console_.stepForward() : console_.stepBack())}
+        cinema={cinema}
+        onCinema={setCinema}
       />
 
+      {cinema && playback && selected && selected.id === playback.id ? (
+        <DemoStage c={selected} playback={playback} onDecide={console_.decide} />
+      ) : (
       <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_440px]">
         <RiskQueue
           connections={connections}
@@ -193,6 +200,7 @@ export default function App() {
           )}
         </aside>
       </div>
+      )}
     </div>
   );
 }

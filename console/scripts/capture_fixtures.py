@@ -698,6 +698,71 @@ def fx_declined() -> dict[str, Any]:
     )
 
 
+def fx_contention() -> list[dict[str, Any]]:
+    """10 and 11. Two connections, one slot. Both are real runs.
+
+    The pair shares a single `LockTable`, so the contention is genuine rather
+    than described: the first connection claims the slot and commits it, and
+    the second finds it taken and has to do something else.
+
+    One limitation, stated because it would otherwise look like the Lock Table
+    only handles the easy case. `runner.handle()` runs a risk from detection to
+    resolution without yielding, so two deliberations never interleave in one
+    process. That means the reachable contention here is
+    `incumbent_committed` — capacity that has already been consumed and must
+    not be booked twice. Priority preemption, where a more urgent risk takes an
+    uncommitted reservation from a less urgent one, needs concurrent
+    deliberation and is exercised by B's own tests instead. Neither is
+    simulated here.
+    """
+    table = LockTable()
+
+    first = event(
+        "SG-CONN-4562",
+        state="AT_RISK",
+        slack=-1.2,
+        no_itt=6.0,
+        boxes=38,
+        confidence="HIGH",
+        offset_min=18,
+        inbound_vessel="SYNTHETIC EVERGREEN",
+        outbound_vessel="SYNTHETIC FEEDER X",
+    )
+    second = event(
+        "SG-CONN-4571",
+        state="AT_RISK",
+        slack=-0.7,
+        no_itt=6.0,
+        boxes=24,
+        confidence="HIGH",
+        offset_min=20,
+        inbound_vessel="SYNTHETIC WAN HAI",
+        outbound_vessel="SYNTHETIC FEEDER XI",
+    )
+
+    winner = capture(
+        "10-contention-winner",
+        "Took the contested slot",
+        "Claims the transfer slot uncontested, books it, and commits. A "
+        "committed reservation is consumed capacity and is never preempted — "
+        "the physical move has begun.",
+        first,
+        locks=table,
+    )
+    loser = capture(
+        "11-contention-loser",
+        "Lost the slot, and still had something to offer",
+        "Finds the same slot already committed to another connection. Rather "
+        "than dying quietly it re-deliberates with that option removed, and "
+        "falls to Rung 4 — losing a slot is not the same as having nothing to "
+        "offer.",
+        second,
+        locks=table,
+        extra={"contends_with": "SG-CONN-4562"},
+    )
+    return [winner, loser]
+
+
 def fx_superseded() -> dict[str, Any]:
     """8. SUPERSEDED. Authored closure, real admission decision.
 
@@ -941,6 +1006,7 @@ BUILDERS = (
     fx_lapsed_approval,
     fx_lapsed,
     fx_declined,
+    fx_contention,
     fx_superseded,
     fx_stale,
 )
@@ -952,9 +1018,10 @@ def main() -> int:
 
     bundles = []
     for build in BUILDERS:
-        bundle = build()
-        bundles.append(bundle)
-        write(f"{bundle['fixture_id']}.json", bundle)
+        produced = build()
+        for bundle in produced if isinstance(produced, list) else [produced]:
+            bundles.append(bundle)
+            write(f"{bundle['fixture_id']}.json", bundle)
 
     index = {
         "generated_by": "console/scripts/capture_fixtures.py",

@@ -1,7 +1,7 @@
 {
-  "fixture_id": "02-watch",
-  "title": "WATCH \u2014 margin thinning, resolved inside policy",
-  "what_it_shows": "Small volume, live data, confidence above threshold: the gate auto-approves and no signature is required. The contrast case for everything that follows.",
+  "fixture_id": "11-contention-loser",
+  "title": "Lost the slot, and still had something to offer",
+  "what_it_shows": "Finds the same slot already committed to another connection. Rather than dying quietly it re-deliberates with that option removed, and falls to Rung 4 \u2014 losing a slot is not the same as having nothing to offer.",
   "provenance": {
     "produced_by": "runner.handle()",
     "authored": false,
@@ -12,32 +12,32 @@
     "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
   },
   "event": {
-    "connection_id": "SG-CONN-4482",
-    "state": "WATCH",
-    "current_plan_slack_hours": 3.1,
-    "no_itt_slack_hours": 7.4,
+    "connection_id": "SG-CONN-4571",
+    "state": "AT_RISK",
+    "current_plan_slack_hours": -0.7,
+    "no_itt_slack_hours": 6.0,
     "avoidable_by_terminal_prevention": true,
-    "affected_boxes": 22,
+    "affected_boxes": 24,
     "confidence": "HIGH",
     "reason_codes": [
       "INBOUND_ETA_SLIP",
       "INTER_TERMINAL_TRANSFER_TIME"
     ],
-    "detected_at": "2026-08-30T04:19:00+00:00",
-    "ucid": "UCID-SYNTH-SG-CONN-4482",
+    "detected_at": "2026-08-30T04:37:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4571",
     "inbound_terminal": "tuas",
     "outbound_terminal": "pasir_panjang",
     "terminal_resolution": "simulated",
-    "inbound_vessel": "SYNTHETIC MSC",
-    "outbound_vessel": "SYNTHETIC FEEDER II",
+    "inbound_vessel": "SYNTHETIC WAN HAI",
+    "outbound_vessel": "SYNTHETIC FEEDER XI",
     "source": "ais_replay+synthetic_connection"
   },
   "derived": {
     "is_actionable": true,
-    "slack_deficit_hours": 0.0,
-    "itt_cost_hours": 4.3,
-    "itt_is_the_problem": false,
-    "priority": 7.097,
+    "slack_deficit_hours": 0.7,
+    "itt_cost_hours": 6.7,
+    "itt_is_the_problem": true,
+    "priority": 96.0,
     "watcher_confidence_factor": 1.0
   },
   "assumptions": {
@@ -52,49 +52,49 @@
   },
   "risk": {
     "wire_version": 1,
-    "risk_id": "SG-CONN-4482",
-    "ucid": "UCID-SYNTH-SG-CONN-4482",
-    "detected_at": "2026-08-30T04:19:00+00:00",
+    "risk_id": "SG-CONN-4571",
+    "ucid": "UCID-SYNTH-SG-CONN-4571",
+    "detected_at": "2026-08-30T04:37:00+00:00",
     "inbound": {
-      "vessel_name": "SYNTHETIC MSC",
+      "vessel_name": "SYNTHETIC WAN HAI",
       "imo": null,
       "service_code": "UNKNOWN",
       "terminal": "tuas",
       "terminal_resolution": "simulated",
       "berth": null,
-      "scheduled": "2026-08-30T04:19:00+00:00",
-      "estimated": "2026-08-30T04:19:00+00:00"
+      "scheduled": "2026-08-30T04:37:00+00:00",
+      "estimated": "2026-08-30T05:19:00+00:00"
     },
     "outbound": {
-      "vessel_name": "SYNTHETIC FEEDER II",
+      "vessel_name": "SYNTHETIC FEEDER XI",
       "imo": null,
       "service_code": "UNKNOWN",
       "terminal": "pasir_panjang",
       "terminal_resolution": "simulated",
       "berth": null,
-      "scheduled": "2026-08-30T11:43:00+00:00",
-      "estimated": "2026-08-30T11:43:00+00:00"
+      "scheduled": "2026-08-30T10:37:00+00:00",
+      "estimated": "2026-08-30T10:37:00+00:00"
     },
-    "boxes_at_risk": 22,
-    "slack_total_min": 444.0,
-    "slack_remaining_min": 186.0,
+    "boxes_at_risk": 24,
+    "slack_total_min": 360.0,
+    "slack_remaining_min": -42.0,
     "source": "ais_replay+synthetic_connection",
     "data_age_min": 0.0,
     "derived": {
-      "eta_deviation_min": 0.0,
-      "slack_consumed_pct": 0.5811,
-      "priority": 7.1,
+      "eta_deviation_min": 42.0,
+      "slack_consumed_pct": 1.0,
+      "priority": 96.0,
       "crosses_terminals": true
     }
   },
   "trace": {
-    "trace_id": "cr_2026_08_30_0419_4482",
-    "risk_id": "SG-CONN-4482",
-    "ucid": "UCID-SYNTH-SG-CONN-4482",
+    "trace_id": "cr_2026_08_30_0437_4571",
+    "risk_id": "SG-CONN-4571",
+    "ucid": "UCID-SYNTH-SG-CONN-4571",
     "trigger": {
       "source": "ais_replay+synthetic_connection",
-      "eta_deviation_min": 0,
-      "slack_consumed_pct": 0.581,
+      "eta_deviation_min": 42,
+      "slack_consumed_pct": 1.0,
       "inbound_terminal": "tuas",
       "outbound_terminal": "pasir_panjang",
       "terminal_resolution": "simulated"
@@ -103,20 +103,20 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699500+00:00",
-        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): WATCH, 22 boxes, +3.1h remaining margin (+7.4h if the transfer requirement were removed)",
+        "at": "2026-08-21T16:25:23.719400+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 24 boxes, -0.7h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
           "INBOUND_ETA_SLIP",
           "INTER_TERMINAL_TRANSFER_TIME"
         ],
         "watcher_confidence": "HIGH",
-        "priority": 7.1
+        "priority": 96.0
       },
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699515+00:00",
+        "at": "2026-08-21T16:25:23.719410+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,24 +130,24 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.699834+00:00",
+        "at": "2026-08-21T16:25:23.719455+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
-        "input_tokens": 272,
-        "output_tokens": 39,
-        "usd": 0.000467
+        "input_tokens": 273,
+        "output_tokens": 32,
+        "usd": 0.000433
       },
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.699841+00:00",
-        "summary": "3.1h of margin left against a transfer on the critical path; close enough that the choice between options matters.",
+        "at": "2026-08-21T16:25:23.719459+00:00",
+        "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.699848+00:00",
+        "at": "2026-08-21T16:25:23.719463+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.699852+00:00",
+        "at": "2026-08-21T16:25:23.719466+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +163,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700348+00:00",
+        "at": "2026-08-21T16:25:23.719789+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -172,7 +172,7 @@
       {
         "seq": 8,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700356+00:00",
+        "at": "2026-08-21T16:25:23.719795+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.700371+00:00",
+        "at": "2026-08-21T16:25:23.719803+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 610,
@@ -191,7 +191,7 @@
       {
         "seq": 10,
         "type": "confidence",
-        "at": "2026-08-21T16:25:23.700406+00:00",
+        "at": "2026-08-21T16:25:23.719831+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -209,93 +209,130 @@
       {
         "seq": 11,
         "type": "decision",
-        "at": "2026-08-21T16:25:23.700413+00:00",
-        "rung": "rung_3_move",
-        "chosen": true,
+        "at": "2026-08-21T16:25:23.719836+00:00",
+        "rung": "rung_1_inform",
+        "chosen": false,
         "confidence": 1.0,
-        "rationale": "Lowest on both emissions (90 kg CO2e) and cost (SGD 682) among the legs that arrive before the modelled cutoff; no tradeoff to make."
+        "rationale": "co-locating would recover 6.7h of margin (density 1.00)"
       },
       {
         "seq": 12,
-        "type": "lock",
-        "at": "2026-08-21T16:25:23.700440+00:00",
-        "resource": "itt_slot:tuapas_1120",
-        "status": "held",
-        "our_priority": 7.1,
-        "winner_priority": null,
-        "action": "uncontested"
+        "type": "decision",
+        "at": "2026-08-21T16:25:23.719839+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 1.0,
+        "rationale": "Lowest on both emissions (98 kg CO2e) and cost (SGD 744) among the legs that arrive before the modelled cutoff; no tradeoff to make."
       },
       {
         "seq": 13,
-        "type": "gate",
-        "at": "2026-08-21T16:25:23.700463+00:00",
-        "rung": "rung_3_move",
-        "required_role": "auto",
-        "escalated": false,
-        "escalation_reason": "",
-        "status": "auto",
-        "latency_s": 0.0
+        "type": "lock",
+        "at": "2026-08-21T16:25:23.719855+00:00",
+        "resource": "itt_slot:tuapas_1120",
+        "status": "lost",
+        "our_priority": 96.0,
+        "winner_priority": 152.0,
+        "action": "incumbent_committed"
       },
       {
         "seq": 14,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.700471+00:00",
+        "at": "2026-08-21T16:25:23.719861+00:00",
         "from_state": "deliberating",
-        "to_state": "executing",
-        "reason": "auto-approved under policy"
+        "to_state": "lost_lock",
+        "reason": "incumbent_committed"
       },
       {
         "seq": 15,
-        "type": "tool_call",
-        "at": "2026-08-21T16:25:23.700499+00:00",
-        "tool": "book_itt_leg",
-        "status": "ok",
-        "latency_ms": 850
+        "type": "observation",
+        "at": "2026-08-21T16:25:23.719871+00:00",
+        "summary": "re-deliberating without the contested resource; 1 option(s) remain"
       },
       {
         "seq": 16,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.700511+00:00",
+        "at": "2026-08-21T16:25:23.719876+00:00",
+        "from_state": "lost_lock",
+        "to_state": "awaiting_customer",
+        "reason": "no alternative internal option"
+      },
+      {
+        "seq": 17,
+        "type": "tool_call",
+        "at": "2026-08-21T16:25:23.719879+00:00",
+        "tool": "send_options_to_line",
+        "status": "ok",
+        "latency_ms": 640
+      },
+      {
+        "seq": 18,
+        "type": "external_gate",
+        "at": "2026-08-21T16:25:23.719884+00:00",
+        "party": "line",
+        "options_sent": 1,
+        "window_min": 180,
+        "outcome": "LAPSED_NO_RESPONSE"
+      },
+      {
+        "seq": 19,
+        "type": "state_change",
+        "at": "2026-08-21T16:25:23.719886+00:00",
+        "from_state": "awaiting_customer",
+        "to_state": "executing",
+        "reason": "window closed; default action fires"
+      },
+      {
+        "seq": 20,
+        "type": "tool_call",
+        "at": "2026-08-21T16:25:23.719889+00:00",
+        "tool": "roll_to_next_service",
+        "status": "ok",
+        "latency_ms": 310
+      },
+      {
+        "seq": 21,
+        "type": "state_change",
+        "at": "2026-08-21T16:25:23.719896+00:00",
         "from_state": "executing",
         "to_state": "resolved",
-        "reason": "connection_held"
+        "reason": "window_lapsed_no_response"
       }
     ],
     "outcome": {
-      "resolution": "connection_held",
-      "service_success": true,
-      "boxes": 22,
-      "decision_lead_time_h": null,
-      "options_alive_at_send": 0
+      "resolution": "window_lapsed_no_response",
+      "service_success": false,
+      "boxes": 24,
+      "decision_lead_time_h": -0.33,
+      "options_alive_at_send": 1
     },
     "cost": {
       "model_calls": 2,
-      "input_tokens": 882,
-      "output_tokens": 129,
-      "usd": 0.005767,
+      "input_tokens": 883,
+      "output_tokens": 122,
+      "usd": 0.005733,
       "by_model": {
-        "claude-haiku-4-5": 0.000467,
+        "claude-haiku-4-5": 0.000433,
         "claude-opus-5": 0.0053
       }
     }
   },
   "case_view": {
-    "trace_id": "cr_2026_08_30_0419_4482",
-    "risk_id": "SG-CONN-4482",
-    "ucid": "UCID-SYNTH-SG-CONN-4482",
+    "trace_id": "cr_2026_08_30_0437_4571",
+    "risk_id": "SG-CONN-4571",
+    "ucid": "UCID-SYNTH-SG-CONN-4571",
     "trigger": {
       "source": "ais_replay+synthetic_connection",
-      "eta_deviation_min": 0,
-      "slack_consumed_pct": 0.581,
+      "eta_deviation_min": 42,
+      "slack_consumed_pct": 1.0,
       "inbound_terminal": "tuas",
       "outbound_terminal": "pasir_panjang",
       "terminal_resolution": "simulated"
     },
-    "resolution": "connection_held",
-    "service_success": true,
-    "boxes": 22,
-    "decision_lead_time_h": null,
-    "options_alive_at_send": 0,
+    "resolution": "window_lapsed_no_response",
+    "service_success": false,
+    "boxes": 24,
+    "decision_lead_time_h": -0.3333333333333333,
+    "options_alive_at_send": 1,
     "confidence": {
       "value": 1.0,
       "band": "auto",
@@ -328,55 +365,42 @@
     "confidence_headline": "1.00 \u2014 within policy, no signature required",
     "ladder": [
       {
+        "option_id": "rung_1_inform",
+        "rung": "rung_1_inform",
+        "detail": "co-locating would recover 6.7h of margin (density 1.00)",
+        "status": "advisory"
+      },
+      {
         "option_id": "rung_3_move",
         "rung": "rung_3_move",
-        "detail": "Lowest on both emissions (90 kg CO2e) and cost (SGD 682) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
+        "detail": "Lowest on both emissions (98 kg CO2e) and cost (SGD 744) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
         "status": "chosen"
       }
     ],
-    "approvals": [
-      {
-        "rung": "rung_3_move",
-        "role": "auto",
-        "escalated": false,
-        "reason": "",
-        "status": "auto"
-      }
-    ],
-    "customer_gate": null,
+    "approvals": [],
+    "customer_gate": {
+      "options_sent": 1,
+      "window_min": 180,
+      "outcome": "LAPSED_NO_RESPONSE"
+    },
     "cost": {
       "model_calls": 2,
-      "input_tokens": 882,
-      "output_tokens": 129,
-      "usd": 0.005767,
+      "input_tokens": 883,
+      "output_tokens": 122,
+      "usd": 0.005733,
       "by_model": {
-        "claude-haiku-4-5": 0.000467,
+        "claude-haiku-4-5": 0.000433,
         "claude-opus-5": 0.0053
       }
     },
-    "step_count": 16
+    "step_count": 21
   },
   "result": {
     "state": "resolved",
-    "resolution": "connection_held",
-    "service_success": true
+    "resolution": "window_lapsed_no_response",
+    "service_success": false
   },
-  "gate": {
-    "rung": "rung_3_move",
-    "required_role": "auto",
-    "escalated": false,
-    "escalation_reason": "",
-    "auto_approved": true,
-    "blocks": false,
-    "needs_customer": false,
-    "ladder": [
-      "auto",
-      "vessel_ops",
-      "duty_manager"
-    ],
-    "would_have_been": "auto",
-    "confidence_threshold": 0.7
-  },
+  "gate": null,
   "model_calls": [
     {
       "purpose": "triage",
@@ -386,5 +410,6 @@
       "purpose": "deliberation",
       "model": "claude-opus-5"
     }
-  ]
+  ],
+  "contends_with": "SG-CONN-4562"
 }

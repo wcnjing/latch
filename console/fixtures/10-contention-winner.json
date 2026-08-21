@@ -1,7 +1,7 @@
 {
-  "fixture_id": "05-failure-injection",
-  "title": "Confidence degrades, the gate tightens on its own",
-  "what_it_shows": "query_itt_slot times out, retries, times out again, and falls back to inventory read from cache 8 minutes ago. Nobody lowers the confidence \u2014 it falls out of the cache read, and gates.evaluate() escalates the approval from auto to a named human. The human approves.",
+  "fixture_id": "10-contention-winner",
+  "title": "Took the contested slot",
+  "what_it_shows": "Claims the transfer slot uncontested, books it, and commits. A committed reservation is consumed capacity and is never preempted \u2014 the physical move has begun.",
   "provenance": {
     "produced_by": "runner.handle()",
     "authored": false,
@@ -12,32 +12,32 @@
     "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
   },
   "event": {
-    "connection_id": "SG-CONN-4518",
+    "connection_id": "SG-CONN-4562",
     "state": "AT_RISK",
-    "current_plan_slack_hours": -0.5,
+    "current_plan_slack_hours": -1.2,
     "no_itt_slack_hours": 6.0,
     "avoidable_by_terminal_prevention": true,
-    "affected_boxes": 34,
+    "affected_boxes": 38,
     "confidence": "HIGH",
     "reason_codes": [
       "INBOUND_ETA_SLIP",
       "INTER_TERMINAL_TRANSFER_TIME"
     ],
-    "detected_at": "2026-08-30T04:25:00+00:00",
-    "ucid": "UCID-SYNTH-SG-CONN-4518",
+    "detected_at": "2026-08-30T04:35:00+00:00",
+    "ucid": "UCID-SYNTH-SG-CONN-4562",
     "inbound_terminal": "tuas",
     "outbound_terminal": "pasir_panjang",
     "terminal_resolution": "simulated",
-    "inbound_vessel": "SYNTHETIC HAPAG",
-    "outbound_vessel": "SYNTHETIC FEEDER V",
+    "inbound_vessel": "SYNTHETIC EVERGREEN",
+    "outbound_vessel": "SYNTHETIC FEEDER X",
     "source": "ais_replay+synthetic_connection"
   },
   "derived": {
     "is_actionable": true,
-    "slack_deficit_hours": 0.5,
-    "itt_cost_hours": 6.5,
+    "slack_deficit_hours": 1.2,
+    "itt_cost_hours": 7.2,
     "itt_is_the_problem": true,
-    "priority": 136.0,
+    "priority": 152.0,
     "watcher_confidence_factor": 1.0
   },
   "assumptions": {
@@ -52,48 +52,48 @@
   },
   "risk": {
     "wire_version": 1,
-    "risk_id": "SG-CONN-4518",
-    "ucid": "UCID-SYNTH-SG-CONN-4518",
-    "detected_at": "2026-08-30T04:25:00+00:00",
+    "risk_id": "SG-CONN-4562",
+    "ucid": "UCID-SYNTH-SG-CONN-4562",
+    "detected_at": "2026-08-30T04:35:00+00:00",
     "inbound": {
-      "vessel_name": "SYNTHETIC HAPAG",
+      "vessel_name": "SYNTHETIC EVERGREEN",
       "imo": null,
       "service_code": "UNKNOWN",
       "terminal": "tuas",
       "terminal_resolution": "simulated",
       "berth": null,
-      "scheduled": "2026-08-30T04:25:00+00:00",
-      "estimated": "2026-08-30T04:55:00+00:00"
+      "scheduled": "2026-08-30T04:35:00+00:00",
+      "estimated": "2026-08-30T05:47:00+00:00"
     },
     "outbound": {
-      "vessel_name": "SYNTHETIC FEEDER V",
+      "vessel_name": "SYNTHETIC FEEDER X",
       "imo": null,
       "service_code": "UNKNOWN",
       "terminal": "pasir_panjang",
       "terminal_resolution": "simulated",
       "berth": null,
-      "scheduled": "2026-08-30T10:25:00+00:00",
-      "estimated": "2026-08-30T10:25:00+00:00"
+      "scheduled": "2026-08-30T10:35:00+00:00",
+      "estimated": "2026-08-30T10:35:00+00:00"
     },
-    "boxes_at_risk": 34,
+    "boxes_at_risk": 38,
     "slack_total_min": 360.0,
-    "slack_remaining_min": -30.0,
+    "slack_remaining_min": -72.0,
     "source": "ais_replay+synthetic_connection",
     "data_age_min": 0.0,
     "derived": {
-      "eta_deviation_min": 30.0,
+      "eta_deviation_min": 72.0,
       "slack_consumed_pct": 1.0,
-      "priority": 136.0,
+      "priority": 152.0,
       "crosses_terminals": true
     }
   },
   "trace": {
-    "trace_id": "cr_2026_08_30_0425_4518",
-    "risk_id": "SG-CONN-4518",
-    "ucid": "UCID-SYNTH-SG-CONN-4518",
+    "trace_id": "cr_2026_08_30_0435_4562",
+    "risk_id": "SG-CONN-4562",
+    "ucid": "UCID-SYNTH-SG-CONN-4562",
     "trigger": {
       "source": "ais_replay+synthetic_connection",
-      "eta_deviation_min": 30,
+      "eta_deviation_min": 72,
       "slack_consumed_pct": 1.0,
       "inbound_terminal": "tuas",
       "outbound_terminal": "pasir_panjang",
@@ -103,20 +103,20 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.706501+00:00",
-        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 34 boxes, -0.5h remaining margin (+6.0h if the transfer requirement were removed)",
+        "at": "2026-08-21T16:25:23.718542+00:00",
+        "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 38 boxes, -1.2h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
           "INBOUND_ETA_SLIP",
           "INTER_TERMINAL_TRANSFER_TIME"
         ],
         "watcher_confidence": "HIGH",
-        "priority": 136.0
+        "priority": 152.0
       },
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.706516+00:00",
+        "at": "2026-08-21T16:25:23.718555+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +130,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.706595+00:00",
+        "at": "2026-08-21T16:25:23.718610+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +140,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-21T16:25:23.706601+00:00",
+        "at": "2026-08-21T16:25:23.718614+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.706607+00:00",
+        "at": "2026-08-21T16:25:23.718618+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.706611+00:00",
+        "at": "2026-08-21T16:25:23.718621+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,34 +163,25 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.706963+00:00",
+        "at": "2026-08-21T16:25:23.718974+00:00",
         "tool": "query_itt_slot",
-        "status": "cached_fallback",
-        "latency_ms": 10000,
-        "attempts": 2
+        "status": "ok",
+        "latency_ms": 420,
+        "attempts": 1
       },
       {
         "seq": 8,
-        "type": "error",
-        "at": "2026-08-21T16:25:23.706973+00:00",
-        "tool": "query_itt_slot",
-        "error_class": "timeout",
-        "retries": 1,
-        "recovery": "cached inventory @ T-8m"
-      },
-      {
-        "seq": 9,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.706976+00:00",
+        "at": "2026-08-21T16:25:23.718979+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
         "attempts": 1
       },
       {
-        "seq": 10,
+        "seq": 9,
         "type": "model_call",
-        "at": "2026-08-21T16:25:23.706986+00:00",
+        "at": "2026-08-21T16:25:23.718989+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 612,
@@ -198,109 +189,82 @@
         "usd": 0.00531
       },
       {
-        "seq": 11,
+        "seq": 10,
         "type": "confidence",
-        "at": "2026-08-21T16:25:23.707017+00:00",
-        "computed": 0.6672,
+        "at": "2026-08-21T16:25:23.719016+00:00",
+        "computed": 1.0,
         "method": "provenance",
         "factors": {
-          "source": "cache",
-          "source_factor": 0.85,
-          "data_age_min": 8.0,
-          "age_factor": 0.9375,
-          "tool_outcome": "retried",
-          "tool_factor": 0.9,
-          "unverified_inputs": 1,
-          "unverified_penalty": 0.05
+          "source": "live_api",
+          "source_factor": 1.0,
+          "data_age_min": 0.0,
+          "age_factor": 1.0,
+          "tool_outcome": "ok",
+          "tool_factor": 1.0,
+          "unverified_inputs": 0,
+          "unverified_penalty": 0.0
         },
-        "derivation": "source=0.85 (cache) x age=0.938 (8m) x tool=0.90 (retried) - unverified=0.05 (1 of 3) = 0.67"
+        "derivation": "source=1.00 (live_api) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.00 (0 of 3) = 1.00"
+      },
+      {
+        "seq": 11,
+        "type": "decision",
+        "at": "2026-08-21T16:25:23.719022+00:00",
+        "rung": "rung_1_inform",
+        "chosen": false,
+        "confidence": 1.0,
+        "rationale": "co-locating would recover 7.2h of margin (density 1.00)"
       },
       {
         "seq": 12,
         "type": "decision",
-        "at": "2026-08-21T16:25:23.707024+00:00",
-        "rung": "rung_1_inform",
-        "chosen": false,
-        "confidence": 0.6672,
-        "rationale": "co-locating would recover 6.5h of margin (density 1.00)"
+        "at": "2026-08-21T16:25:23.719026+00:00",
+        "rung": "rung_3_move",
+        "chosen": true,
+        "confidence": 1.0,
+        "rationale": "Lowest on both emissions (156 kg CO2e) and cost (SGD 1,178) among the legs that arrive before the modelled cutoff; no tradeoff to make."
       },
       {
         "seq": 13,
-        "type": "decision",
-        "at": "2026-08-21T16:25:23.707028+00:00",
-        "rung": "rung_3_move",
-        "chosen": true,
-        "confidence": 0.6672,
-        "rationale": "Lowest on both emissions (139 kg CO2e) and cost (SGD 1,054) among the legs that arrive before the modelled cutoff; no tradeoff to make."
-      },
-      {
-        "seq": 14,
         "type": "lock",
-        "at": "2026-08-21T16:25:23.707046+00:00",
+        "at": "2026-08-21T16:25:23.719043+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
-        "our_priority": 136.0,
+        "our_priority": 152.0,
         "winner_priority": null,
         "action": "uncontested"
       },
       {
-        "seq": 15,
+        "seq": 14,
         "type": "gate",
-        "at": "2026-08-21T16:25:23.707066+00:00",
+        "at": "2026-08-21T16:25:23.719068+00:00",
         "rung": "rung_3_move",
-        "required_role": "vessel_ops",
-        "escalated": true,
-        "escalation_reason": "confidence 0.67 below 0.7",
-        "status": "required",
+        "required_role": "auto",
+        "escalated": false,
+        "escalation_reason": "",
+        "status": "auto",
         "latency_s": 0.0
+      },
+      {
+        "seq": 15,
+        "type": "state_change",
+        "at": "2026-08-21T16:25:23.719075+00:00",
+        "from_state": "deliberating",
+        "to_state": "executing",
+        "reason": "auto-approved under policy"
       },
       {
         "seq": 16,
-        "type": "state_change",
-        "at": "2026-08-21T16:25:23.707071+00:00",
-        "from_state": "deliberating",
-        "to_state": "awaiting_approval",
-        "reason": "confidence 0.67 below 0.7"
-      },
-      {
-        "seq": 17,
-        "type": "state_change",
-        "at": "2026-08-21T16:25:23.707075+00:00",
-        "from_state": "awaiting_approval",
-        "to_state": "escalated",
-        "reason": "confidence 0.67 below 0.7"
-      },
-      {
-        "seq": 18,
-        "type": "gate",
-        "at": "2026-08-21T16:25:23.707081+00:00",
-        "rung": "rung_3_move",
-        "required_role": "vessel_ops",
-        "escalated": true,
-        "escalation_reason": "",
-        "status": "approved",
-        "latency_s": 0.0
-      },
-      {
-        "seq": 19,
-        "type": "state_change",
-        "at": "2026-08-21T16:25:23.707085+00:00",
-        "from_state": "escalated",
-        "to_state": "executing",
-        "reason": "approved"
-      },
-      {
-        "seq": 20,
         "type": "tool_call",
-        "at": "2026-08-21T16:25:23.707100+00:00",
+        "at": "2026-08-21T16:25:23.719085+00:00",
         "tool": "book_itt_leg",
         "status": "ok",
         "latency_ms": 850
       },
       {
-        "seq": 21,
+        "seq": 17,
         "type": "state_change",
-        "at": "2026-08-21T16:25:23.707109+00:00",
+        "at": "2026-08-21T16:25:23.719094+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "connection_held"
@@ -309,7 +273,7 @@
     "outcome": {
       "resolution": "connection_held",
       "service_success": true,
-      "boxes": 34,
+      "boxes": 38,
       "decision_lead_time_h": null,
       "options_alive_at_send": 0
     },
@@ -325,12 +289,12 @@
     }
   },
   "case_view": {
-    "trace_id": "cr_2026_08_30_0425_4518",
-    "risk_id": "SG-CONN-4518",
-    "ucid": "UCID-SYNTH-SG-CONN-4518",
+    "trace_id": "cr_2026_08_30_0435_4562",
+    "risk_id": "SG-CONN-4562",
+    "ucid": "UCID-SYNTH-SG-CONN-4562",
     "trigger": {
       "source": "ais_replay+synthetic_connection",
-      "eta_deviation_min": 30,
+      "eta_deviation_min": 72,
       "slack_consumed_pct": 1.0,
       "inbound_terminal": "tuas",
       "outbound_terminal": "pasir_panjang",
@@ -338,74 +302,60 @@
     },
     "resolution": "connection_held",
     "service_success": true,
-    "boxes": 34,
+    "boxes": 38,
     "decision_lead_time_h": null,
     "options_alive_at_send": 0,
     "confidence": {
-      "value": 0.6672,
-      "band": "escalate",
+      "value": 1.0,
+      "band": "auto",
       "threshold": 0.7,
-      "derivation": "source=0.85 (cache) x age=0.938 (8m) x tool=0.90 (retried) - unverified=0.05 (1 of 3) = 0.67",
+      "derivation": "source=1.00 (live_api) x age=1.000 (0m) x tool=1.00 (ok) - unverified=0.00 (0 of 3) = 1.00",
       "waterfall": [
         {
           "label": "Source",
-          "detail": "cache",
+          "detail": "live_api",
           "kind": "multiply",
-          "factor": 0.85,
-          "running": 0.85
+          "factor": 1.0,
+          "running": 1.0
         },
         {
           "label": "Data age",
-          "detail": "8 min old",
+          "detail": "0 min old",
           "kind": "multiply",
-          "factor": 0.9375,
-          "running": 0.7969
+          "factor": 1.0,
+          "running": 1.0
         },
         {
           "label": "Tool outcome",
-          "detail": "retried",
+          "detail": "ok",
           "kind": "multiply",
-          "factor": 0.9,
-          "running": 0.7172
-        },
-        {
-          "label": "Unverified inputs",
-          "detail": "1 of them",
-          "kind": "subtract",
-          "factor": 0.05,
-          "running": 0.6672
+          "factor": 1.0,
+          "running": 1.0
         }
       ]
     },
-    "confidence_headline": "0.67 \u2014 below 0.70, approval escalated one level",
+    "confidence_headline": "1.00 \u2014 within policy, no signature required",
     "ladder": [
       {
         "option_id": "rung_1_inform",
         "rung": "rung_1_inform",
-        "detail": "co-locating would recover 6.5h of margin (density 1.00)",
+        "detail": "co-locating would recover 7.2h of margin (density 1.00)",
         "status": "advisory"
       },
       {
         "option_id": "rung_3_move",
         "rung": "rung_3_move",
-        "detail": "Lowest on both emissions (139 kg CO2e) and cost (SGD 1,054) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
+        "detail": "Lowest on both emissions (156 kg CO2e) and cost (SGD 1,178) among the legs that arrive before the modelled cutoff; no tradeoff to make.",
         "status": "chosen"
       }
     ],
     "approvals": [
       {
         "rung": "rung_3_move",
-        "role": "vessel_ops",
-        "escalated": true,
-        "reason": "confidence 0.67 below 0.7",
-        "status": "required"
-      },
-      {
-        "rung": "rung_3_move",
-        "role": "vessel_ops",
-        "escalated": true,
+        "role": "auto",
+        "escalated": false,
         "reason": "",
-        "status": "approved"
+        "status": "auto"
       }
     ],
     "customer_gate": null,
@@ -419,7 +369,7 @@
         "claude-opus-5": 0.00531
       }
     },
-    "step_count": 21
+    "step_count": 17
   },
   "result": {
     "state": "resolved",
@@ -428,11 +378,11 @@
   },
   "gate": {
     "rung": "rung_3_move",
-    "required_role": "vessel_ops",
-    "escalated": true,
-    "escalation_reason": "confidence 0.67 below 0.7",
-    "auto_approved": false,
-    "blocks": true,
+    "required_role": "auto",
+    "escalated": false,
+    "escalation_reason": "",
+    "auto_approved": true,
+    "blocks": false,
     "needs_customer": false,
     "ladder": [
       "auto",

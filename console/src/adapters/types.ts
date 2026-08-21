@@ -230,6 +230,21 @@ export interface OptionVM {
 }
 
 /* -------------------------------------------------------------------------
+ * Contested resources
+ * ---------------------------------------------------------------------- */
+
+export interface LockVM {
+  resource: string;
+  held: boolean;
+  ourPriority: number;
+  winnerPriority: number | null;
+  /** B's `ClaimResult.reason`, in operator English. */
+  outcome: string;
+  /** What the connection did about it. */
+  consequence: string;
+}
+
+/* -------------------------------------------------------------------------
  * Timeline
  * ---------------------------------------------------------------------- */
 
@@ -421,6 +436,7 @@ export interface ConnectionVM {
   gate: GateVM | null;
   approval: ApprovalVM | null;
   options: OptionVM[];
+  locks: LockVM[];
   timeline: TimelineEventVM[];
   outcome: OutcomeVM | null;
   cost: CostVM;
