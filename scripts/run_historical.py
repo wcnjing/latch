@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from latch.cases import CaseRegistry
 from latch.connections import ConnectionParams
 from latch.events import RiskSeverity
 from latch.llm import FakeModel, OllamaModel
@@ -111,12 +112,14 @@ def main() -> None:
 
     signals = arrival_signals(args.csv, config, args.limit)
     severities: Counter[str] = Counter()
-    at_risk = []
+    registry = CaseRegistry()
+    admitted: list[tuple] = []
 
     for event in events_from_signals(signals, params):
         severities[event.state.value] += 1
-        if event.state is RiskSeverity.AT_RISK and len(at_risk) < args.max_agent_runs:
-            at_risk.append(event)
+        decision = registry.admit(event)
+        if decision.should_process and len(admitted) < args.max_agent_runs:
+            admitted.append((event, decision))
 
     total = sum(severities.values())
     print(f"observations read      {args.limit:,}")
@@ -125,14 +128,25 @@ def main() -> None:
         share = severities[state] / total if total else 0.0
         print(f"  {state:8} {severities[state]:7,}  {share:6.1%}")
 
-    if not at_risk:
-        print("\nNo at-risk connections in this slice.")
+    # The Watcher polls, so a connection under pressure emits an event every
+    # cycle. Without the registry each one walks the whole ladder again and
+    # every metric double-counts.
+    print("\nadmission (one connection, one live case)")
+    for name, count in registry.counts.items():
+        if count:
+            print(f"  {name:18} {count:7,}")
+    duplicates = registry.counts["duplicate"] + registry.counts["already_resolved"]
+    if total:
+        print(f"  {'work avoided':18} {duplicates / total:7.1%} of events")
+
+    if not admitted:
+        print("\nNothing admitted in this slice.")
         return
 
-    print(f"\nrunning {len(at_risk)} at-risk connections through the agent "
+    print(f"\nrunning {len(admitted)} admitted cases through the agent "
           f"({args.model})\n")
     store = TraceStore()
-    for event in at_risk:
+    for event, decision in admitted:
         client = (
             OllamaModel()
             if args.model == "local"
@@ -154,9 +168,19 @@ def main() -> None:
             approvals=AutoApprove(),
             customer=CustomerSilent(),
         )
+        # A superseding case references the trace it follows rather than
+        # rewriting it. The earlier trace records what the agent decided at the
+        # time and stays exactly as written — append-only means append-only.
+        if decision.closes_previous:
+            outcome.trace.observation(
+                f"supersedes {decision.superseded_trace_id}: {decision.reason}"
+            )
+        registry.opened(event.connection_id, outcome.trace.trace_id)
+        marker = "  (supersedes)" if decision.closes_previous else ""
         print(
             f"  {event.connection_id:20} {event.affected_boxes:4} boxes  "
-            f"slack {event.current_plan_slack_hours:7.2f}h  -> {outcome.resolution.value}"
+            f"slack {event.current_plan_slack_hours:7.2f}h  -> "
+            f"{outcome.resolution.value}{marker}"
         )
 
     metrics = store.metrics()
