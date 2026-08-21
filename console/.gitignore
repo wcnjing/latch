@@ -3,3 +3,11 @@ dist
 .vite
 .smoke
 tsconfig.tsbuildinfo
+
+# The repo root .gitignore has `data/`, meant for the project data directory.
+# It silently swallowed this console's fixture loader, which App.tsx and
+# useConsole.ts both import -- so the branch built locally and would not have
+# built from a fresh clone. A negation has to re-include the directory itself:
+# git never descends into an excluded directory, so `!src/data/fixtures.ts`
+# alone would not work.
+!src/data/
