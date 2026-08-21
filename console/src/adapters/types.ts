@@ -293,6 +293,17 @@ export interface OutcomeVM {
   why: string;
   /** True for dismissed and superseded: excluded from the north-star denominator. */
   excludedFromMetric: boolean;
+  /**
+   * True when the resolution names the customer but the customer was never
+   * contacted — B reuses the two customer resolutions for internal approval
+   * outcomes. See CONTRACTS.md section 12 items 9 and 10.
+   */
+  decidedInternally: boolean;
+  /**
+   * Set when B's `service_success` counts an outcome the customer took no part
+   * in. Displayed beside the flag; the console never silently corrects it.
+   */
+  metricCaveat: string | null;
   customerGate: {
     optionsSent: number;
     windowMin: number;

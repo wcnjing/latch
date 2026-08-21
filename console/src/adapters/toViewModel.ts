@@ -258,6 +258,27 @@ const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: st
 
 const EXCLUDED_FROM_METRIC: Resolution[] = ['dismissed_no_action', 'superseded'];
 
+/**
+ * B reuses the two customer resolutions for internal approval outcomes: a
+ * Vessel Ops rejection closes `customer_declined_all` and an unsigned approval
+ * closes `window_lapsed_no_response`, both without the line being contacted.
+ * Calling either "the line decided" on screen would be false, so the copy is
+ * chosen on whether an `external_gate` step actually exists.
+ * CONTRACTS.md section 12 items 9 and 10, REQUEST TO B #9.
+ */
+const INTERNAL_COPY: Partial<Record<Resolution, { label: string; what: string; why: string }>> = {
+  customer_declined_all: {
+    label: 'Declined internally',
+    what: 'The transfer was not booked. The boxes rolled to the next service.',
+    why: 'The approver declined the escalated action. The shipping line was never contacted — this was a PSA decision, not the line’s.',
+  },
+  window_lapsed_no_response: {
+    label: 'Approval lapsed',
+    what: 'Nobody signed. The default action fired and the boxes rolled.',
+    why: 'The internal approval window closed with no answer. The shipping line was never contacted.',
+  },
+};
+
 /* =========================================================================
  * Step helpers
  * ====================================================================== */
@@ -777,15 +798,24 @@ function toTimelineEvent(step: TraceStep): TimelineEventVM {
 function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
   const resolution = bundle.result.resolution;
   if (!resolution) return null;
-  const copy = RESOLUTION_COPY[resolution];
   const ext = externalGate(bundle.trace);
+  const decidedInternally = !ext && resolution in INTERNAL_COPY;
+  const copy = (decidedInternally ? INTERNAL_COPY[resolution] : undefined) ?? RESOLUTION_COPY[resolution];
+  const serviceSuccess = SERVICE_SUCCESS_RESOLUTIONS.includes(resolution);
+
   return {
     resolution,
     label: copy.label,
     what: copy.what,
-    serviceSuccess: SERVICE_SUCCESS_RESOLUTIONS.includes(resolution),
+    serviceSuccess,
     why: copy.why,
     excludedFromMetric: EXCLUDED_FROM_METRIC.includes(resolution),
+    decidedInternally,
+    metricCaveat: decidedInternally
+      ? serviceSuccess
+        ? 'B counts this as a customer served, but the customer took no part in it. CONTRACTS.md REQUEST TO B #9.'
+        : 'B counts this as a customer service failure, but the customer was never asked. CONTRACTS.md REQUEST TO B #9.'
+      : null,
     customerGate: ext
       ? { optionsSent: ext.options_sent, windowMin: ext.window_min, outcome: ext.outcome }
       : null,

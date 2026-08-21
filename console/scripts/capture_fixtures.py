@@ -227,6 +227,18 @@ class ScriptedDeliberator:
         }
 
 
+class RejectsApproval:
+    """Says no. Implements B's `ApprovalPolicy` protocol.
+
+    B ships `AutoApprove` (yes) and `NeverApproves` (silence) but nothing that
+    actively declines, and `runner.handle()` has a distinct branch for it. The
+    console's decline button has to lead somewhere real, so this captures it.
+    """
+
+    def decide(self, role: Any, plan: Any) -> bool | None:
+        return False
+
+
 # --- event construction -----------------------------------------------------
 
 
@@ -563,6 +575,79 @@ def fx_failure_injection() -> dict[str, Any]:
     )
 
 
+def fx_declined_approval() -> dict[str, Any]:
+    """5b. The same run as fixture 5, declined instead of approved.
+
+    Identical event, identical failure injection, identical confidence and gate.
+    The only difference is what the human said. Captured so the console's
+    decline control leads to a recorded branch rather than to a caption
+    describing one.
+    """
+    evt = event(
+        "SG-CONN-4518",
+        state="AT_RISK",
+        slack=-0.5,
+        no_itt=6.0,
+        boxes=34,
+        confidence="HIGH",
+        offset_min=8,
+        inbound_vessel="SYNTHETIC HAPAG",
+        outbound_vessel="SYNTHETIC FEEDER V",
+    )
+    cache = CacheEntry(
+        value=build_itt_inventory(T0, Terminal.TUAS, Terminal.PASIR_PANJANG),
+        age_min=8.0,
+    )
+    return capture(
+        "05b-approval-declined",
+        "The same run, declined",
+        "Vessel Operations declines the escalated transfer. B fires the "
+        "default action and records CUSTOMER_DECLINED_ALL. Same event, same "
+        "0.6672 confidence, same escalation — the only variable is the human.",
+        evt,
+        failures={"query_itt_slot": [ToolStatus.TIMEOUT, ToolStatus.TIMEOUT]},
+        itt_cache=cache,
+        approvals=RejectsApproval(),
+        extra={"branch_of": "05-failure-injection", "branch_label": "declined"},
+    )
+
+
+def fx_lapsed_approval() -> dict[str, Any]:
+    """5c. The same run again, with nobody signing.
+
+    Completes the branch set for the demo: approve, decline, and let it lapse
+    are all recorded runs of one event, so the console's approval panel never
+    has to narrate an outcome it did not capture.
+    """
+    evt = event(
+        "SG-CONN-4518",
+        state="AT_RISK",
+        slack=-0.5,
+        no_itt=6.0,
+        boxes=34,
+        confidence="HIGH",
+        offset_min=8,
+        inbound_vessel="SYNTHETIC HAPAG",
+        outbound_vessel="SYNTHETIC FEEDER V",
+    )
+    cache = CacheEntry(
+        value=build_itt_inventory(T0, Terminal.TUAS, Terminal.PASIR_PANJANG),
+        age_min=8.0,
+    )
+    return capture(
+        "05c-approval-lapsed",
+        "The same run, unsigned",
+        "Nobody answers the escalation. B moves the case to LAPSED and fires "
+        "the default action, recording WINDOW_LAPSED_NO_RESPONSE even though "
+        "the shipping line was never contacted.",
+        evt,
+        failures={"query_itt_slot": [ToolStatus.TIMEOUT, ToolStatus.TIMEOUT]},
+        itt_cache=cache,
+        approvals=NeverApproves(),
+        extra={"branch_of": "05-failure-injection", "branch_label": "lapsed"},
+    )
+
+
 def fx_lapsed() -> dict[str, Any]:
     """6. LAPSED. The internal approval never came."""
     evt = event(
@@ -852,6 +937,8 @@ BUILDERS = (
     fx_at_risk_rescuable,
     fx_at_risk_not_rescuable,
     fx_failure_injection,
+    fx_declined_approval,
+    fx_lapsed_approval,
     fx_lapsed,
     fx_declined,
     fx_superseded,

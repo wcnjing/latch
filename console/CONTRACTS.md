@@ -402,6 +402,17 @@ generation run, so they cannot disagree.
    The console distinguishes the two on screen by checking for an
    `external_gate` step rather than trusting the resolution name. Worth B's
    attention — it is a metric question, not a rendering one.
+10. **An internal rejection is recorded as `CUSTOMER_DECLINED_ALL`**, and that
+    resolution *is* a service success (`models.py:Resolution.is_service_success`).
+    Captured on `05b-approval-declined`: Vessel Operations declines an
+    escalated transfer, the line is never contacted, there is no
+    `external_gate` step — and the run closes `customer_declined_all`,
+    `service_success: true`.
+
+    Together with item 9 this means the north-star metric currently counts an
+    internal decline as a customer served, and a missing internal signature as
+    a customer failed. Both are decisions nobody outside PSA participated in.
+    Logged as REQUEST TO B #9.
 
 ---
 
@@ -500,6 +511,28 @@ rather than defaulting it.
 and the escalation path (§10). C does not consume it, so nothing is blocked —
 but it is the scenario the submission leans on, and a judge who runs the
 pipeline will get different numbers from the ones in the repo.
+
+### REQUEST TO B #9 — separate internal approval outcomes from customer outcomes
+
+`runner.handle()` reuses the two customer resolutions for internal approval
+outcomes (§12 items 9 and 10):
+
+| What happened | Resolution recorded | `is_service_success` |
+|---|---|---|
+| Vessel Ops declined; the line was never asked | `customer_declined_all` | **true** |
+| Nobody signed; the line was never asked | `window_lapsed_no_response` | false |
+
+Neither involved the customer, so neither should move a metric about serving
+the customer. Asking for two new resolutions — `internally_declined` and
+`approval_lapsed` — or, if the enum should stay small, exclusion from the
+north-star denominator the way `DISMISSED_NO_ACTION` and `SUPERSEDED` already
+are.
+
+This is the only finding on the list that changes a reported number rather
+than a rendering. The console works around it by checking for an
+`external_gate` step before it describes an outcome as the line's decision,
+and it displays B's `service_success` verbatim with a caveat rather than
+quietly correcting it.
 
 ---
 

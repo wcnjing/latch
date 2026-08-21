@@ -89,6 +89,38 @@
       "usd": 0.005743
     },
     {
+      "fixture_id": "05b-approval-declined",
+      "file": "05b-approval-declined.json",
+      "title": "The same run, declined",
+      "connection_id": "SG-CONN-4518",
+      "severity": "AT_RISK",
+      "boxes": 34,
+      "state": "resolved",
+      "resolution": "customer_declined_all",
+      "service_success": true,
+      "authored": false,
+      "confidence": 0.6672,
+      "required_role": null,
+      "escalated": false,
+      "usd": 0.005743
+    },
+    {
+      "fixture_id": "05c-approval-lapsed",
+      "file": "05c-approval-lapsed.json",
+      "title": "The same run, unsigned",
+      "connection_id": "SG-CONN-4518",
+      "severity": "AT_RISK",
+      "boxes": 34,
+      "state": "resolved",
+      "resolution": "window_lapsed_no_response",
+      "service_success": false,
+      "authored": false,
+      "confidence": 0.6672,
+      "required_role": null,
+      "escalated": false,
+      "usd": 0.005743
+    },
+    {
       "fixture_id": "06-lapsed",
       "file": "06-lapsed.json",
       "title": "LAPSED \u2014 nobody signed, the default action fired",

@@ -103,7 +103,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712602+00:00",
+        "at": "2026-08-21T11:44:10.325773+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 29 boxes, -2.6h remaining margin (-0.4h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +116,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712607+00:00",
+        "at": "2026-08-21T11:44:10.325777+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +130,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-21T11:29:22.712629+00:00",
+        "at": "2026-08-21T11:44:10.325797+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +140,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712631+00:00",
+        "at": "2026-08-21T11:44:10.325798+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:29:22.712633+00:00",
+        "at": "2026-08-21T11:44:10.325800+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-21T11:29:22.712634+00:00",
+        "at": "2026-08-21T11:44:10.325801+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +163,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T11:29:22.712714+00:00",
+        "at": "2026-08-21T11:44:10.325869+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -172,7 +172,7 @@
       {
         "seq": 8,
         "type": "tool_call",
-        "at": "2026-08-21T11:29:22.712716+00:00",
+        "at": "2026-08-21T11:44:10.325871+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "model_call",
-        "at": "2026-08-21T11:29:22.712720+00:00",
+        "at": "2026-08-21T11:44:10.325874+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 503,
@@ -191,7 +191,7 @@
       {
         "seq": 10,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712721+00:00",
+        "at": "2026-08-21T11:44:10.325875+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1100: assumed road transit of 55m exceeds the -24m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -199,7 +199,7 @@
       {
         "seq": 11,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712723+00:00",
+        "at": "2026-08-21T11:44:10.325877+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1120: assumed barge transit of 190m exceeds the -24m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -207,7 +207,7 @@
       {
         "seq": 12,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712724+00:00",
+        "at": "2026-08-21T11:44:10.325878+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1140: assumed road transit of 55m exceeds the -24m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -215,7 +215,7 @@
       {
         "seq": 13,
         "type": "observation",
-        "at": "2026-08-21T11:29:22.712725+00:00",
+        "at": "2026-08-21T11:44:10.325879+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1160: assumed barge transit of 190m exceeds the -24m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -223,7 +223,7 @@
       {
         "seq": 14,
         "type": "confidence",
-        "at": "2026-08-21T11:29:22.712735+00:00",
+        "at": "2026-08-21T11:44:10.325887+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -241,7 +241,7 @@
       {
         "seq": 15,
         "type": "decision",
-        "at": "2026-08-21T11:29:22.712737+00:00",
+        "at": "2026-08-21T11:44:10.325889+00:00",
         "rung": "rung_4_offer",
         "chosen": true,
         "confidence": 1.0,
@@ -250,7 +250,7 @@
       {
         "seq": 16,
         "type": "gate",
-        "at": "2026-08-21T11:29:22.712741+00:00",
+        "at": "2026-08-21T11:44:10.325893+00:00",
         "rung": "rung_4_offer",
         "required_role": "vessel_ops",
         "escalated": false,
@@ -261,7 +261,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-21T11:29:22.712743+00:00",
+        "at": "2026-08-21T11:44:10.325894+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_customer",
         "reason": "the line owns this decision"
@@ -269,7 +269,7 @@
       {
         "seq": 18,
         "type": "tool_call",
-        "at": "2026-08-21T11:29:22.712745+00:00",
+        "at": "2026-08-21T11:44:10.325896+00:00",
         "tool": "send_options_to_line",
         "status": "ok",
         "latency_ms": 640
@@ -277,7 +277,7 @@
       {
         "seq": 19,
         "type": "external_gate",
-        "at": "2026-08-21T11:29:22.712749+00:00",
+        "at": "2026-08-21T11:44:10.325899+00:00",
         "party": "line",
         "options_sent": 1,
         "window_min": 180,
@@ -286,7 +286,7 @@
       {
         "seq": 20,
         "type": "state_change",
-        "at": "2026-08-21T11:29:22.712750+00:00",
+        "at": "2026-08-21T11:44:10.325900+00:00",
         "from_state": "awaiting_customer",
         "to_state": "executing",
         "reason": "line decided"
@@ -294,7 +294,7 @@
       {
         "seq": 21,
         "type": "tool_call",
-        "at": "2026-08-21T11:29:22.712751+00:00",
+        "at": "2026-08-21T11:44:10.325901+00:00",
         "tool": "roll_to_next_service",
         "status": "ok",
         "latency_ms": 310
@@ -302,7 +302,7 @@
       {
         "seq": 22,
         "type": "state_change",
-        "at": "2026-08-21T11:29:22.712755+00:00",
+        "at": "2026-08-21T11:44:10.325904+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "customer_declined_all"

@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Dark by default and only dark. This screen is watched in a control room and
+   recorded for the submission video; a light mode would be a second design to
+   keep legible for no audience. */
+@theme {
+  --color-ink-900: #070b0f;
+  --color-ink-850: #0b1015;
+  --color-ink-800: #101822;
+  --color-ink-750: #142030;
+  --color-ink-700: #1b2a3a;
+  --color-ink-600: #263a4e;
+  --color-ink-500: #3b556e;
+
+  --color-mist-500: #6b8299;
+  --color-mist-400: #8ba2b8;
+  --color-mist-300: #b3c6d6;
+  --color-mist-100: #e8f1f8;
+
+  --color-safe-500: #2fbf8f;
+  --color-safe-900: #0d2b23;
+  --color-watch-500: #e0a537;
+  --color-watch-900: #322408;
+  --color-risk-500: #f2616b;
+  --color-risk-900: #37131a;
+
+  --color-flag-500: #59a6ff;
+  --color-flag-900: #0d2138;
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--color-ink-900);
+  color: var(--color-mist-100);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers that sit beside each other must line up. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-ink-900); }
+::-webkit-scrollbar-thumb { background: var(--color-ink-700); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-600); }
+
+/* The one animation in the console. Used only on the gate-escalation frame,
+   so that when it fires in a screen recording the eye goes to it. */
+@keyframes latch-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(224 165 55 / 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgb(224 165 55 / 0); }
+}
+.escalation-pulse { animation: latch-pulse 2.4s ease-out 3; }
+
+@keyframes latch-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-in { animation: latch-fade-in 220ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .escalation-pulse, .fade-in { animation: none; }
+}

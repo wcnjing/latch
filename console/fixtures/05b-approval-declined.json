@@ -1,7 +1,7 @@
 {
-  "fixture_id": "05-failure-injection",
-  "title": "Confidence degrades, the gate tightens on its own",
-  "what_it_shows": "query_itt_slot times out, retries, times out again, and falls back to inventory read from cache 8 minutes ago. Nobody lowers the confidence \u2014 it falls out of the cache read, and gates.evaluate() escalates the approval from auto to a named human. The human approves.",
+  "fixture_id": "05b-approval-declined",
+  "title": "The same run, declined",
+  "what_it_shows": "Vessel Operations declines the escalated transfer. B fires the default action and records CUSTOMER_DECLINED_ALL. Same event, same 0.6672 confidence, same escalation \u2014 the only variable is the human.",
   "provenance": {
     "produced_by": "runner.handle()",
     "authored": false,
@@ -103,7 +103,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:44:10.322563+00:00",
+        "at": "2026-08-21T11:44:10.323389+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 34 boxes, -0.5h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +116,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-21T11:44:10.322568+00:00",
+        "at": "2026-08-21T11:44:10.323395+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +130,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-21T11:44:10.322602+00:00",
+        "at": "2026-08-21T11:44:10.323420+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +140,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-21T11:44:10.322604+00:00",
+        "at": "2026-08-21T11:44:10.323422+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322606+00:00",
+        "at": "2026-08-21T11:44:10.323424+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322608+00:00",
+        "at": "2026-08-21T11:44:10.323425+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +163,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T11:44:10.322747+00:00",
+        "at": "2026-08-21T11:44:10.323553+00:00",
         "tool": "query_itt_slot",
         "status": "cached_fallback",
         "latency_ms": 10000,
@@ -172,7 +172,7 @@
       {
         "seq": 8,
         "type": "error",
-        "at": "2026-08-21T11:44:10.322752+00:00",
+        "at": "2026-08-21T11:44:10.323557+00:00",
         "tool": "query_itt_slot",
         "error_class": "timeout",
         "retries": 1,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "tool_call",
-        "at": "2026-08-21T11:44:10.322753+00:00",
+        "at": "2026-08-21T11:44:10.323558+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -190,7 +190,7 @@
       {
         "seq": 10,
         "type": "model_call",
-        "at": "2026-08-21T11:44:10.322757+00:00",
+        "at": "2026-08-21T11:44:10.323562+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 612,
@@ -200,7 +200,7 @@
       {
         "seq": 11,
         "type": "confidence",
-        "at": "2026-08-21T11:44:10.322770+00:00",
+        "at": "2026-08-21T11:44:10.323574+00:00",
         "computed": 0.6672,
         "method": "provenance",
         "factors": {
@@ -218,7 +218,7 @@
       {
         "seq": 12,
         "type": "decision",
-        "at": "2026-08-21T11:44:10.322773+00:00",
+        "at": "2026-08-21T11:44:10.323577+00:00",
         "rung": "rung_1_inform",
         "chosen": false,
         "confidence": 0.6672,
@@ -227,7 +227,7 @@
       {
         "seq": 13,
         "type": "decision",
-        "at": "2026-08-21T11:44:10.322775+00:00",
+        "at": "2026-08-21T11:44:10.323578+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 0.6672,
@@ -236,7 +236,7 @@
       {
         "seq": 14,
         "type": "lock",
-        "at": "2026-08-21T11:44:10.322783+00:00",
+        "at": "2026-08-21T11:44:10.323585+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 136.0,
@@ -246,7 +246,7 @@
       {
         "seq": 15,
         "type": "gate",
-        "at": "2026-08-21T11:44:10.322790+00:00",
+        "at": "2026-08-21T11:44:10.323592+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
@@ -257,7 +257,7 @@
       {
         "seq": 16,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322793+00:00",
+        "at": "2026-08-21T11:44:10.323594+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_approval",
         "reason": "confidence 0.67 below 0.7"
@@ -265,7 +265,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322795+00:00",
+        "at": "2026-08-21T11:44:10.323596+00:00",
         "from_state": "awaiting_approval",
         "to_state": "escalated",
         "reason": "confidence 0.67 below 0.7"
@@ -273,41 +273,39 @@
       {
         "seq": 18,
         "type": "gate",
-        "at": "2026-08-21T11:44:10.322797+00:00",
+        "at": "2026-08-21T11:44:10.323598+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
         "escalation_reason": "",
-        "status": "approved",
+        "status": "rejected",
         "latency_s": 0.0
       },
       {
         "seq": 19,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322799+00:00",
+        "at": "2026-08-21T11:44:10.323600+00:00",
         "from_state": "escalated",
         "to_state": "executing",
-        "reason": "approved"
+        "reason": "rejected; default action fires"
       },
       {
         "seq": 20,
-        "type": "tool_call",
-        "at": "2026-08-21T11:44:10.322803+00:00",
-        "tool": "book_itt_leg",
-        "status": "ok",
-        "latency_ms": 850
+        "type": "observation",
+        "at": "2026-08-21T11:44:10.323604+00:00",
+        "summary": "released 1 reservation(s)"
       },
       {
         "seq": 21,
         "type": "state_change",
-        "at": "2026-08-21T11:44:10.322807+00:00",
+        "at": "2026-08-21T11:44:10.323606+00:00",
         "from_state": "executing",
         "to_state": "resolved",
-        "reason": "connection_held"
+        "reason": "customer_declined_all"
       }
     ],
     "outcome": {
-      "resolution": "connection_held",
+      "resolution": "customer_declined_all",
       "service_success": true,
       "boxes": 34,
       "decision_lead_time_h": null,
@@ -336,7 +334,7 @@
       "outbound_terminal": "pasir_panjang",
       "terminal_resolution": "simulated"
     },
-    "resolution": "connection_held",
+    "resolution": "customer_declined_all",
     "service_success": true,
     "boxes": 34,
     "decision_lead_time_h": null,
@@ -405,7 +403,7 @@
         "role": "vessel_ops",
         "escalated": true,
         "reason": "",
-        "status": "approved"
+        "status": "rejected"
       }
     ],
     "customer_gate": null,
@@ -423,25 +421,10 @@
   },
   "result": {
     "state": "resolved",
-    "resolution": "connection_held",
+    "resolution": "customer_declined_all",
     "service_success": true
   },
-  "gate": {
-    "rung": "rung_3_move",
-    "required_role": "vessel_ops",
-    "escalated": true,
-    "escalation_reason": "confidence 0.67 below 0.7",
-    "auto_approved": false,
-    "blocks": true,
-    "needs_customer": false,
-    "ladder": [
-      "auto",
-      "vessel_ops",
-      "duty_manager"
-    ],
-    "would_have_been": "auto",
-    "confidence_threshold": 0.7
-  },
+  "gate": null,
   "model_calls": [
     {
       "purpose": "triage",
@@ -451,5 +434,7 @@
       "purpose": "deliberation",
       "model": "claude-opus-5"
     }
-  ]
+  ],
+  "branch_of": "05-failure-injection",
+  "branch_label": "declined"
 }
