@@ -162,3 +162,37 @@ def test_priority_comes_from_the_risk_itself(clock):
 
     assert result.granted
     assert result.preempted_risk_id == "cr_0001"
+
+
+def test_closing_a_risk_does_not_hand_back_a_booked_slot(clock):
+    """A committed slot is consumed capacity — the booking happened. Releasing
+    it on resolution would hand the same slot to the next risk and let the
+    system book it twice, which is the exact failure this table prevents."""
+    table = LockTable(clock=clock)
+    table.claim(SLOT, "cr_0001", priority=10.0)
+    table.commit(SLOT, "cr_0001")
+
+    assert table.release_all("cr_0001") == []
+    assert table.holder(SLOT) is not None
+
+    later = table.claim(SLOT, "cr_0002", priority=999.0)
+    assert not later.granted
+    assert later.reason == "incumbent_committed"
+
+
+def test_uncommitted_reservations_are_released_on_close(clock):
+    """A plan that died holding a provisional claim must not leak it."""
+    table = LockTable(clock=clock)
+    table.claim(SLOT, "cr_0001", priority=10.0)
+
+    assert table.release_all("cr_0001") == [SLOT]
+    assert table.holder(SLOT) is None
+
+
+def test_a_cancelled_booking_can_return_the_capacity(clock):
+    table = LockTable(clock=clock)
+    table.claim(SLOT, "cr_0001", priority=10.0)
+    table.commit(SLOT, "cr_0001")
+
+    assert table.release_all("cr_0001", keep_committed=False) == [SLOT]
+    assert table.holder(SLOT) is None

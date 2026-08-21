@@ -103,15 +103,6 @@ def _record_deliberation(
             result.output_tokens,
             purpose="deliberation",
         )
-    for advisory in result.advisories:
-        # Recorded, surfaced to the planner, and explicitly not the action:
-        # a Rung 1 advisory alone leaves the boxes where they were.
-        trace.decision(
-            rung=advisory.rung.value,
-            chosen=False,
-            confidence=advisory.confidence,
-            rationale="; ".join(a.detail for a in advisory.actions),
-        )
     for ruled_out in result.excluded:
         trace.observation(
             f"{qualifier.lower()}, ruled out "
@@ -196,7 +187,19 @@ def handle(
 
     breakdown = score(result.chosen.provenance) if result.chosen else None
     if breakdown is not None:
+        # Before any decision cites the number, so a reader sees where it came
+        # from rather than meeting it already applied.
         trace.confidence(breakdown.as_dict())
+
+    for advisory in result.advisories:
+        # Recorded, surfaced to the planner, and explicitly not the action: a
+        # Rung 1 advisory alone leaves the boxes where they were.
+        trace.decision(
+            rung=advisory.rung.value,
+            chosen=False,
+            confidence=advisory.confidence,
+            rationale="; ".join(a.detail for a in advisory.actions),
+        )
 
     if result.chosen is None:
         state = transition(state, RiskState.AWAITING_CUSTOMER)

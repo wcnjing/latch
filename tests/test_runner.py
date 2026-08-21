@@ -150,18 +150,39 @@ def test_contention_sends_the_loser_to_the_customer_gate():
     )
 
     assert first.resolution is Resolution.CONNECTION_HELD
+
+    # The first risk booked the slot, so its capacity is consumed. Priority
+    # arbitration governs provisional reservations; it cannot un-book a move
+    # already underway, however urgent the newcomer.
     lock_steps = [s for s in second.trace.steps if s.type == "lock"]
     assert lock_steps
-    # DEMO-001 carries 84 boxes past its window; it outranks the 47-box WATCH.
-    assert any(s.payload["status"] == "held" for s in lock_steps)
+    assert any(s.payload["status"] == "lost" for s in lock_steps)
+
+    # Losing the slot must not end the case quietly — it falls to the line.
+    assert any(s.type == "external_gate" for s in second.trace.steps)
 
 
-def test_locks_are_released_when_a_risk_closes():
-    """A plan that dies must not leak the slot it was holding."""
+def test_a_booked_slot_stays_held_after_the_risk_closes():
+    """Consumed capacity does not come back. Releasing a committed slot on
+    resolution would hand it to the next risk and book it twice."""
     locks = LockTable()
     event = mock_events()["DEMO-001"]
-    run(event, locks=locks)
-    assert locks.held_by(event.connection_id) == []
+    outcome = run(event, locks=locks)
+
+    booked = any(s.type == "tool_call" and s.payload.get("tool") == "book_itt_leg"
+                 for s in outcome.trace.steps)
+    if booked:
+        assert locks.held_by(event.connection_id), "a booked slot must stay held"
+    else:
+        assert locks.held_by(event.connection_id) == []
+
+
+def test_a_risk_that_books_nothing_leaks_nothing():
+    """The other half: a provisional claim on a plan that died is released."""
+    locks = LockTable()
+    locks.claim("itt_slot:orphan", "DEMO-999", priority=5.0)
+    assert locks.release_all("DEMO-999") == ["itt_slot:orphan"]
+    assert locks.held_by("DEMO-999") == []
 
 
 def test_trace_records_the_watcher_signal_it_acted_on():

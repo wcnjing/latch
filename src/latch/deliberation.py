@@ -214,7 +214,7 @@ def build_candidates(
                         target=risk.outbound.terminal.value,
                         detail=(
                             f"co-locating would recover "
-                            f"{event.itt_cost_hours:.1f}h of slack "
+                            f"{event.itt_cost_hours:.1f}h of margin "
                             f"(density {density['density_score']:.2f})"
                         ),
                     ),

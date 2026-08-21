@@ -208,9 +208,24 @@ class LockTable:
         del self._held[resource]
         return True
 
-    def release_all(self, risk_id: str) -> list[str]:
-        """Release everything a risk holds. Called when it reaches a terminal state."""
-        released = [r for r, res in self._held.items() if res.risk_id == risk_id]
+    def release_all(self, risk_id: str, keep_committed: bool = True) -> list[str]:
+        """Release a risk's provisional reservations when it closes.
+
+        Committed reservations are kept by default, because a committed slot
+        is consumed capacity: the booking happened and the move is underway.
+        Releasing it would hand the same slot to the next risk and let the
+        system book it twice — which is precisely the failure the Lock Table
+        exists to prevent, reintroduced at the end of the lifecycle.
+
+        `keep_committed=False` exists for a cancelled booking, where the
+        capacity genuinely does come back.
+        """
+        released = [
+            resource
+            for resource, reservation in self._held.items()
+            if reservation.risk_id == risk_id
+            and not (keep_committed and reservation.committed)
+        ]
         for resource in released:
             del self._held[resource]
         return sorted(released)
