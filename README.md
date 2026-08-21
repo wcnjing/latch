@@ -199,6 +199,70 @@ brew install ollama && ollama serve &
 ollama pull qwen3:8b        # or set LATCH_LOCAL_MODEL
 ```
 
+## The combined pipeline
+
+Workstream A derives arrival timing from real AIS. Workstream B decides what
+to do about a connection at risk. They meet in exactly one place.
+
+```
+ A ─ replay.py ──────────────────────────────────────────────────┐
+     real AIS observations                                       │
+       -> boundary crossings, reset-confirmed                    │
+       -> causal ETA (position + speed at that instant only)     │
+       -> CausalArrivalUpdate                                    │
+                                                                 ▼
+ B ─ connections.py    synthetic connection, hashed from call id
+     watcher.py        CausalArrivalUpdate + connection -> RiskEvent
+     cases.py          one connection, one live case
+     triage.py         is this worth the expensive model
+     deliberation.py   enumerate options, model ranks them
+     gates.py          who must approve (no model client, by construction)
+     locks.py          arbitrate contested slots
+     runner.py         the ladder, end to end
+       -> Trace  ──────────────────────────────────────────────▶ C
+```
+
+`CausalArrivalUpdate` satisfies B's `ArrivalSignal` protocol structurally, so
+no conversion code exists between the two. A can rename or extend that type
+and the bridge keeps working; only `watcher.py` would ever need to change.
+
+Run the whole chain:
+
+```bash
+uv run python scripts/run_historical.py --limit 20000   # A's output -> agent decisions
+uv run python scripts/demo.py --from-ais                # one real vessel, narrated
+```
+
+### Which stream B consumes, and why
+
+A publishes two. B takes the **unfiltered** one.
+
+| stream | contents | B uses it |
+|---|---|---|
+| `iter_retrospectively_segmented_arrival_updates` | every accepted call | ✅ |
+| `iter_eligible_benchmark_updates` | benchmark-eligible calls only | ❌ |
+
+The benchmark filter is retrospective: a call appears there only if the
+episode later turned out clean. Feeding that to the agent would mean it only
+ever sees risks that resolved well — survivorship dressed up as a live feed.
+The filtered stream is right for scoring A's predictions and wrong for
+driving B's decisions.
+
+### Where the boundary between real and invented falls
+
+Both halves run in one process, so it is worth being exact about which is
+which. A owns everything above the line; B owns everything below it.
+
+| | Real | Ours |
+|---|---|---|
+| A | vessel positions, speeds, timestamps; observed boundary crossings | the boundary itself, the ETA method |
+| B | — | connections, terminals, box counts, cutoffs, transfer times |
+
+Every `RiskEvent` B emits from this chain carries `TerminalResolution.SIMULATED`
+and an `Assumptions` block, both of which travel into the trace and lower the
+agent's own confidence. The split is enforced by the pipeline rather than
+asserted in a slide.
+
 ## The A → B contract
 
 A emits the agreed event format; `RiskEvent.to_connection_risk()` adapts it
