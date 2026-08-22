@@ -112,6 +112,13 @@ class Resolution(StrEnum):
     CUSTOMER_DECIDED = "customer_decided"  # line chose in time
     CUSTOMER_DECLINED_ALL = "customer_declined_all"  # line rejected everything
     WINDOW_LAPSED_NO_RESPONSE = "window_lapsed_no_response"  # nobody answered
+
+    # Internal outcomes. Neither of these ever reached the line, and labelling
+    # them with a customer resolution reported an internal decision as a
+    # customer one — inflating "served" when vessel ops declined, and blaming
+    # the line for an unsigned approval it was never asked about.
+    INTERNALLY_DECLINED = "internally_declined"  # we said no; line never asked
+    APPROVAL_LAPSED = "approval_lapsed"  # nobody signed; line never asked
     DISMISSED_NO_ACTION = "dismissed_no_action"  # triage killed it
     SUPERSEDED = "superseded"  # ETA improved; abandoned cleanly
     FAILED = "failed"  # we broke, not the connection
@@ -128,6 +135,19 @@ class Resolution(StrEnum):
             Resolution.CONNECTION_HELD,
             Resolution.CUSTOMER_DECIDED,
             Resolution.CUSTOMER_DECLINED_ALL,
+        )
+
+    @property
+    def reached_the_line(self) -> bool:
+        """Did the customer ever actually get asked?
+
+        The three Rung 4 exits did. An internal decline or an unsigned
+        approval did not, however the box ended up moving.
+        """
+        return self in (
+            Resolution.CUSTOMER_DECIDED,
+            Resolution.CUSTOMER_DECLINED_ALL,
+            Resolution.WINDOW_LAPSED_NO_RESPONSE,
         )
 
 

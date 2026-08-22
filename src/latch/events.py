@@ -133,6 +133,43 @@ WATCHER_CONFIDENCE_FACTOR: dict[WatcherConfidence, float] = {
 }
 
 
+def _assumptions_from(payload: dict[str, Any]) -> "Assumptions":
+    """Derive the assumption block for an event parsed from the wire.
+
+    `from_dict` used to leave this at its default, so every connection loaded
+    through `--events` recorded SAME_TERMINAL in the first observation step
+    regardless of its terminals. That value lands in an append-only trace, so
+    a console cannot correct it downstream — it is already in the record.
+
+    Connection type is derived rather than defaulted: from the terminals when
+    both are known and differ, and otherwise from
+    `avoidable_by_terminal_prevention`, which is A's statement that a transfer
+    sits on the critical path. An explicit `connection_type` in the payload
+    wins over both.
+    """
+    declared = payload.get("connection_type")
+    if declared is not None:
+        connection_type = ConnectionType(declared)
+    else:
+        inbound = Terminal(payload.get("inbound_terminal", "unknown"))
+        outbound = Terminal(payload.get("outbound_terminal", "unknown"))
+        both_known = Terminal.UNKNOWN not in (inbound, outbound)
+        crosses = (
+            inbound is not outbound
+            if both_known
+            else bool(payload.get("avoidable_by_terminal_prevention"))
+        )
+        connection_type = (
+            ConnectionType.INTER_TERMINAL if crosses else ConnectionType.SAME_TERMINAL
+        )
+
+    scenario = payload.get("transfer_scenario")
+    return Assumptions(
+        connection_type=connection_type,
+        **({"transfer_scenario": scenario} if scenario else {}),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class RiskEvent:
     """One structured risk event from the Watcher.
@@ -256,6 +293,7 @@ class RiskEvent:
             terminal_resolution=TerminalResolution(
                 payload.get("terminal_resolution", "simulated")
             ),
+            assumptions=_assumptions_from(payload),
             inbound_vessel=payload.get("inbound_vessel", "UNKNOWN"),
             outbound_vessel=payload.get("outbound_vessel", "UNKNOWN"),
             source=payload.get("source", "watcher.mock"),

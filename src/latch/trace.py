@@ -416,6 +416,24 @@ class TraceStore:
             ),
             "served": len(served),
             "service_rate": (len(served) / len(at_risk)) if at_risk else None,
+            # Split the failures by who they belong to. A run failing because
+            # nobody internally signed is a different problem from one failing
+            # because the line never replied, and one number hides which.
+            "failed_internally": sum(
+                1
+                for t in at_risk
+                if not t.resolution.is_service_success
+                and not t.resolution.reached_the_line
+            ),
+            "failed_at_the_line": sum(
+                1
+                for t in at_risk
+                if not t.resolution.is_service_success
+                and t.resolution.reached_the_line
+            ),
+            "reached_the_line": sum(
+                1 for t in at_risk if t.resolution.reached_the_line
+            ),
             "excluded_dismissed": sum(
                 1 for t in excluded if t.resolution is Resolution.DISMISSED_NO_ACTION
             ),

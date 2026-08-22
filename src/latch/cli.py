@@ -119,6 +119,15 @@ def main() -> int:
         f"{metrics['excluded_superseded']} superseded excluded "
         f"| ${store.cost_per_risk():.4f} per risk"
     )
+    # Whose failure it was. An unsigned internal approval and a line that never
+    # replied are different problems, and one number hides which you have.
+    if metrics["failed_internally"] or metrics["failed_at_the_line"]:
+        print(
+            f"  failures: {metrics['failed_internally']} internal "
+            f"(never reached the line), "
+            f"{metrics['failed_at_the_line']} at the line "
+            f"(of {metrics['reached_the_line']} asked)"
+        )
     if choice == "fake":
         print(
             "\nThese numbers came from scripted model responses. They measure "
