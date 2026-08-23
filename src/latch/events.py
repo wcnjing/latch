@@ -59,6 +59,15 @@ class ConnectionType(StrEnum):
     SAME_TERMINAL = "SAME_TERMINAL"
     INTER_TERMINAL = "INTER_TERMINAL"
 
+    @classmethod
+    def from_crossing(cls, crosses: bool) -> "ConnectionType":
+        """Single definition of the mapping, shared with the watcher adapter.
+
+        Derived in two places before this, by two different routes, and #7 was
+        a case where one path was right and the other wrong.
+        """
+        return cls.INTER_TERMINAL if crosses else cls.SAME_TERMINAL
+
 
 @dataclass(frozen=True, slots=True)
 class Assumptions:
@@ -137,15 +146,20 @@ def _assumptions_from(payload: dict[str, Any]) -> "Assumptions":
     """Derive the assumption block for an event parsed from the wire.
 
     `from_dict` used to leave this at its default, so every connection loaded
-    through `--events` recorded SAME_TERMINAL in the first observation step
-    regardless of its terminals. That value lands in an append-only trace, so
-    a console cannot correct it downstream — it is already in the record.
+    through `--events` recorded SAME_TERMINAL regardless of its terminals, and
+    still recorded every provenance flag as synthetic even when the payload
+    said otherwise. Those values land in an append-only trace, so a console
+    cannot correct them downstream — they are already in the record.
 
-    Connection type is derived rather than defaulted: from the terminals when
-    both are known and differ, and otherwise from
-    `avoidable_by_terminal_prevention`, which is A's statement that a transfer
-    sits on the critical path. An explicit `connection_type` in the payload
-    wins over both.
+    Two rules govern the derivation:
+
+    Unknown provenance is treated as synthetic. An event that does not say
+    where a value came from gets the claim that cannot mislead.
+
+    A disagreement resolves toward INTER_TERMINAL. If the terminals look
+    identical but A reports a transfer on the critical path, believing the
+    terminals would drop the prevention rung entirely; believing the flag
+    costs at most one advisory nobody needed. The asymmetry is deliberate.
     """
     declared = payload.get("connection_type")
     if declared is not None:
@@ -154,19 +168,28 @@ def _assumptions_from(payload: dict[str, Any]) -> "Assumptions":
         inbound = Terminal(payload.get("inbound_terminal", "unknown"))
         outbound = Terminal(payload.get("outbound_terminal", "unknown"))
         both_known = Terminal.UNKNOWN not in (inbound, outbound)
-        crosses = (
-            inbound is not outbound
-            if both_known
-            else bool(payload.get("avoidable_by_terminal_prevention"))
-        )
-        connection_type = (
-            ConnectionType.INTER_TERMINAL if crosses else ConnectionType.SAME_TERMINAL
-        )
+        terminals_differ = both_known and inbound is not outbound
+        flagged = bool(payload.get("avoidable_by_terminal_prevention"))
+        connection_type = ConnectionType.from_crossing(terminals_differ or flagged)
 
+    # Only SIMULATED terminals are ours. A berth, a named terminal or a stated
+    # inference all came from somewhere real, however imprecisely.
+    resolution = TerminalResolution(payload.get("terminal_resolution", "simulated"))
     scenario = payload.get("transfer_scenario")
+
     return Assumptions(
         connection_type=connection_type,
-        **({"transfer_scenario": scenario} if scenario else {}),
+        ucid_synthetic=bool(payload.get("ucid_synthetic", payload.get("ucid") is None)),
+        pairing_synthetic=bool(payload.get("pairing_synthetic", True)),
+        terminals_synthetic=bool(
+            payload.get(
+                "terminals_synthetic", resolution is TerminalResolution.SIMULATED
+            )
+        ),
+        boxes_synthetic=bool(payload.get("boxes_synthetic", True)),
+        # `is not None` rather than truthiness: an explicitly empty scenario is
+        # a producer error worth seeing, not a request for the default label.
+        **({"transfer_scenario": scenario} if scenario is not None else {}),
     )
 
 
