@@ -174,10 +174,8 @@ def to_risk_event(
         detected_at=signal.observed_at,
         ucid=f"UCID-SYNTH-{connection.connection_id.removeprefix('conn_')}",
         assumptions=Assumptions(
-            connection_type=(
-                ConnectionType.INTER_TERMINAL
-                if connection.requires_transfer
-                else ConnectionType.SAME_TERMINAL
+            connection_type=ConnectionType.from_crossing(
+                connection.requires_transfer
             ),
             transfer_scenario=(
                 "configured reference transfer scenario "

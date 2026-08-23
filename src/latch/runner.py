@@ -286,7 +286,7 @@ def handle(
             state = transition(state, RiskState.EXECUTING)
             trace.state_change("lapsed", state.value, "default action fires")
             return _resolve(
-                trace, locks, risk.risk_id, state, Resolution.WINDOW_LAPSED_NO_RESPONSE
+                trace, locks, risk.risk_id, state, Resolution.APPROVAL_LAPSED
             )
         trace.gate(
             rung=gate.rung.value,
@@ -302,7 +302,7 @@ def handle(
                 "rejected; default action fires",
             )
             return _resolve(
-                trace, locks, risk.risk_id, state, Resolution.CUSTOMER_DECLINED_ALL
+                trace, locks, risk.risk_id, state, Resolution.INTERNALLY_DECLINED
             )
         previous = state.value
         state = transition(state, RiskState.EXECUTING)

@@ -11,13 +11,14 @@ much stronger claim than a headline average.
 """
 
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self
 
 from latch.config import PRICING
-from latch.models import ConnectionRisk, Resolution
+from latch.models import OUTCOMES, ConnectionRisk, Resolution
 
 TOKENS_PER_MILLION = 1_000_000
 
@@ -401,27 +402,53 @@ class TraceStore:
         a rate quoted without its denominator is not a measurement.
         """
         closed = [t for t in self._traces.values() if t.resolution is not None]
-        excluded = [t for t in closed if t.resolution in EXCLUDED_FROM_DENOMINATOR]
-        at_risk = [t for t in closed if t not in excluded]
-        served = [t for t in at_risk if t.resolution.is_service_success]
+
+        # One pass. Five separate generator expressions over the same list read
+        # as five independent facts when they are really one classification.
+        tally = Counter(t.resolution for t in closed)
+        excluded = sum(tally[r] for r in EXCLUDED_FROM_DENOMINATOR)
+        at_risk = len(closed) - excluded
+
+        served = failed_internally = failed_at_the_line = 0
+        reached = agent_faults = 0
+        for resolution, count in tally.items():
+            if resolution in EXCLUDED_FROM_DENOMINATOR:
+                continue
+            facts = OUTCOMES[resolution]
+            if facts.reached_line:
+                reached += count
+            if facts.served:
+                served += count
+            elif facts.agent_fault:
+                # A crash is not a decision. Counting it as an internal failure
+                # reports an infrastructure fault as a business one, and hides
+                # the only number here that means "go and fix the code".
+                agent_faults += count
+            elif facts.reached_line:
+                failed_at_the_line += count
+            else:
+                failed_internally += count
 
         return {
             "closed": len(closed),
-            "at_risk": len(at_risk),
+            "at_risk": at_risk,
             "action_cost_sgd": round(
                 sum(t.committed_cost_sgd for t in closed), 2
             ),
             "action_emissions_kg_co2e": round(
                 sum(t.committed_emissions_kg for t in closed), 2
             ),
-            "served": len(served),
-            "service_rate": (len(served) / len(at_risk)) if at_risk else None,
-            "excluded_dismissed": sum(
-                1 for t in excluded if t.resolution is Resolution.DISMISSED_NO_ACTION
-            ),
-            "excluded_superseded": sum(
-                1 for t in excluded if t.resolution is Resolution.SUPERSEDED
-            ),
+            "served": served,
+            "service_rate": (served / at_risk) if at_risk else None,
+            # Split the failures by who they belong to. A run failing because
+            # nobody internally signed is a different problem from one failing
+            # because the line never replied, and one number hides which.
+            "failed_internally": failed_internally,
+            "failed_at_the_line": failed_at_the_line,
+            "agent_faults": agent_faults,
+            "reached_the_line": reached,
+            "excluded_dismissed": tally[Resolution.DISMISSED_NO_ACTION],
+            "excluded_superseded": tally[Resolution.SUPERSEDED],
         }
 
     def service_rate(self) -> float | None:

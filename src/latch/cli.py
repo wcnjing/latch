@@ -111,14 +111,29 @@ def main() -> int:
         store.flush(outcome.trace)
 
     metrics = store.metrics()
+    # Both of these are None when nothing was at risk, which is an ordinary
+    # outcome — every connection triaged clean — and used to end the run in a
+    # TypeError from the format string after all the work had already been done.
     rate = metrics["service_rate"]
+    per_risk = store.cost_per_risk()
+    rate_text = f"{rate:.0%} service rate" if rate is not None else "no service rate"
+    per_risk_text = f"${per_risk:.4f} per risk" if per_risk is not None else "n/a"
     print(
         f"\nserved {metrics['served']}/{metrics['at_risk']} at-risk "
-        f"({rate:.0%} service rate) "
+        f"({rate_text}) "
         f"| {metrics['excluded_dismissed']} dismissed, "
         f"{metrics['excluded_superseded']} superseded excluded "
-        f"| ${store.cost_per_risk():.4f} per risk"
+        f"| {per_risk_text}"
     )
+    # Whose failure it was. An unsigned internal approval and a line that never
+    # replied are different problems, and one number hides which you have.
+    if metrics["failed_internally"] or metrics["failed_at_the_line"]:
+        print(
+            f"  failures: {metrics['failed_internally']} internal "
+            f"(never reached the line), "
+            f"{metrics['failed_at_the_line']} at the line "
+            f"(of {metrics['reached_the_line']} asked)"
+        )
     if choice == "fake":
         print(
             "\nThese numbers came from scripted model responses. They measure "

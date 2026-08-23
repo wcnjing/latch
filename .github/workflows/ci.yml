@@ -1,0 +1,28 @@
+name: ci
+
+# The scenario suite is a headline number on the deck. Before this it ran only
+# when somebody remembered to run a script, and a regression in it was invisible
+# to a green test run.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false  # the 205 MB AIS extract is not needed to run the tests
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --all-extras --dev
+
+      # No network, no API key: the rails suite and every unit test are
+      # deterministic by construction, and anything that reaches for a model
+      # here is a bug worth failing on.
+      - run: uv run pytest -q

@@ -221,6 +221,15 @@ def case_view(trace: Trace) -> dict[str, Any]:
         "service_success": (
             trace.resolution.is_service_success if trace.resolution else None
         ),
+        # Whose failure it was. Without this the console cannot tell an
+        # internal decline from a line that never replied — both arrive as
+        # service_success=False, and the screen would have to guess.
+        "reached_the_line": (
+            trace.resolution.reached_the_line if trace.resolution else None
+        ),
+        "agent_fault": (
+            trace.resolution.is_agent_fault if trace.resolution else None
+        ),
         "boxes": trace.boxes,
         "decision_lead_time_h": trace.decision_lead_time_h,
         "options_alive_at_send": trace.options_alive_at_send,

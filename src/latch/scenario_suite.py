@@ -184,11 +184,13 @@ SUITE: tuple[Scenario, ...] = (
         "G-03", "gate_policy", "Approval never comes",
         payload("G-03", slack=-0.5, no_itt=6.0, boxes=84),
         Expectation(
-            resolution=Resolution.WINDOW_LAPSED_NO_RESPONSE,
+            resolution=Resolution.APPROVAL_LAPSED,
             state=RiskState.RESOLVED,
         ),
         "Nobody signs. Doing nothing is also a decision and must be traced as "
-        "one rather than leaving the risk open forever.",
+        "one rather than leaving the risk open forever. Specifically an "
+        "internal one: the line was never asked, so this is not a lapsed "
+        "customer window and must not be reported as one.",
         approvals="never",
     ),
     Scenario(

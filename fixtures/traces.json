@@ -15,14 +15,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987544+00:00",
+        "at": "2026-08-22T15:35:13.481702+00:00",
         "summary": "34 boxes, slack 110m of 720m (85% consumed), tuas -> pasir_panjang",
         "priority": 18.55
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987666+00:00",
+        "at": "2026-08-22T15:35:13.481810+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -32,13 +32,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987670+00:00",
+        "at": "2026-08-22T15:35:13.481813+00:00",
         "summary": "slack 85% consumed against a 12h window; escalate to deliberation"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987674+00:00",
+        "at": "2026-08-22T15:35:13.481817+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "slack 85% consumed against a 12h window; escalate to deliberation"
@@ -46,7 +46,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987678+00:00",
+        "at": "2026-08-22T15:35:13.481820+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -54,7 +54,7 @@
       {
         "seq": 6,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987682+00:00",
+        "at": "2026-08-22T15:35:13.481824+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 9200,
@@ -64,7 +64,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987684+00:00",
+        "at": "2026-08-22T15:35:13.481825+00:00",
         "tool": "query_itt_slot",
         "status": "timeout",
         "latency_ms": 5000
@@ -72,7 +72,7 @@
       {
         "seq": 8,
         "type": "error",
-        "at": "2026-08-21T11:28:30.987685+00:00",
+        "at": "2026-08-22T15:35:13.481826+00:00",
         "tool": "query_itt_slot",
         "error_class": "timeout",
         "retries": 1,
@@ -81,7 +81,7 @@
       {
         "seq": 9,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987685+00:00",
+        "at": "2026-08-22T15:35:13.481826+00:00",
         "tool": "query_itt_slot",
         "status": "timeout",
         "latency_ms": 5000
@@ -89,7 +89,7 @@
       {
         "seq": 10,
         "type": "error",
-        "at": "2026-08-21T11:28:30.987686+00:00",
+        "at": "2026-08-22T15:35:13.481827+00:00",
         "tool": "query_itt_slot",
         "error_class": "timeout",
         "retries": 1,
@@ -98,7 +98,7 @@
       {
         "seq": 11,
         "type": "confidence",
-        "at": "2026-08-21T11:28:30.987716+00:00",
+        "at": "2026-08-22T15:35:13.481844+00:00",
         "computed": 0.6172,
         "method": "provenance",
         "factors": {
@@ -116,7 +116,7 @@
       {
         "seq": 12,
         "type": "decision",
-        "at": "2026-08-21T11:28:30.987719+00:00",
+        "at": "2026-08-22T15:35:13.481846+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 0.6172,
@@ -127,7 +127,7 @@
       {
         "seq": 13,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987720+00:00",
+        "at": "2026-08-22T15:35:13.481847+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_approval",
         "reason": "policy requires vessel ops at this volume"
@@ -135,7 +135,7 @@
       {
         "seq": 14,
         "type": "gate",
-        "at": "2026-08-21T11:28:30.987722+00:00",
+        "at": "2026-08-22T15:35:13.481848+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": false,
@@ -146,7 +146,7 @@
       {
         "seq": 15,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987724+00:00",
+        "at": "2026-08-22T15:35:13.481850+00:00",
         "from_state": "awaiting_approval",
         "to_state": "escalated",
         "reason": "confidence 0.62 < 0.7"
@@ -154,7 +154,7 @@
       {
         "seq": 16,
         "type": "gate",
-        "at": "2026-08-21T11:28:30.987726+00:00",
+        "at": "2026-08-22T15:35:13.481852+00:00",
         "rung": "rung_3_move",
         "required_role": "duty_manager",
         "escalated": true,
@@ -165,7 +165,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987727+00:00",
+        "at": "2026-08-22T15:35:13.481853+00:00",
         "from_state": "escalated",
         "to_state": "executing",
         "reason": "approved with the cache caveat visible"
@@ -173,7 +173,7 @@
       {
         "seq": 18,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987729+00:00",
+        "at": "2026-08-22T15:35:13.481854+00:00",
         "tool": "book_itt_slot",
         "status": "ok",
         "latency_ms": 850,
@@ -182,7 +182,7 @@
       {
         "seq": 19,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987730+00:00",
+        "at": "2026-08-22T15:35:13.481855+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "all 34 boxes on the barge leg"
@@ -224,14 +224,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987798+00:00",
+        "at": "2026-08-22T15:35:13.481902+00:00",
         "summary": "52 boxes, slack 76m of 480m (84% consumed), brani -> pasir_panjang",
         "priority": 41.05
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987800+00:00",
+        "at": "2026-08-22T15:35:13.481903+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -241,13 +241,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987801+00:00",
+        "at": "2026-08-22T15:35:13.481904+00:00",
         "summary": "84% of window consumed; 52 boxes crossing terminals"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987802+00:00",
+        "at": "2026-08-22T15:35:13.481905+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "84% of window consumed; 52 boxes crossing terminals"
@@ -255,7 +255,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987803+00:00",
+        "at": "2026-08-22T15:35:13.481905+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -263,7 +263,7 @@
       {
         "seq": 6,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987805+00:00",
+        "at": "2026-08-22T15:35:13.481906+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 9200,
@@ -273,7 +273,7 @@
       {
         "seq": 7,
         "type": "lock",
-        "at": "2026-08-21T11:28:30.987812+00:00",
+        "at": "2026-08-22T15:35:13.481912+00:00",
         "resource": "itt_slot:tuapas_1140",
         "status": "held",
         "our_priority": 41.05,
@@ -283,7 +283,7 @@
       {
         "seq": 8,
         "type": "confidence",
-        "at": "2026-08-21T11:28:30.987823+00:00",
+        "at": "2026-08-22T15:35:13.481920+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -301,7 +301,7 @@
       {
         "seq": 9,
         "type": "decision",
-        "at": "2026-08-21T11:28:30.987825+00:00",
+        "at": "2026-08-22T15:35:13.481922+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 1.0,
@@ -312,7 +312,7 @@
       {
         "seq": 10,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987826+00:00",
+        "at": "2026-08-22T15:35:13.481922+00:00",
         "from_state": "deliberating",
         "to_state": "executing",
         "reason": "auto-approved: live data, within policy limits"
@@ -320,7 +320,7 @@
       {
         "seq": 11,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987829+00:00",
+        "at": "2026-08-22T15:35:13.481925+00:00",
         "tool": "book_itt_slot",
         "status": "ok",
         "latency_ms": 850
@@ -328,7 +328,7 @@
       {
         "seq": 12,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987830+00:00",
+        "at": "2026-08-22T15:35:13.481926+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "all 52 boxes on the contested slot"
@@ -370,14 +370,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987771+00:00",
+        "at": "2026-08-22T15:35:13.481882+00:00",
         "summary": "18 boxes, slack 58m of 600m (90% consumed), tuas -> pasir_panjang",
         "priority": 18.62
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987774+00:00",
+        "at": "2026-08-22T15:35:13.481885+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -387,13 +387,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987775+00:00",
+        "at": "2026-08-22T15:35:13.481886+00:00",
         "summary": "94% of window consumed; 18 boxes crossing terminals"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987776+00:00",
+        "at": "2026-08-22T15:35:13.481887+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "94% of window consumed; 18 boxes crossing terminals"
@@ -401,7 +401,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987777+00:00",
+        "at": "2026-08-22T15:35:13.481887+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -409,7 +409,7 @@
       {
         "seq": 6,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987779+00:00",
+        "at": "2026-08-22T15:35:13.481889+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 9200,
@@ -419,7 +419,7 @@
       {
         "seq": 7,
         "type": "lock",
-        "at": "2026-08-21T11:28:30.987788+00:00",
+        "at": "2026-08-22T15:35:13.481894+00:00",
         "resource": "itt_slot:tuapas_1140",
         "status": "held",
         "our_priority": 18.62,
@@ -429,7 +429,7 @@
       {
         "seq": 8,
         "type": "lock",
-        "at": "2026-08-21T11:28:30.987832+00:00",
+        "at": "2026-08-22T15:35:13.481927+00:00",
         "resource": "itt_slot:tuapas_1140",
         "status": "lost",
         "our_priority": 18.62,
@@ -439,7 +439,7 @@
       {
         "seq": 9,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987833+00:00",
+        "at": "2026-08-22T15:35:13.481928+00:00",
         "from_state": "deliberating",
         "to_state": "lost_lock",
         "reason": "outranked by cr_0003"
@@ -447,7 +447,7 @@
       {
         "seq": 10,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987834+00:00",
+        "at": "2026-08-22T15:35:13.481929+00:00",
         "from_state": "lost_lock",
         "to_state": "deliberating",
         "reason": "re-deliberating without the contested slot"
@@ -455,7 +455,7 @@
       {
         "seq": 11,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987836+00:00",
+        "at": "2026-08-22T15:35:13.481930+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation (re-run)",
         "input_tokens": 6400,
@@ -465,7 +465,7 @@
       {
         "seq": 12,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987837+00:00",
+        "at": "2026-08-22T15:35:13.481933+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -474,13 +474,13 @@
       {
         "seq": 13,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987838+00:00",
+        "at": "2026-08-22T15:35:13.481933+00:00",
         "summary": "no alternative inter-terminal slot inside the window"
       },
       {
         "seq": 14,
         "type": "decision",
-        "at": "2026-08-21T11:28:30.987839+00:00",
+        "at": "2026-08-22T15:35:13.481935+00:00",
         "rung": "rung_4_offer",
         "chosen": true,
         "confidence": 0.91,
@@ -491,7 +491,7 @@
       {
         "seq": 15,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987842+00:00",
+        "at": "2026-08-22T15:35:13.481936+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_customer",
         "reason": "PSA cannot re-route cargo; the line can"
@@ -499,7 +499,7 @@
       {
         "seq": 16,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987844+00:00",
+        "at": "2026-08-22T15:35:13.481937+00:00",
         "tool": "send_options_to_line",
         "status": "ok",
         "latency_ms": 640
@@ -507,7 +507,7 @@
       {
         "seq": 17,
         "type": "external_gate",
-        "at": "2026-08-21T11:28:30.987845+00:00",
+        "at": "2026-08-22T15:35:13.481938+00:00",
         "party": "line",
         "options_sent": 3,
         "window_min": 180,
@@ -516,7 +516,7 @@
       {
         "seq": 18,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987846+00:00",
+        "at": "2026-08-22T15:35:13.481938+00:00",
         "from_state": "awaiting_customer",
         "to_state": "executing",
         "reason": "window closed; default action fires"
@@ -524,7 +524,7 @@
       {
         "seq": 19,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987847+00:00",
+        "at": "2026-08-22T15:35:13.481939+00:00",
         "tool": "roll_to_next_service",
         "status": "ok",
         "latency_ms": 310
@@ -532,7 +532,7 @@
       {
         "seq": 20,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987848+00:00",
+        "at": "2026-08-22T15:35:13.481940+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "rolled by default, not by decision"
@@ -574,14 +574,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987863+00:00",
+        "at": "2026-08-22T15:35:13.481952+00:00",
         "summary": "6 boxes, slack 1430m of 1800m (21% consumed), tuas -> pasir_panjang",
         "priority": 0.25
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987865+00:00",
+        "at": "2026-08-22T15:35:13.481953+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -591,13 +591,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987865+00:00",
+        "at": "2026-08-22T15:35:13.481954+00:00",
         "summary": "6h slip against 30h of slack; 21% consumed, well inside the window. Delay magnitude is large and irrelevant."
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987866+00:00",
+        "at": "2026-08-22T15:35:13.481955+00:00",
         "from_state": "detected",
         "to_state": "dismissed",
         "reason": "6h slip against 30h of slack; 21% consumed, well inside the window. Delay magnitude is large and irrelevant."
@@ -638,14 +638,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987878+00:00",
+        "at": "2026-08-22T15:35:13.481964+00:00",
         "summary": "22 boxes, slack 95m of 540m (82% consumed), tuas -> pasir_panjang",
         "priority": 13.89
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987879+00:00",
+        "at": "2026-08-22T15:35:13.481965+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -655,13 +655,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987880+00:00",
+        "at": "2026-08-22T15:35:13.481965+00:00",
         "summary": "82% of window consumed; deliberating"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987881+00:00",
+        "at": "2026-08-22T15:35:13.481966+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "82% of window consumed; deliberating"
@@ -669,7 +669,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987882+00:00",
+        "at": "2026-08-22T15:35:13.481967+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -677,7 +677,7 @@
       {
         "seq": 6,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987883+00:00",
+        "at": "2026-08-22T15:35:13.481968+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 9200,
@@ -687,7 +687,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987884+00:00",
+        "at": "2026-08-22T15:35:13.481968+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420
@@ -695,13 +695,13 @@
       {
         "seq": 8,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987884+00:00",
+        "at": "2026-08-22T15:35:13.481969+00:00",
         "summary": "inbound ETA improved 148m mid-deliberation; slack restored"
       },
       {
         "seq": 9,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987885+00:00",
+        "at": "2026-08-22T15:35:13.481969+00:00",
         "from_state": "deliberating",
         "to_state": "superseded",
         "reason": "ETA improved; connection no longer at risk"
@@ -743,14 +743,14 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987895+00:00",
+        "at": "2026-08-22T15:35:13.481977+00:00",
         "summary": "29 boxes, slack 64m of 420m (85% consumed), tuas -> pasir_panjang",
         "priority": 27.19
       },
       {
         "seq": 2,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987896+00:00",
+        "at": "2026-08-22T15:35:13.481978+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1840,
@@ -760,13 +760,13 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987897+00:00",
+        "at": "2026-08-22T15:35:13.481979+00:00",
         "summary": "85% of window consumed; 29 boxes"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987897+00:00",
+        "at": "2026-08-22T15:35:13.481979+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "85% of window consumed; 29 boxes"
@@ -774,7 +774,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987898+00:00",
+        "at": "2026-08-22T15:35:13.481980+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -782,7 +782,7 @@
       {
         "seq": 6,
         "type": "model_call",
-        "at": "2026-08-21T11:28:30.987900+00:00",
+        "at": "2026-08-22T15:35:13.481981+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 9200,
@@ -792,7 +792,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987900+00:00",
+        "at": "2026-08-22T15:35:13.481982+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -801,13 +801,13 @@
       {
         "seq": 8,
         "type": "observation",
-        "at": "2026-08-21T11:28:30.987901+00:00",
+        "at": "2026-08-22T15:35:13.481982+00:00",
         "summary": "no internal resolution available inside the window"
       },
       {
         "seq": 9,
         "type": "decision",
-        "at": "2026-08-21T11:28:30.987903+00:00",
+        "at": "2026-08-22T15:35:13.481983+00:00",
         "rung": "rung_4_offer",
         "chosen": true,
         "confidence": 0.83,
@@ -818,7 +818,7 @@
       {
         "seq": 10,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987904+00:00",
+        "at": "2026-08-22T15:35:13.481984+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_customer",
         "reason": "options ranked and sent"
@@ -826,7 +826,7 @@
       {
         "seq": 11,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987905+00:00",
+        "at": "2026-08-22T15:35:13.481985+00:00",
         "tool": "send_options_to_line",
         "status": "ok",
         "latency_ms": 640
@@ -834,7 +834,7 @@
       {
         "seq": 12,
         "type": "external_gate",
-        "at": "2026-08-21T11:28:30.987906+00:00",
+        "at": "2026-08-22T15:35:13.481986+00:00",
         "party": "line",
         "options_sent": 2,
         "window_min": 180,
@@ -843,7 +843,7 @@
       {
         "seq": 13,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987906+00:00",
+        "at": "2026-08-22T15:35:13.481986+00:00",
         "from_state": "awaiting_customer",
         "to_state": "executing",
         "reason": "line declined both; the roll is their call"
@@ -851,7 +851,7 @@
       {
         "seq": 14,
         "type": "tool_call",
-        "at": "2026-08-21T11:28:30.987907+00:00",
+        "at": "2026-08-22T15:35:13.481987+00:00",
         "tool": "roll_to_next_service",
         "status": "ok",
         "latency_ms": 310
@@ -859,7 +859,7 @@
       {
         "seq": 15,
         "type": "state_change",
-        "at": "2026-08-21T11:28:30.987908+00:00",
+        "at": "2026-08-22T15:35:13.481987+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "rolled by the line's decision"

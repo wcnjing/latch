@@ -112,6 +112,13 @@ class Resolution(StrEnum):
     CUSTOMER_DECIDED = "customer_decided"  # line chose in time
     CUSTOMER_DECLINED_ALL = "customer_declined_all"  # line rejected everything
     WINDOW_LAPSED_NO_RESPONSE = "window_lapsed_no_response"  # nobody answered
+
+    # Internal outcomes. Neither of these ever reached the line, and labelling
+    # them with a customer resolution reported an internal decision as a
+    # customer one — inflating "served" when vessel ops declined, and blaming
+    # the line for an unsigned approval it was never asked about.
+    INTERNALLY_DECLINED = "internally_declined"  # we said no; line never asked
+    APPROVAL_LAPSED = "approval_lapsed"  # nobody signed; line never asked
     DISMISSED_NO_ACTION = "dismissed_no_action"  # triage killed it
     SUPERSEDED = "superseded"  # ETA improved; abandoned cleanly
     FAILED = "failed"  # we broke, not the connection
@@ -124,11 +131,62 @@ class Resolution(StrEnum):
         entire pitch: a line that explicitly declined every option was still
         served. A line that never heard from us was not.
         """
-        return self in (
-            Resolution.CONNECTION_HELD,
-            Resolution.CUSTOMER_DECIDED,
-            Resolution.CUSTOMER_DECLINED_ALL,
-        )
+        return OUTCOMES[self].served
+
+    @property
+    def reached_the_line(self) -> bool:
+        """Did the customer ever actually get asked?
+
+        The three Rung 4 exits did. An internal decline or an unsigned
+        approval did not, however the box ended up moving.
+        """
+        return OUTCOMES[self].reached_line
+
+    @property
+    def is_agent_fault(self) -> bool:
+        """Did the system break, as opposed to deciding something?
+
+        Kept separate because a crash and a deliberate internal decline are
+        different problems, and a metric that folds them together reports an
+        infrastructure fault as a business decision.
+        """
+        return OUTCOMES[self].agent_fault
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeFacts:
+    """How one resolution is classified, in one place.
+
+    Previously two hand-maintained membership tuples. A resolution added to
+    the enum but forgotten in both defaulted to "internal failure" silently —
+    the same misattribution the split was introduced to fix, reachable again
+    through the same mechanism. A table plus the completeness check below
+    makes an unclassified member a startup error instead.
+    """
+
+    served: bool
+    reached_line: bool
+    agent_fault: bool = False
+
+
+OUTCOMES: dict[Resolution, OutcomeFacts] = {
+    Resolution.CONNECTION_HELD: OutcomeFacts(served=True, reached_line=False),
+    Resolution.CUSTOMER_DECIDED: OutcomeFacts(served=True, reached_line=True),
+    Resolution.CUSTOMER_DECLINED_ALL: OutcomeFacts(served=True, reached_line=True),
+    Resolution.WINDOW_LAPSED_NO_RESPONSE: OutcomeFacts(served=False, reached_line=True),
+    Resolution.INTERNALLY_DECLINED: OutcomeFacts(served=False, reached_line=False),
+    Resolution.APPROVAL_LAPSED: OutcomeFacts(served=False, reached_line=False),
+    Resolution.DISMISSED_NO_ACTION: OutcomeFacts(served=False, reached_line=False),
+    Resolution.SUPERSEDED: OutcomeFacts(served=False, reached_line=False),
+    Resolution.FAILED: OutcomeFacts(served=False, reached_line=False, agent_fault=True),
+}
+
+_unclassified = set(Resolution) - set(OUTCOMES)
+if _unclassified:  # pragma: no cover - import-time guard
+    raise RuntimeError(
+        f"Resolution members missing from OUTCOMES: {sorted(_unclassified)}. "
+        "Classify them rather than letting them default to an internal failure."
+    )
 
 
 @dataclass(frozen=True, slots=True)

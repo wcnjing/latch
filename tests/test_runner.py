@@ -105,9 +105,16 @@ def test_decision_lead_time_is_recorded_when_options_are_sent():
 
 
 def test_unsigned_approval_lapses_and_still_fires_the_default_action():
-    """Doing nothing is also a decision, and it should be traced as one."""
+    """Doing nothing is also a decision, and it should be traced as one.
+
+    Crucially it is an *internal* lapse. It used to close as
+    WINDOW_LAPSED_NO_RESPONSE, which blamed the shipping line for failing to
+    answer a question nobody asked it.
+    """
     outcome = run(mock_events()["DEMO-001"], approvals=NeverApproves())
-    assert outcome.resolution is Resolution.WINDOW_LAPSED_NO_RESPONSE
+    assert outcome.resolution is Resolution.APPROVAL_LAPSED
+    assert not outcome.resolution.reached_the_line
+    assert not any(s.type == "external_gate" for s in outcome.trace.steps)
     assert outcome.state is RiskState.RESOLVED
     lapsed = [
         s
