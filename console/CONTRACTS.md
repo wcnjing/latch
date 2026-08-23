@@ -26,9 +26,18 @@ The divergences are all downstream of it, in the shapes the console actually
 renders: B's internal risk model, B's plans, the trace, and B's own console
 view model. Those are covered below.
 
-**Status of the nine requests.** #1 has landed (`6be7bb4`) and is consumed.
-The other eight are open, and the console builds against them as gaps rather
-than waiting: option cost was the only one that blocked a panel.
+**Status of the nine requests.** Three have landed and are consumed: #1
+(`6be7bb4`), then #7 and #9 together in `99a47b8`. The remaining six are open,
+and the console builds against them as gaps rather than waiting: option cost
+was the only one that blocked a panel.
+
+#9 landing changed the console rather than just unblocking it. The workaround
+described below — inferring "the line was never asked" from the absence of an
+`external_gate` step, and captioning B's own metric with a caveat — is gone.
+B records `reached_the_line` and the adapter reads it. The internal copy the
+console had written under guessed keys now hangs off B's real resolutions,
+`internally_declined` and `approval_lapsed`, and the outcome badge states what
+happened instead of hedging about what B counts.
 
 ---
 
@@ -508,6 +517,11 @@ Cheapest correct fix if the block is not wanted on the wire: derive
 `connection_type` in `from_dict` from `inbound_terminal != outbound_terminal`
 rather than defaulting it.
 
+**Landed in `99a47b8`**, taking the derivation route. B derives all four
+provenance flags as well, defaulting to synthetic when the payload is silent,
+and resolves the contradictory case — identical terminals alongside
+`avoidable_by_terminal_prevention` — toward `INTER_TERMINAL` deliberately.
+
 ### REQUEST TO B #8 — regenerate or delete the `cr_0001` fixture
 
 `fixtures/traces.json` disagrees with a real run on both the confidence value
@@ -532,10 +546,21 @@ north-star denominator the way `DISMISSED_NO_ACTION` and `SUPERSEDED` already
 are.
 
 This is the only finding on the list that changes a reported number rather
-than a rendering. The console works around it by checking for an
-`external_gate` step before it describes an outcome as the line's decision,
-and it displays B's `service_success` verbatim with a caveat rather than
-quietly correcting it.
+than a rendering.
+
+**Landed in `99a47b8`**, as the two new resolutions rather than as exclusion
+from the denominator — the right call, because an internal decline is a real
+failure to serve, just not the line's. B additionally serialises
+`reached_the_line` and `agent_fault` through `case_view()`, which let the
+console delete its inference entirely.
+
+Two notes for whoever reads this next. The console's `Resolution` union is an
+exhaustive `Record`, so adding the members to `latch.ts` made `tsc` name every
+table that needed an arm — but only after the union was updated by hand, and
+nothing forced that. Until it was, the adapter crashed on the new values
+rather than degrading, and `npm run smoke` never reached the assertion written
+to catch exactly this. Fixture JSON is cast at the boundary, not validated;
+that is the gap that let a contract change land as a runtime crash.
 
 ---
 

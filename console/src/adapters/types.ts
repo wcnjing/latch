@@ -314,23 +314,24 @@ export interface OutcomeVM {
   label: string;
   /** What actually happened to the boxes, in plain English. */
   what: string;
-  /** True only for the three exits `Resolution.is_service_success` accepts. */
+  /** B's own `service_success`, read rather than re-derived. */
   serviceSuccess: boolean;
+  /**
+   * Whether B's value matches the transcribed `SERVICE_SUCCESS_RESOLUTIONS`
+   * list. Asserted by `npm run smoke`, so a change to B's classification
+   * surfaces as a failed reconciliation instead of a silent disagreement.
+   */
+  serviceSuccessReconciled: boolean;
+  /** Whether the shipping line was ever asked. B's value, not inferred. */
+  reachedTheLine: boolean;
+  /** True when the system broke rather than decided. */
+  agentFault: boolean;
+  /** The one-word verdict shown on the outcome panel. */
+  badge: string;
   /** Why this counts, or does not, as serving the customer. */
   why: string;
   /** True for dismissed and superseded: excluded from the north-star denominator. */
   excludedFromMetric: boolean;
-  /**
-   * True when the resolution names the customer but the customer was never
-   * contacted — B reuses the two customer resolutions for internal approval
-   * outcomes. See CONTRACTS.md section 12 items 9 and 10.
-   */
-  decidedInternally: boolean;
-  /**
-   * Set when B's `service_success` counts an outcome the customer took no part
-   * in. Displayed beside the flag; the console never silently corrects it.
-   */
-  metricCaveat: string | null;
   customerGate: {
     optionsSent: number;
     windowMin: number;

@@ -509,28 +509,22 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           right={
             <span
               className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                c.outcome.decidedInternally
+                c.outcome.excludedFromMetric || !c.outcome.reachedTheLine
                   ? 'border-ink-500 bg-ink-800 text-mist-400'
                   : c.outcome.serviceSuccess
                     ? 'border-safe-500/50 bg-safe-900 text-safe-500'
                     : 'border-risk-500/50 bg-risk-900 text-risk-500'
               }`}
               title={
-                c.outcome.decidedInternally
-                  ? 'B’s metric value for this run. The customer took no part in it.'
-                  : undefined
+                c.outcome.reachedTheLine
+                  ? undefined
+                  : 'The shipping line was never contacted on this connection.'
               }
             >
-              {/* When the customer was never involved, the badge describes what
-                  B's metric counts rather than asserting the customer was
-                  served — the two are not the same thing here. */}
-              {c.outcome.decidedInternally
-                ? c.outcome.serviceSuccess
-                  ? 'counted as served'
-                  : 'counted as failed'
-                : c.outcome.serviceSuccess
-                  ? 'customer served'
-                  : 'service failure'}
+              {/* Neutral styling whenever the line took no part, so a decision
+                  PSA made internally never reads as a verdict on the customer
+                  relationship. B supplies the distinction; C only renders it. */}
+              {c.outcome.badge}
             </span>
           }
         >
@@ -582,7 +576,15 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             </div>
           )}
 
-          {c.outcome.metricCaveat && <div className="mt-3"><Note tone="warn">{c.outcome.metricCaveat}</Note></div>}
+          {!c.outcome.serviceSuccessReconciled && (
+            <div className="mt-3">
+              <Note tone="warn">
+                B reports service_success={String(c.outcome.serviceSuccess)} for{' '}
+                {c.outcome.resolution}, which disagrees with the transcribed
+                classification in the console contract. B's value is shown.
+              </Note>
+            </div>
+          )}
 
           {c.outcome.excludedFromMetric && (
             <p className="mt-3 text-[11px] leading-relaxed text-mist-500">

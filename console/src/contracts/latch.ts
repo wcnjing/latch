@@ -65,6 +65,12 @@ export type Resolution =
   | 'customer_decided'
   | 'customer_declined_all'
   | 'window_lapsed_no_response'
+  // Internal outcomes. CONTRACTS.md REQUEST TO B #9 asked for these and B
+  // added them: an approver's decline and an unsigned approval no longer
+  // borrow a customer resolution, so the console no longer has to caveat
+  // B's own metric on screen.
+  | 'internally_declined'
+  | 'approval_lapsed'
   | 'dismissed_no_action'
   | 'superseded'
   | 'failed';
@@ -72,9 +78,15 @@ export type Resolution =
 /**
  * models.py :: Resolution.is_service_success.
  *
- * Transcribed rather than re-derived so the console cannot disagree with B
- * about which outcomes count. A line that declined every option was served.
- * A line that never heard from us was not.
+ * B serialises `service_success` on every case, and that value is what the
+ * console displays. This list is kept as a *check* on it, not as the source:
+ * `npm run smoke` asserts the two agree on every fixture, so a change to B's
+ * classification shows up as a failed reconciliation rather than as a console
+ * that quietly disagrees with the system it is displaying.
+ *
+ * The original transcription was justified as making disagreement impossible.
+ * It is exactly how disagreement happens — when B split the internal outcomes
+ * out, this list still described the old taxonomy.
  */
 export const SERVICE_SUCCESS_RESOLUTIONS: readonly Resolution[] = [
   'connection_held',
@@ -901,6 +913,10 @@ export interface CaseViewWire {
   trigger: TraceTrigger;
   resolution: Resolution | null;
   service_success: boolean | null;
+  /** Whether the shipping line was ever actually asked. B, not inferred. */
+  reached_the_line: boolean | null;
+  /** True when the system broke, as opposed to deciding something. */
+  agent_fault: boolean | null;
   boxes: number;
   decision_lead_time_h: number | null;
   options_alive_at_send: number;

@@ -240,7 +240,17 @@ const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: st
   window_lapsed_no_response: {
     label: 'Window lapsed — no response',
     what: 'The boxes rolled to the next service.',
-    why: 'Nobody answered before the window closed. The box rolls either way; the difference is that this customer was never actually served.',
+    why: 'The line was asked and nobody answered before the window closed. The box rolls either way; the difference is that this customer was never actually served. This is the north-star failure.',
+  },
+  internally_declined: {
+    label: 'Declined internally',
+    what: 'The transfer was not booked. The boxes rolled to the next service.',
+    why: 'The approver declined the escalated action. The shipping line was never contacted — this was a PSA decision, not the line’s.',
+  },
+  approval_lapsed: {
+    label: 'Approval lapsed',
+    what: 'Nobody signed. The default action fired and the boxes rolled.',
+    why: 'The internal approval window closed with no answer. The shipping line was never contacted, so this is not a lapsed customer window.',
   },
   dismissed_no_action: {
     label: 'Dismissed at triage',
@@ -260,27 +270,6 @@ const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: st
 };
 
 const EXCLUDED_FROM_METRIC: Resolution[] = ['dismissed_no_action', 'superseded'];
-
-/**
- * B reuses the two customer resolutions for internal approval outcomes: a
- * Vessel Ops rejection closes `customer_declined_all` and an unsigned approval
- * closes `window_lapsed_no_response`, both without the line being contacted.
- * Calling either "the line decided" on screen would be false, so the copy is
- * chosen on whether an `external_gate` step actually exists.
- * CONTRACTS.md section 12 items 9 and 10, REQUEST TO B #9.
- */
-const INTERNAL_COPY: Partial<Record<Resolution, { label: string; what: string; why: string }>> = {
-  customer_declined_all: {
-    label: 'Declined internally',
-    what: 'The transfer was not booked. The boxes rolled to the next service.',
-    why: 'The approver declined the escalated action. The shipping line was never contacted — this was a PSA decision, not the line’s.',
-  },
-  window_lapsed_no_response: {
-    label: 'Approval lapsed',
-    what: 'Nobody signed. The default action fired and the boxes rolled.',
-    why: 'The internal approval window closed with no answer. The shipping line was never contacted.',
-  },
-};
 
 /* =========================================================================
  * Step helpers
@@ -564,7 +553,7 @@ function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null
     roleLabel: gate.requiredRoleLabel,
     handoff: false,
     ifNothingHappens:
-      'Auto-declines. The approval lapses, the default action fires, and B records the outcome as WINDOW_LAPSED_NO_RESPONSE — the same resolution used when the shipping line never replies.',
+      'Auto-declines. The approval lapses, the default action fires, and B records the outcome as APPROVAL_LAPSED — distinct from the resolution used when the shipping line itself never replies, so an unsigned internal approval is not reported as a customer we failed.',
     countdown: open
       ? {
           windowMin: 15,
@@ -896,27 +885,54 @@ function toTimelineEvent(step: TraceStep): TimelineEventVM {
  * Outcome, cost, triage, provenance
  * ====================================================================== */
 
+/**
+ * Whose outcome this was, in one badge.
+ *
+ * Previously derived from the absence of an `external_gate` step, because B
+ * reused the customer resolutions for internal outcomes and there was nothing
+ * else to go on. B now records `reached_the_line` directly, so the console
+ * reads it instead of inferring it — and a dismissal no longer falls through
+ * to "service failure", which it did while it was also excluded from the
+ * metric for not being one.
+ */
+function outcomeBadge(
+  serviceSuccess: boolean,
+  reachedTheLine: boolean,
+  excluded: boolean,
+  agentFault: boolean,
+): string {
+  if (agentFault) return 'system fault';
+  if (excluded) return 'not counted';
+  if (!reachedTheLine) return serviceSuccess ? 'held internally' : 'decided internally';
+  return serviceSuccess ? 'customer served' : 'service failure';
+}
+
 function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
   const resolution = bundle.result.resolution;
   if (!resolution) return null;
   const ext = externalGate(bundle.trace);
-  const decidedInternally = !ext && resolution in INTERNAL_COPY;
-  const copy = (decidedInternally ? INTERNAL_COPY[resolution] : undefined) ?? RESOLUTION_COPY[resolution];
-  const serviceSuccess = SERVICE_SUCCESS_RESOLUTIONS.includes(resolution);
+  const copy = RESOLUTION_COPY[resolution];
+  const cv = bundle.case_view;
+
+  // B is the source for all three. The transcribed list is the reconciliation
+  // check, asserted in `npm run smoke`, not the value shown.
+  const serviceSuccess = cv.service_success ?? SERVICE_SUCCESS_RESOLUTIONS.includes(resolution);
+  const reachedTheLine = cv.reached_the_line ?? false;
+  const agentFault = cv.agent_fault ?? false;
+  const excludedFromMetric = EXCLUDED_FROM_METRIC.includes(resolution);
 
   return {
     resolution,
     label: copy.label,
     what: copy.what,
     serviceSuccess,
+    serviceSuccessReconciled:
+      serviceSuccess === SERVICE_SUCCESS_RESOLUTIONS.includes(resolution),
+    reachedTheLine,
+    agentFault,
     why: copy.why,
-    excludedFromMetric: EXCLUDED_FROM_METRIC.includes(resolution),
-    decidedInternally,
-    metricCaveat: decidedInternally
-      ? serviceSuccess
-        ? 'B counts this as a customer served, but the customer took no part in it. CONTRACTS.md REQUEST TO B #9.'
-        : 'B counts this as a customer service failure, but the customer was never asked. CONTRACTS.md REQUEST TO B #9.'
-      : null,
+    excludedFromMetric,
+    badge: outcomeBadge(serviceSuccess, reachedTheLine, excludedFromMetric, agentFault),
     customerGate: ext
       ? { optionsSent: ext.options_sent, windowMin: ext.window_min, outcome: ext.outcome }
       : null,
