@@ -59,6 +59,25 @@ function Topbar({
   );
 }
 
+/**
+ * The data-basis sentence, verbatim and always on screen.
+ *
+ * The wording is read from `provenance.dataBasis` in the captured fixtures
+ * rather than typed here, so what the screen claims and what the data claims
+ * cannot drift apart. It sits directly under the topbar on every page: the
+ * point is that a judge scanning a screen recording sees it without opening
+ * anything, and a frame cropped out of context still carries it.
+ */
+function DataBasisLine({ basis }: { basis: string | null }) {
+  if (!basis) return null;
+  return (
+    <div className="data-basis-line">
+      <span className="data-basis-label">Data basis</span>
+      <span className="data-basis-text">{basis}</span>
+    </div>
+  );
+}
+
 export default function App() {
   const console_ = useConsole();
   const { connections, selected, selectedId, playback } = console_;
@@ -126,6 +145,8 @@ export default function App() {
           if (next === 'connections') setFocusDetail(false);
         }}
       />
+
+      <DataBasisLine basis={connections[0]?.provenance.dataBasis ?? null} />
 
       <div
         className={`workspace-loading-bar ${workspaceLoading ? 'workspace-loading-bar-active' : ''}`}
