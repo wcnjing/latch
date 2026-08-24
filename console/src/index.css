@@ -281,6 +281,144 @@ button:focus-visible, select:focus-visible {
   100% { transform: translateX(0); }
 }
 
+/* --- landing: one case, at full size -----------------------------------
+
+   The page leads with the connection in trouble rather than with counts of
+   them. Precedence is the whole point: everything here had equal weight
+   before, so nothing led, and a judge read 63 lines of which two mentioned
+   shipping. */
+
+.landing-heading { max-width: 760px; margin-bottom: 20px; }
+.landing-eyebrow {
+  margin-bottom: 10px;
+  color: var(--color-mist-500);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+}
+.landing-heading h1 {
+  color: var(--color-mist-100);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.18;
+}
+.landing-sub {
+  margin-top: 10px;
+  color: var(--color-mist-400);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.headline-case {
+  margin-bottom: 16px;
+  border: 1px solid #dedee3;
+  border-radius: 10px;
+  background: #fff;
+  padding: 20px 22px 22px;
+  /* The one raised surface on the page. Everything else is flat, so this
+     reads as the subject rather than as another card in a grid. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 28px -18px rgb(0 0 0 / 0.28);
+}
+.headline-case-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.headline-case-route { color: var(--color-mist-500); font-size: 12px; }
+.headline-case-gate {
+  border: 1px solid #f0d28a;
+  border-radius: 999px;
+  background: var(--color-watch-900);
+  padding: 3px 10px;
+  color: var(--color-watch-500);
+  font-size: 11px;
+  font-weight: 600;
+}
+.headline-case-why {
+  margin-top: 14px;
+  max-width: 62ch;
+  color: var(--color-mist-100);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  line-height: 1.45;
+}
+.headline-case-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 34px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e5ea;
+}
+.headline-fact-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-mist-500);
+  font-size: 11px;
+}
+.headline-case-facts strong { font-size: 21px; font-weight: 600; letter-spacing: -0.03em; }
+.headline-case-escalation {
+  margin-top: 16px;
+  max-width: 68ch;
+  border-left: 2px solid var(--color-accent-500);
+  padding-left: 12px;
+  color: var(--color-mist-400);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.headline-case-escalation strong { color: var(--color-mist-100); font-weight: 600; }
+.headline-case-escalation em { font-style: normal; color: var(--color-mist-400); }
+.headline-case-action { margin-top: 20px; }
+
+.headline-case-clear { text-align: left; }
+.headline-case-clear strong { display: block; font-size: 17px; font-weight: 600; }
+.headline-case-clear p { margin: 6px 0 16px; color: var(--color-mist-500); font-size: 13px; }
+
+.landing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.15fr) minmax(290px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* The counts, as an index rather than a scoreboard. */
+.tally-panel {
+  border: 1px solid #dedee3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+}
+.tally-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f2f2f7;
+  color: var(--color-mist-400);
+  font-size: 12px;
+}
+.tally-row:last-of-type { border-bottom: 0; }
+.tally-row strong { font-size: 15px; font-weight: 650; color: var(--color-mist-100); }
+.tally-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e5ea;
+  color: var(--color-mist-500);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.tally-note .metrics-provenance-flag { margin-right: 6px; }
+
+@media (max-width: 1080px) {
+  .landing-grid { grid-template-columns: minmax(0, 1fr); }
+  .landing-heading h1 { font-size: 25px; }
+  .headline-case-facts { gap: 22px; }
+}
+
 .overview-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
