@@ -1,0 +1,38 @@
+[
+  {
+    "box_count": null,
+    "count": 1,
+    "destination_terminal": "tuas",
+    "impact_band": "small",
+    "origin_terminal": "tuas",
+    "reference_arrival_gap_band": {
+      "maximum_gap": 43200000000,
+      "minimum_gap": 21600000000
+    },
+    "transfer_mode": "none"
+  },
+  {
+    "box_count": 24,
+    "count": 1,
+    "destination_terminal": "pasir_panjang",
+    "impact_band": "medium",
+    "origin_terminal": "tuas",
+    "reference_arrival_gap_band": {
+      "maximum_gap": 21600000000,
+      "minimum_gap": 0
+    },
+    "transfer_mode": "road"
+  },
+  {
+    "box_count": 60,
+    "count": 1,
+    "destination_terminal": "tuas",
+    "impact_band": "large",
+    "origin_terminal": "pasir_panjang",
+    "reference_arrival_gap_band": {
+      "maximum_gap": null,
+      "minimum_gap": 46800000000
+    },
+    "transfer_mode": "sea"
+  }
+]

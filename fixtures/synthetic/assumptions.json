@@ -1,0 +1,198 @@
+[
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "ais_source_fields",
+    "note": "Real timestamped AIS fields retained without synthetic replacement.",
+    "source_reference": "doi:10.17632/r37vwd493d.1",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "first_available_reference_arrival",
+    "note": "First AVAILABLE causal reference only; no later prediction or crossing outcome.",
+    "source_reference": "latch://replay/pr2-causal-arrival-update",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "reference_arrival_window",
+    "note": "Immutable interval between paired first-AVAILABLE causal reference arrivals; not an official service window.",
+    "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "reference_arrival_gap",
+    "note": "Outbound minus inbound first-AVAILABLE causal reference arrival.",
+    "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "reference_arrival_gap_band",
+    "note": "Optional topology quota interval over the raw causal reference-arrival gap.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "candidate_id",
+    "note": "Canonical digest of identifier-free first-AVAILABLE candidate content.",
+    "source_reference": "latch://synthetic-ucid/pr3-canonical-candidate-digest",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "source_call_lineage",
+    "note": "Audit-only PR #2 call grouping derived with the exploratory boundary.",
+    "source_reference": "latch://replay/pr2-retrospective-call-segmentation",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "not_applicable",
+    "field_name": "vessel_lineage",
+    "note": "Audit-only anonymised AIS vessel identifier; used for self-pair rejection.",
+    "source_reference": "doi:10.17632/r37vwd493d.1",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "public_anchor",
+    "field_name": "terminal_identity_tuas",
+    "note": "SMDG TCL v20260609 identifies SGSIN + PSATUA.",
+    "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "public_anchor",
+    "field_name": "terminal_identity_pasir_panjang",
+    "note": "SMDG TCL v20260609 identifies SGSIN + PSAPPT.",
+    "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "public_anchor",
+    "field_name": "terminal_cluster_context",
+    "note": "MPA/PSA describe Pasir Panjang and Tuas as the main terminal clusters.",
+    "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "terminal_assignment",
+    "note": "Candidate-to-terminal assignment is simulated, not observed.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "candidate_pairing",
+    "note": "Pairing is canonical seeded benchmark construction.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "topology_version_and_sequence",
+    "note": "Frozen topology/schema version and deterministic connection sequence.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "public_anchor",
+    "field_name": "transfer_mode_catalog",
+    "note": "MPA/PSA describe road and sea feeder as real IGT modes.",
+    "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+    "value_origin": "real"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "transfer_mode_assignment",
+    "note": "Mode assignment is requested by an explicit quota cell.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "process_scenario_configuration",
+    "note": "LOW, REFERENCE, and CONSERVATIVE are test-only sensitivity configurations applied after topology is frozen.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "cargo_ready_offset",
+    "note": "Single benchmark offset absorbs generic terminal handling before IGT.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "cargo_ready_at",
+    "note": "Inbound reference arrival plus experimental cargo_ready_offset.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "cargo_cutoff_lead",
+    "note": "Configured benchmark lead informed by feeder cut-off context; not a PSA rule.",
+    "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "transfer_duration",
+    "note": "Actual benchmark duration comes only from scenario configuration.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "planned_cutoff",
+    "note": "Outbound reference arrival minus configured cargo_cutoff_lead.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "planning_margin",
+    "note": "Planned cutoff minus cargo-ready time and configured transfer duration.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "impact_band",
+    "note": "Required scenario label; quotas do not claim PSA prevalence.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "box_count",
+    "note": "Optional exact synthetic volume; impact_band remains required.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "difficulty_band",
+    "note": "Derived from planning margin and frozen experimental thresholds.",
+    "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+    "value_origin": "derived"
+  },
+  {
+    "assumption_basis": "experimental",
+    "field_name": "ucid_identity",
+    "note": "Connection-slot identity inspired by UCID; not an official assigned UCID.",
+    "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+    "value_origin": "synthetic"
+  },
+  {
+    "assumption_basis": "public_anchor",
+    "field_name": "public_sea_transit_reference",
+    "note": "Approximately 13 nm and four-hour aIGF transit mission profile; evidence metadata only.",
+    "source_reference": "https://www.mpa.gov.sg/api/media/e39c5ffe-8693-4605-b724-e3e5b062f34c/MPA-PSA-aIGF-EOI-Clarifications.pdf",
+    "value_origin": "real"
+  }
+]

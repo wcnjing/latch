@@ -27,6 +27,40 @@ still valid.
 | `summary.json` | North-star metric with its denominator, and cost per risk |
 | `state_diagram.mmd` | Mermaid state diagram, generated from the transition table |
 
+### Synthetic PR #3 contract fixture
+
+`fixtures/synthetic/` is separate from the six console scenarios above. It is
+a tiny, deterministic three-connection fixture for the synthetic UCID contract,
+not a historical benchmark and not a claim about PSA prevalence.
+
+**TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
+PREVALENCE.**
+
+Regenerate it with:
+
+```bash
+UV_CACHE_DIR=/tmp/latch-uv-cache uv run python scripts/make_synthetic_benchmark.py
+```
+
+| File | Contents |
+|---|---|
+| `synthetic/quotas.json` | Three scenario-independent cells using terminal direction, mode, raw reference-arrival-gap band, impact, and exact count; no Cartesian-product requirement |
+| `synthetic/assumptions.json` | Field-level origin and assumption-basis register |
+| `synthetic/benchmark.json` | Three immutable generated connections and their sensitivity projections |
+| `synthetic/manifest.json` | Seed, versions, exact counts, and canonical input/config/quota/graph/output digests |
+
+The tiny assumptions are LOW/REFERENCE/CONSERVATIVE cargo-ready offsets of
+1/2/3 hours, cargo cut-off leads of 2/3/4 hours, road durations of
+0.75/1/2 hours, and sea durations of 1.5/2/3 hours. Difficulty thresholds are
+zero for INFEASIBLE, 2 hours for TIGHT/STANDARD, and 6 hours for
+STANDARD/COMFORTABLE. The public four-hour aIGF value is retained only as
+evidence metadata and is not any fixture transfer duration.
+
+The topology is selected and assigned globally before those timing scenarios
+are projected. Its raw reference-arrival-gap bands are 6–<12 hours for the
+same-terminal cell, <6 hours for ROAD, and at least 13 hours for SEA. These are
+also test-only synthetic fixture values.
+
 ## The six scenarios
 
 Chosen so the console has risks at genuinely different states rather than six

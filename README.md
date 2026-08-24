@@ -234,6 +234,58 @@ remain derived and non-official. The complete suite passes **105 tests**.
 See the appended Stage 3 findings in
 [`Data Inspection/singapore_ais_dataset_assessment.md`](Data%20Inspection/singapore_ais_dataset_assessment.md).
 
+### Stage 4 — Synthetic connection topology and UCIDs
+
+`latch.synthetic` is a deterministic synthetic benchmark-generation layer.
+PR #3 builds its synthetic connection graph from
+`iter_retrospectively_segmented_arrival_updates`. The population is still
+retrospectively segmented into accepted PR #2 calls because PR #2 does not
+expose a completely live call-population primitive. The generator uses a
+source `call_id` only to find that call's first `AVAILABLE` update, projects it
+immediately into an outcome-free `SyntheticCallCandidate`, and discards later
+predictions and all crossing, eligibility, and exclusion information.
+
+Candidate ordering and seeded pairing use only the causal reference timestamp,
+reference arrival, source observation row, boundary version, and source type.
+Neither source call IDs nor anonymised vessel IDs affect ordering, rank, or
+UCID. Vessel ID is retained only in `UCIDAssignment` for lineage and to prevent
+a vessel connecting to itself.
+
+A synthetic UCID identifies a fixed reference-arrival connection slot: port
+`SGSIN`, origin and destination terminal, the immutable interval between the
+inbound/outbound first-`AVAILABLE` causal reference arrivals, topology version,
+and deterministic sequence/digest. This interval is not an official schedule,
+berth window, cargo cutoff window, or PSA service window. Vessel-call
+assignment, process sensitivity, cargo-ready/cut-off assumptions, transfer
+duration, impact, and projected difficulty do not enter topology or identity.
+Same-terminal connections use `NONE` with zero transfer duration;
+inter-terminal connections use configured `ROAD` or `SEA`.
+
+Topology quotas use only terminal direction, transfer mode, an optional raw
+reference-arrival-gap band, impact, and exact count. A deterministic global
+matching step allocates unique ordered candidate pairs across all requested
+slots before process scenarios are projected. Difficulty is output metadata
+and may differ by sensitivity scenario.
+
+The committed fixture is intentionally only three connections, sufficient to
+exercise the contract. Its explicit cells are not a production quota and make
+no claim about PSA prevalence. PR #3 adds no Watcher state, outcome label,
+baseline, risk evaluation, performance metric, agent, UI, or API integration.
+
+`latch.synthetic` is not currently wired into the existing runtime/demo
+connection path based on `latch.connections`. Existing Watcher,
+historical-run, demo, console, and deck figures are not outputs of
+`latch.synthetic`. Integrating it with, or replacing, the runtime connection
+layer is a separate future integration decision.
+
+Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
+candidate count for each quota cell. Historical CSV generation remains
+intentionally disabled; this scalability item must be addressed or explicitly
+accepted before enabling full historical generation.
+
+**TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
+PREVALENCE.**
+
 ### Git LFS
 
 The AIS CSV is approximately 205 MB, so it is stored using **Git LFS** rather than normal Git storage.
@@ -265,6 +317,7 @@ where it cannot be cropped out of a screen recording.
 | Arrival estimates | **Derived** from that movement by position and current speed alone, causally. Error measured above, not assumed |
 | Terminal assignment | Carried on every call as `TerminalResolution`: berth, terminal, inferred, or simulated. On the historical path it is `simulated`, and the console surfaces that per connection |
 | Connection graph | Synthetic. Generated from real liner service rotations with parameters frozen before evaluation |
+| PR #3 synthetic benchmark | Separate deterministic `latch.synthetic` contract fixture generated from first-available causal AIS references and frozen quota cells; not wired into `latch.connections` or any current runtime/demo result |
 | Box counts and cut-offs | Synthetic. No public source exists |
 | ITT inventory | Synthetic — no public dataset of Singapore inter-terminal capacity exists |
 | Model responses | Scripted in the captured console fixtures, so those traces measure the pipeline rather than the agent. `--model local` runs the real model; see *The agent on real timing* above |

@@ -662,3 +662,187 @@ UV_CACHE_DIR=/tmp/latch-uv-cache uv run pytest -q
 ```
 
 Result after the Stage 3 review pass: **105 passed**.
+
+## Stage 4: Synthetic connection topology and UCID contract
+
+### Scope and causal boundary
+
+`latch.synthetic` is a deterministic synthetic benchmark-generation layer.
+PR #3 consumes `iter_retrospectively_segmented_arrival_updates`, not
+`DerivedArrivalEvent` and not the retrospectively benchmark-eligible iterator.
+The population nevertheless remains retrospectively segmented into accepted
+PR #2 calls because PR #2 does not expose a completely live call-population
+primitive. This limitation is structural and must remain visible in any later
+historical result.
+
+`latch.synthetic` is not currently wired into the existing runtime/demo
+connection path based on `latch.connections`. Existing Watcher,
+historical-run, demo, console, and deck figures are not outputs of
+`latch.synthetic`. Integrating it with, or replacing, the runtime connection
+layer is a separate future integration decision.
+
+The source `call_id` is used only to group updates long enough to locate the
+first `AVAILABLE` update. That update is immediately projected into
+`SyntheticCallCandidate`. The projection contains the causal observation time,
+first reference arrival, source observation row, boundary version, and source
+type. It contains no vessel, candidate, or call identifier. The generator does
+not consume `derived_geofence_arrival`, benchmark eligibility, exclusion
+reasons, later predictions, or crossing metadata for candidate ordering,
+pairing, seeded rank, UCID identity, process assumptions, or difficulty.
+
+An anonymised vessel ID and the PR #2 source call ID survive only in
+`UCIDAssignment` for audit lineage. Vessel ID is additionally used as a guard
+that prevents the same vessel from being both sides of a connection. It is not
+part of candidate ordering, candidate digest, or seeded pairing rank.
+
+### UCID identity and terminal topology
+
+The synthetic UCID identifies a time-bound reference-arrival connection slot
+rather than the calls temporarily assigned to it. Its identity consists only
+of:
+
+- port UN/LOCODE `SGSIN`;
+- origin and destination `Terminal`;
+- the immutable reference-arrival window formed by the inbound and outbound
+  first-`AVAILABLE` causal reference arrivals;
+- topology/schema version; and
+- deterministic sequence and canonical SHA-256 digest.
+
+It excludes vessel-call assignments, candidate/call/vessel IDs, process
+scenario, cargo-ready offset, transfer mode or duration, cargo cut-off lead,
+planned cut-off, planning margin, difficulty, impact, and optional box count.
+Consequently LOW, REFERENCE, and CONSERVATIVE projections of one connection
+share one UCID, and changing an assignment without changing the planned slot
+does not create a different connection identity.
+
+The reference-arrival window is the immutable interval between those two
+causal reference arrivals used to identify this synthetic benchmark
+connection. It is not an official vessel schedule, berth window, cargo cutoff
+window, or PSA service window. It is frozen before any process scenario is
+projected.
+
+Topology quotas contain only terminal direction, transfer mode, an optional
+raw reference-arrival-gap band, impact band, and exact count. Raw gap is
+`outbound_reference_arrival - inbound_reference_arrival`; it is causal and
+scenario-independent. A deterministic global matching step assigns unique
+ordered candidate pairs across all requested quota slots. Difficulty is not a
+topology input and is computed only after UCIDs are frozen.
+
+The core terminal set is Tuas and Pasir Panjang, reusing `Terminal` and always
+recording `TerminalResolution.SIMULATED` for assignments. SMDG Terminal Code
+List v20260609 identifiers are stored as two fields rather than concatenated:
+
+| Terminal | Port UN/LOCODE | SMDG terminal code |
+|---|---|---|
+| Tuas | `SGSIN` | `PSATUA` |
+| Pasir Panjang | `SGSIN` | `PSAPPT` |
+
+Same-terminal connections use transfer mode `NONE` and zero transfer duration.
+Inter-terminal connections use `ROAD` or `SEA`, with duration supplied by the
+experimental scenario configuration. `cargo_ready_offset` already absorbs
+generic terminal handling before an IGT leg.
+
+### Timing model and provenance
+
+The only process timing equations are:
+
+```text
+cargo_ready_at = inbound_reference_arrival + cargo_ready_offset
+planned_cutoff = outbound_reference_arrival - cargo_cutoff_lead
+planning_margin = planned_cutoff - cargo_ready_at - transfer_duration
+```
+
+There is no synthetic outbound departure or service duration, and no separate
+discharge or yard-release duration. `impact_band` is required; an exact
+synthetic `box_count` is optional.
+
+Every registered value carries two independent axes: `ValueOrigin` is REAL,
+DERIVED, or SYNTHETIC; `AssumptionBasis` is PUBLIC_ANCHOR, EXPERIMENTAL, or
+NOT_APPLICABLE. The important classifications are:
+
+| Field or choice | Value origin | Assumption basis |
+|---|---|---|
+| AIS source fields | REAL | NOT_APPLICABLE |
+| First `AVAILABLE` reference arrival | DERIVED | NOT_APPLICABLE |
+| Reference-arrival window and raw gap | DERIVED | NOT_APPLICABLE |
+| Optional raw-gap quota band | SYNTHETIC | EXPERIMENTAL |
+| Candidate ID | DERIVED | NOT_APPLICABLE |
+| Retrospective source-call lineage | DERIVED | EXPERIMENTAL |
+| Anonymised vessel lineage | REAL | NOT_APPLICABLE |
+| Tuas/Pasir Panjang identities | REAL | PUBLIC_ANCHOR |
+| Terminal assignment and candidate pairing | SYNTHETIC | EXPERIMENTAL |
+| Transfer-mode assignment and duration | SYNTHETIC | EXPERIMENTAL |
+| Process scenario/configuration, `cargo_ready_offset`, and `cargo_cutoff_lead` | SYNTHETIC | EXPERIMENTAL |
+| `cargo_ready_at`, `planned_cutoff`, `planning_margin`, and difficulty band | DERIVED | EXPERIMENTAL |
+| Impact band and optional exact box count | SYNTHETIC | EXPERIMENTAL |
+
+The public evidence set is intentionally limited to:
+
+1. UNECE/SMDG, *White Paper on Transshipment: the potential of closer
+   integration between actors in the transport industry*, November 2025, for
+   UCID, connection feasibility, and the feeder cargo cut-off context.
+2. MPA/PSA, *Expression of Interest to Design and Develop Autonomous
+   Inter-Gateway Feeder*, 2026, for the Pasir Panjang/Tuas cluster context and
+   road/sea IGT modes.
+3. MPA/PSA, *aIGF EOI Clarifications*, 2026, for the approximately 13 nm route
+   and four-hour aIGF transit mission-profile reference.
+4. SMDG Terminal Code List v20260609 for `SGSIN` + `PSAPPT` and `SGSIN` +
+   `PSATUA`.
+
+The four-hour figure is evidence metadata only. It is not a total container
+transfer time and never supplies a road or sea duration. Likewise, the
+configured cut-off lead is an experimental benchmark assumption informed by
+the white paper's statement that feeder cut-off is generally only a few hours
+before arrival; it is not presented as an official PSA rule.
+
+### Tiny deterministic fixture
+
+PR #3 commits only three requested topology quota cells:
+
+| Origin → destination | Mode | Raw reference-arrival-gap band | Impact | Count | Exact boxes |
+|---|---|---|---|---:|---:|
+| Tuas → Tuas | NONE | 6 h to <12 h | SMALL | 1 | omitted |
+| Tuas → Pasir Panjang | ROAD | <6 h | MEDIUM | 1 | 24 |
+| Pasir Panjang → Tuas | SEA | ≥13 h | LARGE | 1 | 60 |
+
+These cells are a contract fixture, not a complete Cartesian product and not
+an estimate of PSA prevalence. The fixed seed is
+`latch-pr3-tiny-fixture-seed`. LOW/REFERENCE/CONSERVATIVE assumptions are:
+
+**TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
+PREVALENCE.**
+
+| Scenario | Cargo-ready offset | Cargo cut-off lead | Road duration | Sea duration |
+|---|---:|---:|---:|---:|
+| LOW | 1 h | 2 h | 0.75 h | 1.5 h |
+| REFERENCE | 2 h | 3 h | 1 h | 2 h |
+| CONSERVATIVE | 3 h | 4 h | 2 h | 3 h |
+
+Difficulty is projected independently for every scenario: negative margin is
+INFEASIBLE, zero to less than 2 hours is TIGHT, 2 to less than 6 hours is
+STANDARD, and at least 6 hours is COMFORTABLE. Generation is pure and
+canonical. Deterministic global allocation succeeds whenever the requested
+slots have a feasible unique-pair matching and raises `ImpossibleQuotaError`
+without partial output otherwise.
+
+PR #3 implements no Watcher states, outcome labels, no-ITT risk evaluation,
+delay baseline, historical performance or lead-time metrics, agent logic, UI,
+or API integration. Historical quota design and the actual full-data run are
+deferred to PR #4/#5.
+
+Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
+candidate count for each quota cell. Historical CSV generation remains
+intentionally disabled. Before enabling full historical generation, this
+scalability cost must be addressed or explicitly accepted with a bounded input
+size; it is not a merge blocker for the tiny contract fixture.
+
+### Stage 4 verification
+
+Focused tests cover fixed-seed determinism, input permutation, actual
+final-crossing changes, source-call rekeying, anonymised vessel-ID changes,
+self-vessel rejection, mode/topology constraints, UCID stability under call
+reassignment, end-to-end process sensitivity and impact changes, independent
+provenance completeness, exact and impossible quotas, overlapping-pool global
+allocation, input immutability, the unfiltered PR #2 adapter, CLI rejection of
+unconfigured historical CSV generation, and byte-equivalent regeneration of
+the committed fixture.

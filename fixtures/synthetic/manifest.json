@@ -1,0 +1,18 @@
+{
+  "boundary_versions": [
+    "exploratory-circle-v1"
+  ],
+  "config_digest": "3de81179d9f29418bc0d68ae0e64c222c5e99ecce9c2e3c741d5601fe5b41f29",
+  "dataset_sha256": "fcfbaa71c5dbc8f07d4beac979372f261b7d4394e4970adeabc197e6275332e6",
+  "generated_connection_count": 3,
+  "generator_version": "synthetic-ucid-generator-v1",
+  "graph_digest": "d89a3b6ed4f4be18665bcd2b7e9a3123cb4656525c0c1ce4e639bea22e0bb0c5",
+  "input_digest": "b5f105b77a6f8b1bc08b360647cab317613f3ca75ececba9d29c492172e1df78",
+  "output_digest": "ff8f0fc79b3f2c43df304e2e32cb557c705e6a9943439a8a19ade6c3a3cf9967",
+  "quota_digest": "cf52b93c159fc3d111bc02c28929b041db99181e9b1af9a72515bdfbc28616a3",
+  "requested_connection_count": 3,
+  "seed": "latch-pr3-tiny-fixture-seed",
+  "source_candidate_count": 6,
+  "terminal_code_list_version": "v20260609",
+  "topology_version": "synthetic-connection-topology-v1"
+}
