@@ -26,8 +26,11 @@ const DATA_BASIS =
   'real vessel movement data + derived arrival estimates + synthetic transhipment connections';
 
 function Header({ connections }: { connections: ReturnType<typeof useConsole>['connections'] }) {
-  const served = connections.filter((c) => c.outcome?.serviceSuccess).length;
-  const closed = connections.filter((c) => c.outcome && !c.outcome.excludedFromMetric).length;
+  // `=== true` / `=== false` rather than truthiness: these are now tri-state,
+  // and an outcome B could not classify must not quietly land in either column
+  // of a headline metric.
+  const served = connections.filter((c) => c.outcome?.serviceSuccess === true).length;
+  const closed = connections.filter((c) => c.outcome?.excludedFromMetric === false).length;
   const spend = connections.reduce((sum, c) => sum + c.cost.usd, 0);
 
   return (

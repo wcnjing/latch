@@ -917,6 +917,12 @@ export interface CaseViewWire {
   reached_the_line: boolean | null;
   /** True when the system broke, as opposed to deciding something. */
   agent_fault: boolean | null;
+  /**
+   * Which side of the north-star denominator this falls on. B's own answer;
+   * the console previously kept a second copy of the set and had no way to
+   * notice if the two drifted apart.
+   */
+  excluded_from_metric: boolean | null;
   boxes: number;
   decision_lead_time_h: number | null;
   options_alive_at_send: number;

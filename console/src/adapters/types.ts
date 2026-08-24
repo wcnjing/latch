@@ -309,29 +309,52 @@ export interface ReasonVM {
   emittedByWatcher: boolean;
 }
 
+/** The six verdicts the outcome panel can show, plus the honest gap. */
+export type OutcomeBadge =
+  | 'customer served'
+  | 'service failure'
+  | 'held internally'
+  | 'decided internally'
+  | 'not counted'
+  | 'system fault'
+  | 'outcome not recorded';
+
+export type OutcomeTone = 'good' | 'bad' | 'neutral' | 'fault' | 'gap';
+
 export interface OutcomeVM {
   resolution: Resolution;
   label: string;
   /** What actually happened to the boxes, in plain English. */
   what: string;
-  /** B's own `service_success`, read rather than re-derived. */
-  serviceSuccess: boolean;
+  /**
+   * B's own `service_success`. Null means B did not say — never coerced to
+   * false, because "we were not told" and "the customer was not served" are
+   * different claims and only one of them is ours to make.
+   */
+  serviceSuccess: boolean | null;
   /**
    * Whether B's value matches the transcribed `SERVICE_SUCCESS_RESOLUTIONS`
-   * list. Asserted by `npm run smoke`, so a change to B's classification
-   * surfaces as a failed reconciliation instead of a silent disagreement.
+   * list. Null when B sent nothing, so there was nothing to reconcile against
+   * — a previous version returned the comparison of the fallback with itself,
+   * which was structurally incapable of failing.
    */
-  serviceSuccessReconciled: boolean;
-  /** Whether the shipping line was ever asked. B's value, not inferred. */
-  reachedTheLine: boolean;
-  /** True when the system broke rather than decided. */
-  agentFault: boolean;
-  /** The one-word verdict shown on the outcome panel. */
-  badge: string;
+  serviceSuccessReconciled: boolean | null;
+  /** Whether the shipping line was ever asked. Null when B did not say. */
+  reachedTheLine: boolean | null;
+  /** True when the system broke rather than decided. Null when B did not say. */
+  agentFault: boolean | null;
+  /** The verdict shown on the outcome panel. */
+  badge: OutcomeBadge;
+  /**
+   * The colour that belongs with that verdict. Decided here, beside the
+   * badge, so the two cannot disagree — they did, and a system fault rendered
+   * in the same neutral grey as a routine internal hold.
+   */
+  tone: OutcomeTone;
   /** Why this counts, or does not, as serving the customer. */
   why: string;
-  /** True for dismissed and superseded: excluded from the north-star denominator. */
-  excludedFromMetric: boolean;
+  /** B's answer on whether this leaves the north-star denominator. */
+  excludedFromMetric: boolean | null;
   customerGate: {
     optionsSent: number;
     windowMin: number;

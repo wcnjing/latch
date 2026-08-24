@@ -39,12 +39,12 @@ const OUTCOME_COPY: Record<Branch, { label: string; body: string; tone: string }
   },
   declined: {
     label: 'Declined',
-    body: 'The action was not taken. The default fired and the boxes rolled to the next service. B records this as INTERNALLY_DECLINED: a PSA decision, not the line’s.',
+    body: 'The action was not taken, so nothing was booked and the boxes rolled to the next service. B records this as INTERNALLY_DECLINED: a PSA decision, not the line’s.',
     tone: 'border-risk-500/50 bg-risk-900 text-risk-500',
   },
   lapsed: {
     label: 'Auto-declined — window closed',
-    body: 'Nobody signed inside the window. The default action fired, and B recorded the outcome as APPROVAL_LAPSED — an internal lapse, kept distinct from a shipping line that never replied.',
+    body: 'Nobody signed inside the window. Nothing was booked, the boxes rolled, and B recorded the outcome as APPROVAL_LAPSED — an internal lapse, kept distinct from a shipping line that never replied.',
     tone: 'border-risk-500/50 bg-risk-900 text-risk-500',
   },
 };

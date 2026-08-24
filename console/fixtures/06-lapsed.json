@@ -103,7 +103,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.815860+00:00",
+        "at": "2026-08-24T05:02:34.491292+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 96 boxes, -1.1h remaining margin (+5.5h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +116,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.815862+00:00",
+        "at": "2026-08-24T05:02:34.491294+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,14 +130,14 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.815865+00:00",
+        "at": "2026-08-24T05:02:34.491296+00:00",
         "summary": "96 boxes already past the window by 1.1h; deliberating without asking.",
         "triage_route": "fast_tracked"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815866+00:00",
+        "at": "2026-08-24T05:02:34.491297+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "fast_tracked"
@@ -145,7 +145,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815866+00:00",
+        "at": "2026-08-24T05:02:34.491298+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -153,7 +153,7 @@
       {
         "seq": 6,
         "type": "tool_call",
-        "at": "2026-08-23T06:15:18.815925+00:00",
+        "at": "2026-08-24T05:02:34.491352+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -162,7 +162,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-23T06:15:18.815926+00:00",
+        "at": "2026-08-24T05:02:34.491353+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -171,7 +171,7 @@
       {
         "seq": 8,
         "type": "model_call",
-        "at": "2026-08-23T06:15:18.815928+00:00",
+        "at": "2026-08-24T05:02:34.491355+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 613,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "confidence",
-        "at": "2026-08-23T06:15:18.815933+00:00",
+        "at": "2026-08-24T05:02:34.491359+00:00",
         "computed": 0.8,
         "method": "provenance",
         "factors": {
@@ -199,7 +199,7 @@
       {
         "seq": 10,
         "type": "decision",
-        "at": "2026-08-23T06:15:18.815934+00:00",
+        "at": "2026-08-24T05:02:34.491361+00:00",
         "rung": "rung_1_inform",
         "chosen": false,
         "confidence": 0.8,
@@ -210,7 +210,7 @@
       {
         "seq": 11,
         "type": "options",
-        "at": "2026-08-23T06:15:18.815938+00:00",
+        "at": "2026-08-24T05:02:34.491364+00:00",
         "candidates": [
           {
             "option_id": "SG-CONN-4526-r3-tuapas_1120",
@@ -257,7 +257,7 @@
       {
         "seq": 12,
         "type": "decision",
-        "at": "2026-08-23T06:15:18.815939+00:00",
+        "at": "2026-08-24T05:02:34.491365+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 0.8,
@@ -268,7 +268,7 @@
       {
         "seq": 13,
         "type": "lock",
-        "at": "2026-08-23T06:15:18.815943+00:00",
+        "at": "2026-08-24T05:02:34.491368+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 384.0,
@@ -278,7 +278,7 @@
       {
         "seq": 14,
         "type": "gate",
-        "at": "2026-08-23T06:15:18.815946+00:00",
+        "at": "2026-08-24T05:02:34.491370+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
@@ -289,7 +289,7 @@
       {
         "seq": 15,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815948+00:00",
+        "at": "2026-08-24T05:02:34.491371+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_approval",
         "reason": "96 boxes over the 40-box limit"
@@ -297,7 +297,7 @@
       {
         "seq": 16,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815948+00:00",
+        "at": "2026-08-24T05:02:34.491371+00:00",
         "from_state": "awaiting_approval",
         "to_state": "escalated",
         "reason": "96 boxes over the 40-box limit"
@@ -305,7 +305,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815950+00:00",
+        "at": "2026-08-24T05:02:34.491372+00:00",
         "from_state": "escalated",
         "to_state": "lapsed",
         "reason": "approval never came"
@@ -313,7 +313,7 @@
       {
         "seq": 18,
         "type": "gate",
-        "at": "2026-08-23T06:15:18.815951+00:00",
+        "at": "2026-08-24T05:02:34.491373+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
@@ -324,7 +324,7 @@
       {
         "seq": 19,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815952+00:00",
+        "at": "2026-08-24T05:02:34.491374+00:00",
         "from_state": "lapsed",
         "to_state": "executing",
         "reason": "default action fires"
@@ -332,13 +332,13 @@
       {
         "seq": 20,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.815954+00:00",
+        "at": "2026-08-24T05:02:34.491376+00:00",
         "summary": "released 1 reservation(s)"
       },
       {
         "seq": 21,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.815955+00:00",
+        "at": "2026-08-24T05:02:34.491376+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "approval_lapsed"
@@ -379,6 +379,7 @@
     "service_success": false,
     "reached_the_line": false,
     "agent_fault": false,
+    "excluded_from_metric": false,
     "boxes": 96,
     "decision_lead_time_h": null,
     "options_alive_at_send": 0,

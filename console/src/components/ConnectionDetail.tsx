@@ -6,7 +6,7 @@
 
 import { CUT_RUNG } from '../adapters/toViewModel';
 import { isMissing } from '../adapters/types';
-import type { ConnectionVM, OptionVM, Unverified } from '../adapters/types';
+import type { ConnectionVM, OptionVM, Unverified, OutcomeTone } from '../adapters/types';
 import { hhmm, hoursAndMinutes, pct, signedHours, stamp } from '../lib/format';
 import { GapMarker, Note, Panel, Placeholder, SeverityBadge, StateBadge, Stat, UnverifiedMark } from './ui';
 
@@ -332,6 +332,23 @@ function LadderRail({ active }: { active: number | null }) {
 
 /* -------------------------------------------------------------- detail -- */
 
+/** Tone to classes. Exhaustive, so a new tone will not compile until it has one. */
+const OUTCOME_TONE: Record<OutcomeTone, string> = {
+  good: 'border-safe-500/50 bg-safe-900 text-safe-500',
+  bad: 'border-risk-500/50 bg-risk-900 text-risk-500',
+  fault: 'border-risk-500 bg-risk-500/20 text-risk-500',
+  neutral: 'border-ink-500 bg-ink-800 text-mist-400',
+  gap: 'border-dashed border-ink-500 bg-ink-800 text-mist-500',
+};
+
+const OUTCOME_TITLE: Record<OutcomeTone, string | undefined> = {
+  good: undefined,
+  bad: undefined,
+  fault: 'The agent broke on this connection. This is us failing, not the connection.',
+  neutral: 'The shipping line took no part in this outcome.',
+  gap: 'B did not record enough to classify this outcome. Nothing is inferred here.',
+};
+
 export function ConnectionDetail({ c }: { c: ConnectionVM }) {
   const activeRung = c.options.find((o) => o.status === 'chosen')?.rung.number ?? null;
 
@@ -508,22 +525,12 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           title="Outcome"
           right={
             <span
-              className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                c.outcome.excludedFromMetric || !c.outcome.reachedTheLine
-                  ? 'border-ink-500 bg-ink-800 text-mist-400'
-                  : c.outcome.serviceSuccess
-                    ? 'border-safe-500/50 bg-safe-900 text-safe-500'
-                    : 'border-risk-500/50 bg-risk-900 text-risk-500'
-              }`}
-              title={
-                c.outcome.reachedTheLine
-                  ? undefined
-                  : 'The shipping line was never contacted on this connection.'
-              }
+              className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${OUTCOME_TONE[c.outcome.tone]}`}
+              title={OUTCOME_TITLE[c.outcome.tone]}
             >
-              {/* Neutral styling whenever the line took no part, so a decision
-                  PSA made internally never reads as a verdict on the customer
-                  relationship. B supplies the distinction; C only renders it. */}
+              {/* Both the word and the colour come from the adapter, together.
+                  Deriving the colour here from raw flags is what let a system
+                  fault render in the same grey as a routine internal hold. */}
               {c.outcome.badge}
             </span>
           }
@@ -576,7 +583,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             </div>
           )}
 
-          {!c.outcome.serviceSuccessReconciled && (
+          {c.outcome.serviceSuccessReconciled === false && (
             <div className="mt-3">
               <Note tone="warn">
                 B reports service_success={String(c.outcome.serviceSuccess)} for{' '}

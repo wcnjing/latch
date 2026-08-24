@@ -60,6 +60,8 @@ import type {
   LockVM,
   Missing,
   OptionVM,
+  OutcomeBadge,
+  OutcomeTone,
   OutcomeVM,
   ProvenanceVM,
   ReasonVM,
@@ -173,7 +175,7 @@ const STATE_NOTE: Partial<Record<RiskState, string>> = {
   stale:
     'Upstream data went missing and there was nothing cached to fall back on. Confidence was not computed, because a plan resting on nothing we can name is not a plan. Gates tighten.',
   lapsed:
-    'The approval never came. The default action fired anyway, because doing nothing is also a decision and is traced as one.',
+    'The approval never came, so nothing was booked and the boxes rolled. Declining to act is still a decision, and it is traced as one.',
   lost_lock:
     'A more urgent connection took the contested slot. This one re-deliberates with that option removed.',
   dismissed: 'Triage decided there was nothing to act on, and spent nothing deciding it.',
@@ -249,7 +251,7 @@ const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: st
   },
   approval_lapsed: {
     label: 'Approval lapsed',
-    what: 'Nobody signed. The default action fired and the boxes rolled.',
+    what: 'Nothing was booked. The boxes rolled to the next service.',
     why: 'The internal approval window closed with no answer. The shipping line was never contacted, so this is not a lapsed customer window.',
   },
   dismissed_no_action: {
@@ -268,8 +270,6 @@ const RESOLUTION_COPY: Record<Resolution, { label: string; what: string; why: st
     why: 'This is us failing, not the connection.',
   },
 };
-
-const EXCLUDED_FROM_METRIC: Resolution[] = ['dismissed_no_action', 'superseded'];
 
 /* =========================================================================
  * Step helpers
@@ -553,7 +553,7 @@ function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null
     roleLabel: gate.requiredRoleLabel,
     handoff: false,
     ifNothingHappens:
-      'Auto-declines. The approval lapses, the default action fires, and B records the outcome as APPROVAL_LAPSED — distinct from the resolution used when the shipping line itself never replies, so an unsigned internal approval is not reported as a customer we failed.',
+      'Auto-declines. The approval lapses, nothing is booked, the boxes roll, and B records the outcome as APPROVAL_LAPSED — distinct from the resolution used when the shipping line itself never replies, so an unsigned internal approval is not reported as a customer we failed.',
     countdown: open
       ? {
           windowMin: 15,
@@ -886,25 +886,42 @@ function toTimelineEvent(step: TraceStep): TimelineEventVM {
  * ====================================================================== */
 
 /**
- * Whose outcome this was, in one badge.
+ * Whose outcome this was, and what colour that is.
  *
- * Previously derived from the absence of an `external_gate` step, because B
- * reused the customer resolutions for internal outcomes and there was nothing
- * else to go on. B now records `reached_the_line` directly, so the console
- * reads it instead of inferring it — and a dismissal no longer falls through
- * to "service failure", which it did while it was also excluded from the
- * metric for not being one.
+ * Badge and tone are decided together because they were decided apart, and
+ * disagreed: `outcomeBadge` weighed four flags while the panel's styling
+ * ternary weighed two, so a `failed` resolution announced "system fault" in
+ * the same neutral grey as a routine internal hold.
+ *
+ * Every input is nullable, and null means B did not say. That case gets its
+ * own badge rather than a default, because the alternative — treating an
+ * absent `reached_the_line` as false — has the console assert on screen that
+ * the shipping line was never contacted, on no evidence at all.
  */
-function outcomeBadge(
-  serviceSuccess: boolean,
-  reachedTheLine: boolean,
-  excluded: boolean,
-  agentFault: boolean,
-): string {
-  if (agentFault) return 'system fault';
-  if (excluded) return 'not counted';
-  if (!reachedTheLine) return serviceSuccess ? 'held internally' : 'decided internally';
-  return serviceSuccess ? 'customer served' : 'service failure';
+function outcomeVerdict(f: {
+  serviceSuccess: boolean | null;
+  reachedTheLine: boolean | null;
+  excludedFromMetric: boolean | null;
+  agentFault: boolean | null;
+}): { badge: OutcomeBadge; tone: OutcomeTone } {
+  if (f.agentFault) return { badge: 'system fault', tone: 'fault' };
+  if (f.excludedFromMetric) return { badge: 'not counted', tone: 'neutral' };
+  if (
+    f.serviceSuccess === null ||
+    f.reachedTheLine === null ||
+    f.excludedFromMetric === null ||
+    f.agentFault === null
+  ) {
+    return { badge: 'outcome not recorded', tone: 'gap' };
+  }
+  if (!f.reachedTheLine) {
+    return f.serviceSuccess
+      ? { badge: 'held internally', tone: 'neutral' }
+      : { badge: 'decided internally', tone: 'neutral' };
+  }
+  return f.serviceSuccess
+    ? { badge: 'customer served', tone: 'good' }
+    : { badge: 'service failure', tone: 'bad' };
 }
 
 function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
@@ -914,12 +931,23 @@ function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
   const copy = RESOLUTION_COPY[resolution];
   const cv = bundle.case_view;
 
-  // B is the source for all three. The transcribed list is the reconciliation
-  // check, asserted in `npm run smoke`, not the value shown.
-  const serviceSuccess = cv.service_success ?? SERVICE_SUCCESS_RESOLUTIONS.includes(resolution);
-  const reachedTheLine = cv.reached_the_line ?? false;
-  const agentFault = cv.agent_fault ?? false;
-  const excludedFromMetric = EXCLUDED_FROM_METRIC.includes(resolution);
+  // Every one of these is B's. Null is preserved as null: the console does not
+  // get to decide what B declined to tell it.
+  const serviceSuccess = cv.service_success;
+  const reachedTheLine = cv.reached_the_line;
+  const agentFault = cv.agent_fault;
+  const excludedFromMetric = cv.excluded_from_metric;
+
+  // Named, so the circularity that broke the previous version of this check is
+  // visible on the page: reconciling a value against the same expression that
+  // produced it can only ever succeed.
+  const byTranscribedList = SERVICE_SUCCESS_RESOLUTIONS.includes(resolution);
+  const verdict = outcomeVerdict({
+    serviceSuccess,
+    reachedTheLine,
+    excludedFromMetric,
+    agentFault,
+  });
 
   return {
     resolution,
@@ -927,12 +955,13 @@ function buildOutcome(bundle: FixtureBundle): OutcomeVM | null {
     what: copy.what,
     serviceSuccess,
     serviceSuccessReconciled:
-      serviceSuccess === SERVICE_SUCCESS_RESOLUTIONS.includes(resolution),
+      serviceSuccess === null ? null : serviceSuccess === byTranscribedList,
     reachedTheLine,
     agentFault,
     why: copy.why,
     excludedFromMetric,
-    badge: outcomeBadge(serviceSuccess, reachedTheLine, excludedFromMetric, agentFault),
+    badge: verdict.badge,
+    tone: verdict.tone,
     customerGate: ext
       ? { optionsSent: ext.options_sent, windowMin: ext.window_min, outcome: ext.outcome }
       : null,

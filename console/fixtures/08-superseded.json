@@ -130,7 +130,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.816966+00:00",
+        "at": "2026-08-24T05:02:34.492460+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 41 boxes, -0.9h remaining margin (+4.2h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -143,7 +143,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.816968+00:00",
+        "at": "2026-08-24T05:02:34.492462+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -157,7 +157,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-23T06:15:18.816969+00:00",
+        "at": "2026-08-24T05:02:34.492464+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 1612,
@@ -167,14 +167,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.816970+00:00",
+        "at": "2026-08-24T05:02:34.492464+00:00",
         "summary": "0.9h past the window with a transfer on the critical path; deliberating",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.816971+00:00",
+        "at": "2026-08-24T05:02:34.492465+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -182,7 +182,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.816971+00:00",
+        "at": "2026-08-24T05:02:34.492466+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -190,7 +190,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-23T06:15:18.816972+00:00",
+        "at": "2026-08-24T05:02:34.492467+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -199,7 +199,7 @@
       {
         "seq": 8,
         "type": "observation",
-        "at": "2026-08-23T06:15:18.816977+00:00",
+        "at": "2026-08-24T05:02:34.492470+00:00",
         "summary": "inbound arrival estimate improved 270m mid-deliberation; margin restored to +3.6h",
         "superseding_event": "SG-CONN-4541",
         "admission": "supersedes"
@@ -207,7 +207,7 @@
       {
         "seq": 9,
         "type": "state_change",
-        "at": "2026-08-23T06:15:18.816978+00:00",
+        "at": "2026-08-24T05:02:34.492471+00:00",
         "from_state": "deliberating",
         "to_state": "superseded",
         "reason": "severity WATCH"
@@ -248,6 +248,7 @@
     "service_success": false,
     "reached_the_line": false,
     "agent_fault": false,
+    "excluded_from_metric": true,
     "boxes": 41,
     "decision_lead_time_h": null,
     "options_alive_at_send": 0,

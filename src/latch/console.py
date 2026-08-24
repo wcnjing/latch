@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from latch.config import CONFIDENCE_ESCALATION_THRESHOLD
-from latch.trace import Trace
+from latch.trace import EXCLUDED_FROM_DENOMINATOR, Trace
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +229,15 @@ def case_view(trace: Trace) -> dict[str, Any]:
         ),
         "agent_fault": (
             trace.resolution.is_agent_fault if trace.resolution else None
+        ),
+        # Which side of the north-star denominator this falls on. Sent rather
+        # than left for the console to re-derive: the console was already
+        # keeping its own copy of this set, and a hand-maintained copy of B's
+        # classification is how the console comes to disagree with B.
+        "excluded_from_metric": (
+            trace.resolution in EXCLUDED_FROM_DENOMINATOR
+            if trace.resolution
+            else None
         ),
         "boxes": trace.boxes,
         "decision_lead_time_h": trace.decision_lead_time_h,

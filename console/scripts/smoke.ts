@@ -69,9 +69,8 @@ for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
   for (const r of vm.reasons) if (!r.title) fail(`${vm.id}: unmapped reason code ${r.code}`);
   for (const t of vm.timeline) if (!t.title) fail(`${vm.id}: timeline step ${t.seq} has no title`);
   // Two independent B serialisation sites — `case_view()` and the trace's own
-  // outcome block. The adapter reads the first; if they ever diverge, the
-  // console is rendering one of them and the metrics are computed from the
-  // other.
+  // outcome block. The adapter reads the first; if they diverge, the console
+  // renders one of them while the metrics are computed from the other.
   if (vm.outcome && vm.outcome.serviceSuccess !== vm.raw.trace.outcome.service_success) {
     fail(`${vm.id}: case_view and trace.outcome disagree on service success`);
   }
@@ -79,13 +78,23 @@ for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
   // value B actually sent. This is the assertion that should have caught the
   // internal/customer split, and could not: an unguarded lookup in the adapter
   // crashed before the loop reached it.
-  if (vm.outcome && !vm.outcome.serviceSuccessReconciled) {
+  if (vm.outcome?.serviceSuccessReconciled === false) {
     fail(
       `${vm.id}: B says service_success=${vm.outcome.serviceSuccess} for ` +
         `${vm.outcome.resolution}; SERVICE_SUCCESS_RESOLUTIONS says otherwise`,
     );
   }
-  if (vm.outcome && !vm.outcome.badge) fail(`${vm.id}: outcome has no badge`);
+  // A gap badge on a captured fixture means B stopped sending a field the
+  // adapter needs. Honest on screen, but never correct here: these bundles
+  // come straight out of `runner.handle()`.
+  if (vm.outcome?.badge === 'outcome not recorded') {
+    fail(
+      `${vm.id}: resolved ${vm.outcome.resolution} but B did not send the ` +
+        `flags needed to classify it (service_success / reached_the_line / ` +
+        `agent_fault / excluded_from_metric)`,
+    );
+  }
+  if (vm.outcome?.badge === 'system fault') fail(`${vm.id}: agent fault in a fixture`);
   if (vm.gate?.rung.advisoryOnly && vm.approval?.actionable) {
     fail(`${vm.id}: rung 1 must not offer an approve control`);
   }

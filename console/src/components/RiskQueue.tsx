@@ -8,9 +8,19 @@
  * question an operator asks constantly.
  */
 
-import type { ConnectionVM } from '../adapters/types';
+import type { ConnectionVM, OutcomeTone } from '../adapters/types';
 import { signedHours } from '../lib/format';
 import { SeverityBadge, StateBadge } from './ui';
+
+/** The queue dot and the detail badge read the same tone, so they cannot
+    tell the operator two different things about one outcome. */
+const DOT_TONE: Record<OutcomeTone, string> = {
+  good: 'bg-safe-500',
+  bad: 'bg-risk-500',
+  fault: 'bg-risk-500 ring-1 ring-risk-500/50',
+  neutral: 'bg-mist-500',
+  gap: 'bg-transparent ring-1 ring-mist-500',
+};
 
 function ConfidencePip({ c }: { c: ConnectionVM['confidence'] }) {
   if (!c) {
@@ -101,9 +111,7 @@ function Row({
       {c.lifecycle !== 'live' && c.outcome && (
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
           <span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${
-              c.outcome.serviceSuccess ? 'bg-safe-500' : 'bg-risk-500'
-            }`}
+            className={`inline-block h-1.5 w-1.5 rounded-full ${DOT_TONE[c.outcome.tone]}`}
           />
           <span className="text-mist-400">{c.outcome.label}</span>
         </div>

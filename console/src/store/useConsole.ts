@@ -98,6 +98,20 @@ function truncate(bundle: FixtureBundle, n: number): FixtureBundle {
           resolution: null,
           service_success: null,
         },
+    // `case_view` has to be projected too. `buildOutcome` reads four outcome
+    // flags from it, and only the `result.resolution` guard above keeps the
+    // ending off the screen mid-playback — an invariant held in one of the
+    // three places it needs to hold is one refactor from failing.
+    case_view: complete
+      ? bundle.case_view
+      : {
+          ...bundle.case_view,
+          resolution: null,
+          service_success: null,
+          reached_the_line: null,
+          agent_fault: null,
+          excluded_from_metric: null,
+        },
     gate: hasGate(bundle, n) ? bundle.gate : null,
   };
 }
