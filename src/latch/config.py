@@ -70,6 +70,11 @@ LOCK_TTL_SEC: Final = 180  # a claim nobody commits is released, not leaked
 # --- Rung 4 -----------------------------------------------------------------
 
 CUSTOMER_WINDOW_MIN: Final = 180  # what we commit to when options are sent
+# The internal equivalent. Shorter, because an internal approver is on shift
+# and a shipping line may be in another timezone. Without this the console had
+# no deadline to render and was running a 15-minute countdown of its own
+# invention, labelled as such on screen (console/CONTRACTS.md REQUEST TO B #2).
+APPROVAL_WINDOW_MIN: Final = 15
 
 
 # --- Confidence engine ------------------------------------------------------

@@ -12,7 +12,7 @@ import sys
 
 from latch.console import case_view
 from latch.events import ConnectionType, RiskEvent
-from latch.models import OUTCOMES, Resolution
+from latch.models import OUTCOMES, ActionKind, Plan, Resolution
 from latch.trace import TraceStore
 
 BASE = {
@@ -165,3 +165,88 @@ def test_cli_survives_a_run_where_nothing_is_at_risk(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "no service rate" in result.stdout
+
+
+# --- approval deadline (console/CONTRACTS.md REQUEST TO B #2) ---------------
+
+
+def test_a_blocking_gate_records_the_deadline_it_is_working_against():
+    """The trace carried elapsed time and nothing else, so the console had
+    nothing to count down against and ran a 15-minute timer of its own."""
+    from latch.config import APPROVAL_WINDOW_MIN
+    from latch.gates import evaluate
+    from latch.models import ApprovalRole, PlanAction, Rung
+
+    plan = Plan(
+        plan_id="p1",
+        risk_id="cr_1",
+        rung=Rung.MOVE,
+        actions=(PlanAction(kind=ActionKind.BOOK_ITT_LEG, target="itt:1"),),
+        rationale="",
+        confidence=0.9,
+    )
+    gate = evaluate(plan, boxes_at_risk=84)
+    assert gate.blocks
+    assert gate.required_role is not ApprovalRole.AUTO
+    assert gate.approval_window_min == APPROVAL_WINDOW_MIN
+
+
+def test_a_gate_nobody_has_to_sign_has_no_window():
+    """None, not zero. A gate that does not block has no window at all, which
+    is a different statement from a window of no length."""
+    from latch.gates import evaluate
+    from latch.models import PlanAction, Rung
+
+    advisory = Plan(
+        plan_id="p2",
+        risk_id="cr_1",
+        rung=Rung.INFORM,
+        actions=(PlanAction(kind=ActionKind.SURFACE_DENSITY_SCORE, target="planner"),),
+        rationale="",
+        confidence=1.0,
+    )
+    assert evaluate(advisory, boxes_at_risk=5).approval_window_min is None
+
+
+def test_the_customer_gate_does_not_borrow_the_internal_window():
+    """Rung 4 blocks, but the line's window is CUSTOMER_WINDOW_MIN and is
+    recorded on the external gate step. Returning the internal one here would
+    count a shipping line down against an approver's clock."""
+    from latch.gates import evaluate
+    from latch.models import PlanAction, Rung
+
+    offer = Plan(
+        plan_id="p3",
+        risk_id="cr_1",
+        rung=Rung.OFFER,
+        actions=(PlanAction(kind=ActionKind.OFFER_OPTIONS_TO_LINE, target="line"),),
+        rationale="",
+        confidence=0.9,
+    )
+    gate = evaluate(offer, boxes_at_risk=84)
+    assert gate.needs_customer
+    assert gate.approval_window_min is None
+
+
+def test_only_the_request_step_carries_a_deadline(risk):
+    """A resolved gate reports how long it took, not when it would have
+    expired. Both on the same step would be two clocks for one gate."""
+    from datetime import UTC, datetime
+
+    store = TraceStore()
+    trace = store.open(risk)
+    trace.gate(
+        rung="rung_3_move",
+        role="vessel_ops",
+        escalated=False,
+        status="required",
+        window_min=15,
+        expires_at=datetime(2026, 8, 30, 12, 0, tzinfo=UTC),
+    )
+    trace.gate(rung="rung_3_move", role="vessel_ops", escalated=False, status="lapsed")
+
+    requested, resolved = (s for s in trace.steps if s.type == "gate")
+    assert requested.payload["window_min"] == 15
+    assert requested.payload["expires_at"] == "2026-08-30T12:00:00+00:00"
+    assert "window_min" not in resolved.payload
+    assert "expires_at" not in resolved.payload

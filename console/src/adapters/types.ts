@@ -202,12 +202,17 @@ export interface ApprovalVM {
   /** Stated up front, before the operator decides. */
   ifNothingHappens: string;
   /**
-   * Console-side countdown. B carries no deadline — CONTRACTS.md section 7 —
-   * so this is our timer and the UI says so.
+   * The approval countdown. `source` is load-bearing: `policy` means the
+   * window came from B's `config.APPROVAL_WINDOW_MIN` and arrived on the gate
+   * step, `console-timer` means B sent no deadline and the clock is ours. The
+   * UI states which, because a countdown nobody upstream agreed to is a
+   * different object from one that is policy.
    */
   countdown: {
     windowMin: number;
-    source: 'console-timer';
+    /** ISO-8601, when B sent one. */
+    expiresAt: string | null;
+    source: 'policy' | 'console-timer';
     note: string;
   } | null;
 }

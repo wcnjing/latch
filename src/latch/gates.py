@@ -18,6 +18,7 @@ are the right person for a different rung entirely.
 from dataclasses import dataclass
 
 from latch.config import (
+    APPROVAL_WINDOW_MIN,
     AUTO_APPROVE_MAX_BOXES,
     AUTO_APPROVE_MAX_COST_SGD,
     CONFIDENCE_ESCALATION_THRESHOLD,
@@ -56,6 +57,23 @@ class GateDecision:
     def blocks(self) -> bool:
         """Rung 1 never blocks. It is a notification, not a request."""
         return self.rung is not Rung.INFORM and not self.auto_approved
+
+    @property
+    def approval_window_min(self) -> int | None:
+        """How long the approver has, or None when nobody is being asked.
+
+        None rather than zero: a gate that does not block has no window, which
+        is a different statement from a window of no length.
+
+        Rung 4 is excluded even though it blocks. The customer window is
+        `CUSTOMER_WINDOW_MIN`, it is longer for good reason, and it is recorded
+        on the `external_gate` step. Returning the internal window here would
+        have the console count a shipping line down against an approver's
+        clock.
+        """
+        if not self.blocks or self.needs_customer:
+            return None
+        return APPROVAL_WINDOW_MIN
 
     @property
     def needs_customer(self) -> bool:

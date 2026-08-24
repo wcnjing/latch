@@ -5,10 +5,11 @@
  * because that is the piece an operator under time pressure will not go looking
  * for.
  *
- * The countdown is this console's, and it says so. B carries no approval
- * deadline — `GateStep.latency_s` records how long an approval took, after the
- * fact, and there is no window constant for internal approvals the way there is
- * for the customer gate. See CONTRACTS.md §7 and REQUEST TO B #2.
+ * The countdown states whose it is. B now records `window_min` and
+ * `expires_at` on the gate step at the moment the approval is requested
+ * (REQUEST TO B #2, landed), so on a current trace the clock is policy. On an
+ * older trace it falls back to a console-side timer and says so instead —
+ * the label follows the data, and is never decoration.
  *
  * Rung 1 gets no approve control at all. It is advisory: it surfaces a number
  * to the planner who was already going to decide, and changes nothing about
@@ -49,7 +50,17 @@ const OUTCOME_COPY: Record<Branch, { label: string; body: string; tone: string }
   },
 };
 
-function Countdown({ seconds, windowMin, speed }: { seconds: number; windowMin: number; speed: Speed }) {
+function Countdown({
+  seconds,
+  windowMin,
+  speed,
+  source,
+}: {
+  seconds: number;
+  windowMin: number;
+  speed: Speed;
+  source: 'policy' | 'console-timer';
+}) {
   const total = windowMin * 60;
   const fraction = Math.max(0, Math.min(1, seconds / total));
   const urgent = fraction < 0.25;
@@ -71,8 +82,10 @@ function Countdown({ seconds, windowMin, speed }: { seconds: number; windowMin: 
         />
       </div>
       <p className="mt-1.5 text-[10px] leading-relaxed text-mist-500">
-        {windowMin}-minute window{speed > 1 && <> · running at {speed}×</>}. This countdown is
-        rendered by the console — B records no approval deadline.
+        {windowMin}-minute window{speed > 1 && <> · running at {speed}×</>}.{' '}
+        {source === 'policy'
+          ? 'From config.APPROVAL_WINDOW_MIN, recorded on the gate step when the approval was requested.'
+          : 'Rendered by the console — this trace carries no approval deadline.'}
       </p>
     </div>
   );
@@ -175,6 +188,7 @@ export function ApprovalPanel({
           <Countdown
             seconds={secondsLeft}
             windowMin={approval.countdown.windowMin}
+            source={approval.countdown.source}
             speed={speed}
           />
         </div>

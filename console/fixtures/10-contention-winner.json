@@ -103,7 +103,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.491880+00:00",
+        "at": "2026-08-24T06:20:28.664442+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 38 boxes, -1.2h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +116,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.491881+00:00",
+        "at": "2026-08-24T06:20:28.664444+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +130,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-24T05:02:34.491889+00:00",
+        "at": "2026-08-24T06:20:28.664452+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +140,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.491889+00:00",
+        "at": "2026-08-24T06:20:28.664452+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.491890+00:00",
+        "at": "2026-08-24T06:20:28.664453+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.491891+00:00",
+        "at": "2026-08-24T06:20:28.664454+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +163,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-24T05:02:34.491943+00:00",
+        "at": "2026-08-24T06:20:28.664510+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -172,7 +172,7 @@
       {
         "seq": 8,
         "type": "tool_call",
-        "at": "2026-08-24T05:02:34.491944+00:00",
+        "at": "2026-08-24T06:20:28.664511+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -181,7 +181,7 @@
       {
         "seq": 9,
         "type": "model_call",
-        "at": "2026-08-24T05:02:34.491945+00:00",
+        "at": "2026-08-24T06:20:28.664512+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 612,
@@ -191,7 +191,7 @@
       {
         "seq": 10,
         "type": "confidence",
-        "at": "2026-08-24T05:02:34.491949+00:00",
+        "at": "2026-08-24T06:20:28.664516+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -209,7 +209,7 @@
       {
         "seq": 11,
         "type": "decision",
-        "at": "2026-08-24T05:02:34.491950+00:00",
+        "at": "2026-08-24T06:20:28.664518+00:00",
         "rung": "rung_1_inform",
         "chosen": false,
         "confidence": 1.0,
@@ -220,7 +220,7 @@
       {
         "seq": 12,
         "type": "options",
-        "at": "2026-08-24T05:02:34.491954+00:00",
+        "at": "2026-08-24T06:20:28.664521+00:00",
         "candidates": [
           {
             "option_id": "SG-CONN-4562-r3-tuapas_1120",
@@ -267,7 +267,7 @@
       {
         "seq": 13,
         "type": "decision",
-        "at": "2026-08-24T05:02:34.491955+00:00",
+        "at": "2026-08-24T06:20:28.664522+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 1.0,
@@ -278,7 +278,7 @@
       {
         "seq": 14,
         "type": "lock",
-        "at": "2026-08-24T05:02:34.491957+00:00",
+        "at": "2026-08-24T06:20:28.664525+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 152.0,
@@ -288,7 +288,7 @@
       {
         "seq": 15,
         "type": "gate",
-        "at": "2026-08-24T05:02:34.491959+00:00",
+        "at": "2026-08-24T06:20:28.664528+00:00",
         "rung": "rung_3_move",
         "required_role": "auto",
         "escalated": false,
@@ -299,7 +299,7 @@
       {
         "seq": 16,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.491960+00:00",
+        "at": "2026-08-24T06:20:28.664529+00:00",
         "from_state": "deliberating",
         "to_state": "executing",
         "reason": "auto-approved under policy"
@@ -307,7 +307,7 @@
       {
         "seq": 17,
         "type": "tool_call",
-        "at": "2026-08-24T05:02:34.491962+00:00",
+        "at": "2026-08-24T06:20:28.664531+00:00",
         "tool": "book_itt_leg",
         "status": "ok",
         "latency_ms": 850
@@ -315,7 +315,7 @@
       {
         "seq": 18,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.491964+00:00",
+        "at": "2026-08-24T06:20:28.664533+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "connection_held"

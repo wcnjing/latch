@@ -1,7 +1,6 @@
-# LATCH — agent core
+# LATCH
 
-Look-Ahead Transhipment Connection Handler. This repository is **workstream B**:
-the agent core, plus the shared contracts A and C build against.
+**Look-Ahead Transhipment Connection Handler.** PSA Code Sprint 2.0.
 
 Most containers moving through Singapore are connecting between ships, often at
 different terminals. When a vessel slips, those connections fail quietly — and
@@ -9,12 +8,79 @@ by the time anyone can act, the choice has already been made for them. LATCH
 detects connections losing slack, resolves what it can internally, and gets the
 shipping line a real choice while options still exist.
 
+The claim is narrow on purpose. PSA cannot control when a vessel arrives, so
+the system does not measure connections saved. It measures whether the customer
+held a live decision before the window closed — including when they used it to
+decline everything. A box that rolls after the line chose to roll it is a
+served customer. A box that rolls because nobody was reachable is not.
+
+## The three workstreams
+
+| | Owner | What it is | Where |
+|---|---|---|---|
+| **A** | Dustie Tang | Real AIS ingestion, validated vessel calls, causal arrival updates, and the risk events B consumes | `src/latch/replay.py`, `watcher.py`, `Data Inspection/` |
+| **B** | wcnjing | The agent core: triage, deliberation, gates, locks, the append-only trace | `src/latch/`, `tests/`, `scripts/` |
+| **C** | csgohh | The operator console and the confidence display | `console/` |
+
+The seams between them are structural protocols, not imports, so no workstream
+blocks on another's schedule. `src/latch/models.py` is the shared contract and
+imports nothing from the rest of the package — **treat changes to it as
+breaking, and announce them.**
+
 ## Run it
 
 ```bash
 uv sync
-uv run pytest
+uv run pytest                                  # 284 tests
+uv run python scripts/run_scenarios.py         # 30 disruption scenarios, no model, instant
+uv run latch --events fixtures/mock_events.json --model fake
 ```
+
+The console (workstream C):
+
+```bash
+cd console && npm install && npm run dev       # http://localhost:5173
+```
+
+Two suites, measuring two different things, reported separately. The scenario
+suite on `PolicyModel` removes judgement entirely and tests the rails — a
+failure there is a bug. Running it with `--model local` or `--model anthropic`
+tests whether the model chooses well among options the rails already
+validated — a failure there is a prompt problem.
+
+## Where to look first
+
+- **What is real and what is invented** — the table below, and it is the first
+  thing worth reading. The honest answer is more interesting than the pitch.
+- **[COMPLIANCE.md](COMPLIANCE.md)** — every model, dependency, licence and
+  data source, including the two MPL-2.0 transitives we chose to declare
+  rather than bury.
+- **[Data Inspection/singapore_ais_dataset_assessment.md](Data%20Inspection/singapore_ais_dataset_assessment.md)**
+  — what the AIS data does and does not contain, written before anything was
+  built on it.
+- **[console/CONTRACTS.md](console/CONTRACTS.md)** — nine divergences C found
+  between the design sketch and A and B as they actually are. Three have
+  landed; the rest are open and listed.
+
+## Measured, not asserted
+
+Three numbers we can defend, and one we cannot:
+
+- **ETA error against observed crossings**: 0.37 h at 1 hour of lead time,
+  0.89 h at 3 h, 2.76 h at 6 h, 15.93 h at 24 h. The bias is roughly equal to
+  the error at every horizon, because the median vessel spends **76.9 % of its
+  final 24 hours below one knot** — long-range error is queueing, not
+  kinematics. This is why the useful horizon is about six hours, and why
+  "improves with real PSA terminal data" is evidence rather than a wish.
+- **Case registry**: 74.6 % of agent work was redundant before supersession
+  was added.
+- **Cost per risk**: computed from real token counts inside each trace, not
+  averaged after the fact.
+- **Connection-risk accuracy is unmeasurable by construction** and we do not
+  report it. We author the connection labels, so scoring ourselves against
+  them would be scoring our own homework.
+
+
 
 ## Historical AIS Data & Replay
 

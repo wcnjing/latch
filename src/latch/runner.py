@@ -248,12 +248,19 @@ def handle(
 
     # --- gate ---------------------------------------------------------------
     gate = evaluate(chosen, event.affected_boxes)
+    # The deadline goes on the request, which is this step — the only gate step
+    # that exists while an approver still has time to act. Before this the
+    # trace carried elapsed time and nothing else, so the console had nothing
+    # to count down against and ran a timer of its own invention.
+    window = gate.approval_window_min
     trace.gate(
         rung=gate.rung.value,
         role=gate.required_role.value,
         escalated=gate.escalated,
         escalation_reason=gate.escalation_reason,
         status="required" if gate.blocks else "auto",
+        window_min=window,
+        expires_at=now + timedelta(minutes=window) if window else None,
     )
 
     if gate.needs_customer:
@@ -282,6 +289,7 @@ def handle(
                 role=gate.required_role.value,
                 escalated=gate.escalated,
                 status="lapsed",
+                latency_s=gate.approval_window_min * 60 if gate.approval_window_min else 0.0,
             )
             state = transition(state, RiskState.EXECUTING)
             trace.state_change("lapsed", state.value, "default action fires")

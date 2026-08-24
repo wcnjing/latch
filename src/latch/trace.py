@@ -249,7 +249,21 @@ class Trace:
         status: str,
         latency_s: float = 0.0,
         escalation_reason: str = "",
+        window_min: int | None = None,
+        expires_at: datetime | None = None,
     ) -> TraceStep:
+        """One gate evaluation.
+
+        `latency_s` is elapsed time after the fact. `window_min` and
+        `expires_at` are the deadline the approver is working against, and are
+        only meaningful while one still is — a resolved gate reports how long
+        it took, not when it would have expired.
+        """
+        extra: dict[str, Any] = {}
+        if window_min is not None:
+            extra["window_min"] = window_min
+        if expires_at is not None:
+            extra["expires_at"] = expires_at.isoformat()
         return self._append(
             "gate",
             rung=rung,
@@ -258,6 +272,7 @@ class Trace:
             escalation_reason=escalation_reason,
             status=status,
             latency_s=round(latency_s, 1),
+            **extra,
         )
 
     def external_gate(

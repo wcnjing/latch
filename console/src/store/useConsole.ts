@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { byCriticality, toViewModel } from '../adapters/toViewModel';
+import { approvalWindowMin, byCriticality, toViewModel } from '../adapters/toViewModel';
 import type { RiskState, StateChangeStep } from '../contracts/latch';
 import type { ConnectionVM, FixtureBundle } from '../adapters/types';
 import {
@@ -31,6 +31,11 @@ import {
 } from '../data/fixtures';
 
 /** config.py has no internal approval window. This is the console's, and the UI says so. */
+/**
+ * Fallback only. The window now comes from B, on the gate step, via
+ * `approvalWindowMin(bundle)` — this constant used to be the clock, with no
+ * relationship to any policy B had recorded.
+ */
 export const APPROVAL_WINDOW_MIN = 15;
 
 export const SPEEDS = [1, 4, 12, 60] as const;
@@ -246,7 +251,7 @@ export function useConsole(): ConsoleState {
           cursor,
           finished,
           awaiting,
-          secondsLeft: awaiting ? APPROVAL_WINDOW_MIN * 60 : null,
+          secondsLeft: awaiting ? approvalWindowMin(b) * 60 : null,
           playing: !finished,
         };
       });
@@ -331,7 +336,7 @@ export function useConsole(): ConsoleState {
         finished,
         playing: false,
         awaiting,
-        secondsLeft: awaiting ? APPROVAL_WINDOW_MIN * 60 : null,
+        secondsLeft: awaiting ? approvalWindowMin(b) * 60 : null,
       };
     });
   }, [bundleFor]);

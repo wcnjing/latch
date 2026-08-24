@@ -101,7 +101,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.492633+00:00",
+        "at": "2026-08-24T06:20:28.665183+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 53 boxes, -1.4h remaining margin (+3.8h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -114,7 +114,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.492635+00:00",
+        "at": "2026-08-24T06:20:28.665185+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -128,7 +128,7 @@
       {
         "seq": 3,
         "type": "tool_call",
-        "at": "2026-08-24T05:02:34.492636+00:00",
+        "at": "2026-08-24T06:20:28.665186+00:00",
         "tool": "query_itt_slot",
         "status": "error",
         "latency_ms": 420,
@@ -137,7 +137,7 @@
       {
         "seq": 4,
         "type": "error",
-        "at": "2026-08-24T05:02:34.492636+00:00",
+        "at": "2026-08-24T06:20:28.665186+00:00",
         "tool": "query_itt_slot",
         "error_class": "error",
         "retries": 1,
@@ -146,7 +146,7 @@
       {
         "seq": 5,
         "type": "tool_call",
-        "at": "2026-08-24T05:02:34.492637+00:00",
+        "at": "2026-08-24T06:20:28.665187+00:00",
         "tool": "query_outbound_services",
         "status": "error",
         "latency_ms": 520,
@@ -155,7 +155,7 @@
       {
         "seq": 6,
         "type": "error",
-        "at": "2026-08-24T05:02:34.492637+00:00",
+        "at": "2026-08-24T06:20:28.665187+00:00",
         "tool": "query_outbound_services",
         "error_class": "error",
         "retries": 1,
@@ -164,13 +164,13 @@
       {
         "seq": 7,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.492638+00:00",
+        "at": "2026-08-24T06:20:28.665189+00:00",
         "summary": "upstream inventory unavailable and nothing stale to fall back on; proceeding would be inventing capacity"
       },
       {
         "seq": 8,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.492639+00:00",
+        "at": "2026-08-24T06:20:28.665190+00:00",
         "from_state": "detected",
         "to_state": "stale",
         "reason": "upstream data missing; gates tighten"

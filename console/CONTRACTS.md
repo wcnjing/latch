@@ -26,8 +26,8 @@ The divergences are all downstream of it, in the shapes the console actually
 renders: B's internal risk model, B's plans, the trace, and B's own console
 view model. Those are covered below.
 
-**Status of the nine requests.** Three have landed and are consumed: #1
-(`6be7bb4`), then #7 and #9 together in `99a47b8`. The remaining six are open,
+**Status of the nine requests.** Four have landed and are consumed: #1
+(`6be7bb4`), #7 and #9 together in `99a47b8`, and #2. The remaining five are open,
 and the console builds against them as gaps rather than waiting: option cost
 was the only one that blocked a panel.
 
@@ -459,6 +459,30 @@ Asking for: `expires_at` (ISO-8601) and `window_min` on the `gate` step when
 approval window in `config.py` — the way `CUSTOMER_WINDOW_MIN` already exists
 for the external one. Then the LAPSED transition can fire from a clock instead
 of from an injected `None`, and the countdown reads a real deadline.
+
+**Landed.** `config.APPROVAL_WINDOW_MIN = 15`, exposed as
+`GateDecision.approval_window_min` and written to the `required` gate step as
+`window_min` and `expires_at` — the request step, which is the only gate step
+that exists while an approver still has time to act. A resolved gate still
+reports `latency_s` and no deadline, because by then there isn't one.
+
+Rung 4 deliberately returns `None`: the customer window is
+`CUSTOMER_WINDOW_MIN`, it is longer for good reason, and it is already
+recorded on the `external_gate` step. Returning the internal window there
+would have counted a shipping line down against an approver's clock.
+
+The console reads it through `approvalWindowMin(bundle)`, which both the
+approval panel and the playback clock now share — they were two independent
+constants, and the store's was a bare literal `15`. The `console-timer`
+fallback is retained for traces captured before this landed, and the on-screen
+label follows the data rather than being fixed text: a current trace reads
+"From config.APPROVAL_WINDOW_MIN, recorded on the gate step when the approval
+was requested."
+
+**Not** done: making the LAPSED transition fire from a clock. `ApprovalPolicy`
+still signals a lapse by returning `None`, which is an injected decision rather
+than an elapsed one. That is a change to how approvals are driven, not to what
+is recorded about them, and it is not worth making six days out.
 
 ### REQUEST TO A #3 — emit `SlackBreakdown` on the event
 

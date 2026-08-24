@@ -512,7 +512,34 @@ function buildGate(bundle: FixtureBundle): GateVM | null {
   };
 }
 
-function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null {
+/**
+ * The approval window for one bundle, for the playback clock.
+ *
+ * Exported so the store counts down against the same number the panel shows.
+ * They were two constants before, and the store's was a literal 15 with no
+ * relationship to anything B said.
+ */
+export function approvalWindowMin(bundle: FixtureBundle): number {
+  return requestedGateStep(bundle.trace)?.window_min ?? DEFAULT_APPROVAL_WINDOW_MIN;
+}
+
+/** Only for traces predating REQUEST TO B #2. Labelled as ours wherever shown. */
+const DEFAULT_APPROVAL_WINDOW_MIN = 15;
+
+/** The gate step recording the request, which is the only one carrying a deadline. */
+function requestedGateStep(trace: TraceWire): GateStep | null {
+  return (
+    trace.steps.find(
+      (s): s is GateStep => s.type === 'gate' && s.status === 'required',
+    ) ?? null
+  );
+}
+
+function buildApproval(
+  gate: GateVM | null,
+  state: RiskState,
+  requested: GateStep | null,
+): ApprovalVM | null {
   if (!gate) return null;
 
   // Rung 1 changes nothing on its own, so there is nothing to approve. It gets
@@ -538,10 +565,14 @@ function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null
       handoff: false,
       ifNothingHappens:
         'The window closes and the boxes roll to the next service. The cargo moves either way — the difference is whether the line chose it.',
+      // Policy, not invention: the window is B's `CUSTOMER_WINDOW_MIN` and is
+      // recorded on the `external_gate` step. B still serialises no absolute
+      // deadline for the customer gate, so the clock itself is rendered here.
       countdown: {
         windowMin: POLICY.customerWindowMin,
-        source: 'console-timer',
-        note: `${POLICY.customerWindowMin}-minute window from config.CUSTOMER_WINDOW_MIN. The countdown is rendered by this console; B records the window but no deadline.`,
+        expiresAt: null,
+        source: 'policy',
+        note: `${POLICY.customerWindowMin}-minute window from config.CUSTOMER_WINDOW_MIN, recorded on the external gate step. B serialises no absolute deadline for the customer gate, so the clock is rendered here against that window.`,
       },
     };
   }
@@ -554,13 +585,33 @@ function buildApproval(gate: GateVM | null, state: RiskState): ApprovalVM | null
     handoff: false,
     ifNothingHappens:
       'Auto-declines. The approval lapses, nothing is booked, the boxes roll, and B records the outcome as APPROVAL_LAPSED — distinct from the resolution used when the shipping line itself never replies, so an unsigned internal approval is not reported as a customer we failed.',
-    countdown: open
-      ? {
-          windowMin: 15,
-          source: 'console-timer',
-          note: 'Console-side timer. B carries no approval deadline — see CONTRACTS.md REQUEST TO B #2.',
-        }
-      : null,
+    countdown: open ? approvalCountdown(requested) : null,
+  };
+}
+
+/**
+ * The internal approval countdown.
+ *
+ * B now sends `window_min` and `expires_at` on the `required` gate step, so
+ * the clock on screen is the one policy actually specifies. The fallback is
+ * kept, and kept honest: a trace captured before that landed renders a timer
+ * labelled as the console's own rather than silently borrowing the authority
+ * of a deadline nobody set.
+ */
+function approvalCountdown(requested: GateStep | null): ApprovalVM['countdown'] {
+  if (requested?.window_min != null) {
+    return {
+      windowMin: requested.window_min,
+      expiresAt: requested.expires_at ?? null,
+      source: 'policy',
+      note: `${requested.window_min}-minute window from config.APPROVAL_WINDOW_MIN, recorded on the gate step when the approval was requested.`,
+    };
+  }
+  return {
+    windowMin: 15,
+    expiresAt: null,
+    source: 'console-timer',
+    note: 'Console-side timer. This trace carries no approval deadline, so the clock is ours and not policy.',
   };
 }
 
@@ -1099,7 +1150,7 @@ export function toViewModel(bundle: FixtureBundle): ConnectionVM {
 
     confidence: buildConfidence(trace, event.confidence),
     gate,
-    approval: buildApproval(gate, state),
+    approval: buildApproval(gate, state, requestedGateStep(trace)),
     options: buildOptions(trace),
     locks: buildLocks(trace),
     timeline: trace.steps.map(toTimelineEvent),

@@ -759,8 +759,17 @@ export interface GateStep extends TraceStepBase {
   escalated: boolean;
   escalation_reason: string;
   status: GateStatus;
-  /** How long the approval took. NOT a deadline. See CONTRACTS.md REQUEST TO B #2. */
+  /** How long the approval took. Elapsed, after the fact — not a deadline. */
   latency_s: number;
+  /**
+   * The approver's window, in minutes. Present only on the `required` step of
+   * a gate that actually blocks: a resolved gate reports how long it took, not
+   * when it would have expired, and Rung 4 carries the customer window on its
+   * `external_gate` step instead. Landed for REQUEST TO B #2.
+   */
+  window_min?: number;
+  /** ISO-8601 deadline, same conditions as `window_min`. */
+  expires_at?: string;
 }
 
 /**

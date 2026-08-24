@@ -102,7 +102,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.487966+00:00",
+        "at": "2026-08-24T06:20:28.660552+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): SAFE, 12 boxes, +9.6h remaining margin (+13.8h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -114,7 +114,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.488277+00:00",
+        "at": "2026-08-24T06:20:28.660665+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -128,14 +128,14 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-24T05:02:34.488282+00:00",
+        "at": "2026-08-24T06:20:28.660672+00:00",
         "summary": "Watcher reports SAFE with 9.6h of slack; nothing to decide.",
         "triage_route": "dismissed_safe"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-24T05:02:34.488284+00:00",
+        "at": "2026-08-24T06:20:28.660674+00:00",
         "from_state": "detected",
         "to_state": "dismissed",
         "reason": "Watcher reports SAFE with 9.6h of slack; nothing to decide."
