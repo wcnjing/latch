@@ -39,7 +39,7 @@ function Narration({ event }: { event: TimelineEventVM | undefined }) {
   return (
     <div key={event.seq} className="fade-in min-h-[76px]">
       <div className="flex items-baseline gap-3">
-        <span className="tnum text-sm text-ink-500">
+        <span className="tnum text-sm text-mist-500">
           {String(event.seq).padStart(2, '0')}
         </span>
         <span
@@ -49,7 +49,7 @@ function Narration({ event }: { event: TimelineEventVM | undefined }) {
         </span>
         {event.toolStatus && (
           <span
-            className={`rounded border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+            className={`rounded-lg border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
               event.toolStatus === 'ok'
                 ? 'border-safe-500/40 bg-safe-900 text-safe-500'
                 : event.toolStatus === 'cached_fallback'
@@ -92,8 +92,8 @@ function MiniTimeline({ events }: { events: TimelineEventVM[] }) {
   return (
     <div className="h-full overflow-y-auto pr-2">
       {events.map((e) => (
-        <div key={e.seq} className="flex items-baseline gap-3 border-b border-ink-800 py-1.5">
-          <span className="tnum w-6 text-xs text-ink-500">{String(e.seq).padStart(2, '0')}</span>
+        <div key={e.seq} className="flex items-baseline gap-3 border-b border-white/6 py-1.5">
+          <span className="tnum w-6 text-xs text-mist-500">{String(e.seq).padStart(2, '0')}</span>
           <span
             className={`w-24 shrink-0 text-[11px] font-bold uppercase tracking-wider ${TONE_TEXT[e.tone] ?? 'text-mist-500'}`}
           >
@@ -126,9 +126,9 @@ export function DemoStage({
   const current = c.timeline.at(-1);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
+    <div className="glass m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
       {/* --- headline ------------------------------------------------- */}
-      <div className="border-b border-ink-700 bg-ink-850 px-8 py-4">
+      <div className="border-b border-white/10 bg-white/[0.05] px-8 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <SeverityBadge label={c.severityLabel} big />
           <h1 className="font-mono text-2xl font-bold text-mist-100">{c.id}</h1>
@@ -155,7 +155,7 @@ export function DemoStage({
           </div>
         </div>
 
-        <div className="mt-3 border-t border-ink-700 pt-3">
+        <div className="mt-3 border-t border-white/10 pt-3">
           <Narration event={current} />
         </div>
       </div>
@@ -172,7 +172,7 @@ export function DemoStage({
           </div>
         </div>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto border-l border-ink-700 px-6 py-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto border-l border-white/8 px-6 py-4">
           <ApprovalPanel
             approval={c.approval}
             gate={c.gate}
@@ -189,7 +189,7 @@ export function DemoStage({
 
       {/* The data-honesty line stays on screen in cinema mode. It is exactly
           the frame most likely to be screenshotted out of context. */}
-      <div className="border-t border-ink-700 bg-ink-850 px-8 py-2 text-[11px] text-mist-500">
+      <div className="border-t border-white/10 bg-white/[0.05] px-8 py-2 text-[11px] text-mist-500">
         {c.provenance.dataBasis}. Model responses scripted — no model was consulted.
       </div>
     </div>

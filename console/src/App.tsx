@@ -7,6 +7,7 @@
  * argument, not a decoration on it.
  */
 
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
 import { toViewModel } from './adapters/toViewModel';
@@ -25,6 +26,16 @@ import { useConsole } from './store/useConsole';
 const DATA_BASIS =
   'real vessel movement data + derived arrival estimates + synthetic transhipment connections';
 
+/** One headline figure as its own inset tile, matching the reference's readouts. */
+function HeadlineStat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="glass-inset rounded-xl px-3 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-mist-500">{label}</div>
+      <div className="mt-0.5 flex h-5 items-center">{children}</div>
+    </div>
+  );
+}
+
 function Header({ connections }: { connections: ReturnType<typeof useConsole>['connections'] }) {
   // `=== true` / `=== false` rather than truthiness: these are now tri-state,
   // and an outcome B could not classify must not quietly land in either column
@@ -34,8 +45,8 @@ function Header({ connections }: { connections: ReturnType<typeof useConsole>['c
   const spend = connections.reduce((sum, c) => sum + c.cost.usd, 0);
 
   return (
-    <header className="border-b border-ink-700 bg-ink-900">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+    <header className="glass m-3 mb-0 rounded-2xl">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5">
         <div>
           <h1 className="text-base font-bold tracking-[0.22em] text-mist-100">LATCH</h1>
           <p className="text-[10px] uppercase tracking-[0.14em] text-mist-500">
@@ -43,40 +54,28 @@ function Header({ connections }: { connections: ReturnType<typeof useConsole>['c
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-1">
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-mist-500">
-              Served / at risk
-            </div>
-            <div className="tnum text-sm font-semibold text-mist-100">
+        <div className="flex flex-wrap gap-2">
+          <HeadlineStat label="Served / at risk">
+            <span className="tnum text-sm font-semibold text-mist-100">
               {served}/{closed}
-              <span className="ml-2 text-[10px] font-normal text-mist-500">this session</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-mist-500">Detection rate</div>
-            <div className="mt-0.5">
-              <Placeholder what="A's evaluation has not run." />
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-mist-500">
-              Connections rescued
-            </div>
-            <div className="mt-0.5">
-              <Placeholder what="A's evaluation has not run." />
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-mist-500">Agent spend</div>
-            <div className="tnum text-sm font-semibold text-mist-100">${spend.toFixed(4)}</div>
-          </div>
+            </span>
+            <span className="ml-2 text-[10px] font-normal text-mist-500">this session</span>
+          </HeadlineStat>
+          <HeadlineStat label="Detection rate">
+            <Placeholder what="A's evaluation has not run." />
+          </HeadlineStat>
+          <HeadlineStat label="Connections rescued">
+            <Placeholder what="A's evaluation has not run." />
+          </HeadlineStat>
+          <HeadlineStat label="Agent spend">
+            <span className="tnum text-sm font-semibold text-mist-100">${spend.toFixed(4)}</span>
+          </HeadlineStat>
         </div>
       </div>
 
       {/* The data-honesty statement. Full sentence, always, never abbreviated. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-800 bg-ink-850 px-4 py-1.5 text-[10px] leading-relaxed">
-        <span className="rounded border border-watch-500/40 bg-watch-900 px-1.5 py-[1px] font-bold uppercase tracking-wider text-watch-500">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/8 px-5 py-2 text-[10px] leading-relaxed">
+        <span className="rounded-full border border-watch-500/50 bg-watch-500/18 px-2 py-[2px] font-bold uppercase tracking-wider text-watch-500">
           Data basis
         </span>
         <span className="text-mist-400">{DATA_BASIS}.</span>
@@ -112,7 +111,11 @@ export default function App() {
   const totalSteps = fullTimeline?.length ?? selected?.timeline.length ?? 0;
 
   return (
-    <div className="flex h-full flex-col bg-ink-900">
+    <div className="flex h-full flex-col">
+      {/* The lit ground every glass surface refracts. Fixed and behind
+          everything, so scrolling a column does not drag the light with it. */}
+      <div className="ground" aria-hidden />
+
       <Header connections={connections} />
 
       <DemoBar
@@ -134,7 +137,7 @@ export default function App() {
       {cinema && playback && selected && selected.id === playback.id ? (
         <DemoStage c={selected} playback={playback} onDecide={console_.decide} />
       ) : (
-      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_440px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_440px] gap-3 p-3">
         <RiskQueue
           connections={connections}
           selectedId={selectedId}
@@ -142,7 +145,7 @@ export default function App() {
           replayingId={playback?.id ?? null}
         />
 
-        <main className="min-h-0 overflow-y-auto p-4">
+        <main className="min-h-0 overflow-y-auto pr-1">
           {selected ? (
             <ConnectionDetail c={selected} />
           ) : (
@@ -150,7 +153,7 @@ export default function App() {
           )}
         </main>
 
-        <aside className="min-h-0 space-y-4 overflow-y-auto border-l border-ink-700 bg-ink-900 p-4">
+        <aside className="min-h-0 space-y-3 overflow-y-auto pr-1">
           {selected && (
             <>
               <ApprovalPanel
@@ -172,7 +175,7 @@ export default function App() {
 
               {/* Provenance sits at the bottom of the rail rather than in a
                   modal: it is context, but it must always be reachable. */}
-              <div className="rounded-lg border border-ink-700 bg-ink-850 p-4 text-[11px] leading-relaxed text-mist-500">
+              <div className="glass-raised rounded-2xl p-4 text-[11px] leading-relaxed text-mist-500">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mist-400">
                   Provenance
                 </div>

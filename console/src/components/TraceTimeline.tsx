@@ -17,11 +17,11 @@ import type { TimelineEventVM, TimelineTone } from '../adapters/types';
 import { latency, tokens, usd } from '../lib/format';
 
 const TONE: Record<TimelineTone, { dot: string; rail: string; label: string; body: string }> = {
-  normal: { dot: 'bg-mist-500', rail: 'bg-ink-700', label: 'text-mist-500', body: 'text-mist-200' },
-  muted: { dot: 'bg-ink-500', rail: 'bg-ink-700', label: 'text-mist-600', body: 'text-mist-400' },
+  normal: { dot: 'bg-mist-500', rail: 'bg-white/15', label: 'text-mist-500', body: 'text-mist-200' },
+  muted: { dot: 'bg-mist-600', rail: 'bg-white/15', label: 'text-mist-600', body: 'text-mist-400' },
   decision: {
     dot: 'bg-flag-500 ring-4 ring-flag-900',
-    rail: 'bg-ink-700',
+    rail: 'bg-white/15',
     label: 'text-flag-500',
     body: 'text-mist-100 font-medium',
   },
@@ -39,7 +39,7 @@ const TONE: Record<TimelineTone, { dot: string; rail: string; label: string; bod
   },
   success: {
     dot: 'bg-safe-500 ring-2 ring-safe-900',
-    rail: 'bg-ink-700',
+    rail: 'bg-white/15',
     label: 'text-safe-500',
     body: 'text-mist-100',
   },
@@ -53,7 +53,7 @@ function StatusPill({ status }: { status: string }) {
         ? 'border-watch-500/40 bg-watch-900 text-watch-500'
         : 'border-risk-500/40 bg-risk-900 text-risk-500';
   return (
-    <span className={`rounded border px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-wide ${tone}`}>
+    <span className={`rounded-lg border px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-wide ${tone}`}>
       {status.replace('_', ' ')}
     </span>
   );
@@ -70,7 +70,7 @@ function Event({ e, last, dimmed }: { e: TimelineEventVM; last: boolean; dimmed:
 
       <div className="pb-3">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="tnum text-[10px] text-ink-500">{String(e.seq).padStart(2, '0')}</span>
+          <span className="tnum text-[10px] text-mist-500">{String(e.seq).padStart(2, '0')}</span>
           <span className={`text-[10px] font-bold uppercase tracking-[0.12em] ${t.label}`}>
             {e.label}
           </span>
@@ -101,12 +101,12 @@ function Event({ e, last, dimmed }: { e: TimelineEventVM; last: boolean; dimmed:
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-1 text-[10px] text-ink-500 transition hover:text-mist-400"
+          className="mt-1 text-[10px] text-mist-500 transition hover:text-mist-300"
         >
           {open ? '− hide raw step' : '+ raw step'}
         </button>
         {open && (
-          <pre className="mt-1 overflow-x-auto rounded border border-ink-700 bg-ink-900 p-2 font-mono text-[10px] leading-relaxed text-mist-400">
+          <pre className="mt-1 overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-mist-400">
             {JSON.stringify(e.raw, null, 2)}
           </pre>
         )}
@@ -130,8 +130,8 @@ export function TraceTimeline({
   const revealed = events.length;
 
   return (
-    <div className="rounded-lg border border-ink-700 bg-ink-850">
-      <header className="flex items-center justify-between gap-4 border-b border-ink-700 px-4 py-2.5">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.05]">
+      <header className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-2.5">
         <div>
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist-400">
             Execution trace
@@ -144,7 +144,7 @@ export function TraceTimeline({
         <button
           type="button"
           onClick={() => setRawAll((v) => !v)}
-          className="rounded border border-ink-600 px-2 py-1 text-[10px] uppercase tracking-wide text-mist-400 transition hover:border-ink-500 hover:text-mist-100"
+          className="rounded-lg border border-white/15 px-2 py-1 text-[10px] uppercase tracking-wide text-mist-400 transition hover:border-white/20 hover:text-mist-100"
         >
           {rawAll ? 'Timeline' : 'Raw JSON'}
         </button>
@@ -164,7 +164,7 @@ export function TraceTimeline({
         )}
       </div>
 
-      <footer className="border-t border-ink-700 px-4 py-2 text-[10px] leading-relaxed text-mist-500">
+      <footer className="border-t border-white/10 px-4 py-2 text-[10px] leading-relaxed text-mist-500">
         Ordered by sequence, not timestamp. B stamps wall clock at record time, so the `at` values
         in a captured run are not scenario time — durations above come from each step's own
         `latency_ms`.

@@ -21,7 +21,7 @@ function Leg({
 }) {
   const late = leg.deviationMin > 0;
   return (
-    <div className="flex-1 rounded border border-ink-700 bg-ink-800 p-3">
+    <div className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] p-3">
       <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">{role}</div>
       <div className="mt-1 truncate text-sm font-semibold text-mist-100" title={leg.name}>
         {leg.name}
@@ -74,8 +74,8 @@ function SlackCompare({ c }: { c: ConnectionVM }) {
         </span>
       </div>
       {/* Centre line is zero: left of it is short, right of it is margin. */}
-      <div className="relative mt-1.5 h-3 rounded bg-ink-800">
-        <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-ink-600" />
+      <div className="relative mt-1.5 h-3 rounded-lg bg-white/[0.05]">
+        <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white/15" />
         <div
           className={`absolute top-0 h-full ${hours < 0 ? 'rounded-l bg-risk-500' : 'rounded-r bg-safe-500'}`}
           style={
@@ -106,7 +106,7 @@ function SlackCompare({ c }: { c: ConnectionVM }) {
         hint="Margin if the transfer requirement were removed entirely"
       />
 
-      <div className="mt-2 flex items-center justify-between rounded border border-ink-700 bg-ink-800 px-3 py-2">
+      <div className="mt-2 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
         <span className="text-[11px] text-mist-400">The transfer is costing</span>
         <span className="tnum text-base font-bold text-flag-500">
           {c.slack.ittCostHours.toFixed(1)}h
@@ -114,7 +114,7 @@ function SlackCompare({ c }: { c: ConnectionVM }) {
       </div>
 
       {c.rescuableByRemovingItt ? (
-        <div className="mt-2 rounded border border-flag-500/50 bg-flag-900/50 px-3 py-2">
+        <div className="mt-2 rounded-lg border border-flag-500/50 bg-flag-900/50 px-3 py-2">
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-flag-500">
             Removing the transfer rescues this connection
           </div>
@@ -139,9 +139,9 @@ function SlackCompare({ c }: { c: ConnectionVM }) {
 
 const STATUS_STYLE: Record<OptionVM['status'], string> = {
   chosen: 'border-safe-500/50 bg-safe-900/40',
-  considered: 'border-ink-600 bg-ink-800',
+  considered: 'border-white/15 bg-white/[0.05]',
   advisory: 'border-flag-500/40 bg-flag-900/30',
-  ruled_out: 'border-ink-700 bg-ink-800/50',
+  ruled_out: 'border-white/10 bg-white/[0.05]/50',
 };
 
 const STATUS_LABEL: Record<OptionVM['status'], string> = {
@@ -203,9 +203,9 @@ function Options({
   return (
     <div className="space-y-2">
       {options.map((o) => (
-        <div key={o.id} className={`rounded border p-3 ${STATUS_STYLE[o.status]}`}>
+        <div key={o.id} className={`rounded-lg border p-3 ${STATUS_STYLE[o.status]}`}>
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="rounded border border-ink-600 bg-ink-850 px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide text-mist-300">
+            <span className="rounded-lg border border-white/15 bg-white/[0.05] px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide text-mist-300">
               Rung {o.rung.number} · {o.rung.name}
             </span>
             <span
@@ -237,7 +237,7 @@ function Options({
             <p className="mt-1.5 text-[11px] leading-relaxed text-mist-400">{o.exclusionReason}</p>
           )}
 
-          <div className="mt-2 flex gap-6 border-t border-ink-700/60 pt-2 text-[11px]">
+          <div className="mt-2 flex gap-6 border-t border-white/10/60 pt-2 text-[11px]">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[10px] uppercase tracking-wide text-mist-500">Cost</span>
               <Money
@@ -273,14 +273,14 @@ function LadderRail({ active }: { active: number | null }) {
           return (
             <div
               key={n}
-              className="rounded border border-dashed border-ink-600 bg-ink-900/60 px-3 py-2"
+              className="rounded-xl border border-dashed border-white/15 bg-black/25 px-3 py-2"
             >
               <div className="flex items-baseline gap-2">
-                <span className="tnum text-xs font-bold text-ink-500">2</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-500 line-through">
+                <span className="tnum text-xs font-bold text-mist-500">2</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-mist-500 line-through">
                   {CUT_RUNG.name}
                 </span>
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-ink-500">
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-mist-500">
                   cut
                 </span>
               </div>
@@ -298,8 +298,8 @@ function LadderRail({ active }: { active: number | null }) {
         return (
           <div
             key={n}
-            className={`rounded border px-3 py-2 ${
-              on ? 'border-flag-500/60 bg-flag-900/40' : 'border-ink-700 bg-ink-800'
+            className={`rounded-lg border px-3 py-2 ${
+              on ? 'border-flag-500/60 bg-flag-900/40' : 'border-white/10 bg-white/[0.05]'
             }`}
           >
             <div className="flex items-baseline gap-2">
@@ -337,8 +337,8 @@ const OUTCOME_TONE: Record<OutcomeTone, string> = {
   good: 'border-safe-500/50 bg-safe-900 text-safe-500',
   bad: 'border-risk-500/50 bg-risk-900 text-risk-500',
   fault: 'border-risk-500 bg-risk-500/20 text-risk-500',
-  neutral: 'border-ink-500 bg-ink-800 text-mist-400',
-  gap: 'border-dashed border-ink-500 bg-ink-800 text-mist-500',
+  neutral: 'border-white/20 bg-white/[0.05] text-mist-400',
+  gap: 'border-dashed border-white/20 bg-white/[0.05] text-mist-500',
 };
 
 const OUTCOME_TITLE: Record<OutcomeTone, string | undefined> = {
@@ -355,7 +355,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
   return (
     <div className="space-y-4">
       {/* --- header ---------------------------------------------------- */}
-      <div className="rounded-lg border border-ink-700 bg-ink-850 p-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
         <div className="flex flex-wrap items-center gap-3">
           <SeverityBadge label={c.severityLabel} big />
           <h1 className="font-mono text-lg font-semibold text-mist-100">{c.id}</h1>
@@ -364,7 +364,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
         </div>
 
         {c.stateNote && (
-          <p className="mt-2 rounded border border-ink-700 bg-ink-800 px-3 py-2 text-[11px] leading-relaxed text-mist-300">
+          <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] leading-relaxed text-mist-300">
             {c.stateNote}
           </p>
         )}
@@ -403,7 +403,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             <div className="text-center">
               <div className="text-lg leading-none text-mist-500">→</div>
               {c.crossesTerminals && (
-                <div className="mt-1 whitespace-nowrap rounded border border-flag-500/40 bg-flag-900 px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wide text-flag-500">
+                <div className="mt-1 whitespace-nowrap rounded-lg border border-flag-500/40 bg-flag-900 px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wide text-flag-500">
                   ITT
                 </div>
               )}
@@ -425,12 +425,12 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
       <Panel title="Why it is at risk">
         <div className="space-y-2">
           {c.reasons.map((r) => (
-            <div key={r.code} className="rounded border border-ink-700 bg-ink-800 px-3 py-2">
+            <div key={r.code} className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xs font-semibold text-mist-100">{r.title}</span>
                 {!r.emittedByWatcher && (
                   <span
-                    className="rounded border border-ink-600 px-1.5 py-[1px] text-[9px] uppercase tracking-wide text-mist-500"
+                    className="rounded-lg border border-white/15 px-1.5 py-[1px] text-[9px] uppercase tracking-wide text-mist-500"
                     title="Declared in the enum but never emitted by the live Watcher — see CONTRACTS.md §5"
                   >
                     not emitted by the live Watcher
@@ -442,7 +442,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           ))}
         </div>
 
-        <div className="mt-3 rounded border border-ink-700 bg-ink-800 px-3 py-2">
+        <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
           <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">Triage</div>
           <p className="mt-1 text-xs text-mist-200">{c.triage.routeLabel}</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-mist-400">{c.triage.reason}</p>
@@ -483,7 +483,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             {c.locks.map((l, i) => (
               <div
                 key={`${l.resource}-${i}`}
-                className={`rounded border p-3 ${
+                className={`rounded-lg border p-3 ${
                   l.held ? 'border-safe-500/40 bg-safe-900/30' : 'border-risk-500/40 bg-risk-900/30'
                 }`}
               >
@@ -525,7 +525,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           title="Outcome"
           right={
             <span
-              className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${OUTCOME_TONE[c.outcome.tone]}`}
+              className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${OUTCOME_TONE[c.outcome.tone]}`}
               title={OUTCOME_TITLE[c.outcome.tone]}
             >
               {/* Both the word and the colour come from the adapter, together.
@@ -540,7 +540,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           <p className="mt-2 text-[11px] leading-relaxed text-mist-400">{c.outcome.why}</p>
 
           {c.outcome.customerGate && (
-            <div className="mt-3 rounded border border-ink-700 bg-ink-800 px-3 py-2 text-[11px] text-mist-400">
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] text-mist-400">
               <span className="tnum text-mist-100">{c.outcome.customerGate.optionsSent}</span>{' '}
               option{c.outcome.customerGate.optionsSent === 1 ? '' : 's'} released to the line on a{' '}
               <span className="tnum text-mist-100">{c.outcome.customerGate.windowMin}</span>-minute
@@ -559,7 +559,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
           )}
 
           {c.outcome.actionCostSgd !== null && c.outcome.actionCostSgd > 0 && (
-            <div className="mt-3 flex gap-6 rounded border border-ink-700 bg-ink-800 px-3 py-2">
+            <div className="mt-3 flex gap-6 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-mist-500">
                   What the action committed
@@ -612,7 +612,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             c.cost.perDecision.map((d) => (
               <div
                 key={d.seq}
-                className="flex flex-wrap items-baseline gap-x-3 rounded border border-ink-700 bg-ink-800 px-3 py-1.5 text-[11px]"
+                className="flex flex-wrap items-baseline gap-x-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px]"
               >
                 <code className="font-mono text-mist-100">{d.model}</code>
                 <span className="text-mist-500">{d.purpose}</span>
@@ -626,7 +626,7 @@ export function ConnectionDetail({ c }: { c: ConnectionVM }) {
             ))
           )}
         </div>
-        <div className="mt-3 flex items-baseline justify-between border-t border-ink-700 pt-2">
+        <div className="mt-3 flex items-baseline justify-between border-t border-white/10 pt-2">
           <span className="text-[11px] text-mist-400">Total for this connection</span>
           <span className="tnum text-base font-semibold text-mist-100">
             ${c.cost.usd.toFixed(4)}

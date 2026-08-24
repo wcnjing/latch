@@ -27,10 +27,10 @@ function RoleChip({
     state === 'now'
       ? 'border-watch-500 bg-watch-900 text-watch-500 font-semibold'
       : state === 'was'
-        ? 'border-ink-600 bg-ink-800 text-mist-500 line-through decoration-mist-600'
-        : 'border-ink-700 bg-ink-850 text-mist-600';
+        ? 'border-white/15 bg-white/[0.05] text-mist-500 line-through decoration-mist-600'
+        : 'border-white/10 bg-white/[0.05] text-mist-600';
   return (
-    <span className={`inline-flex items-center rounded border px-2.5 py-1 text-xs ${style}`}>
+    <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs ${style}`}>
       {role}
     </span>
   );
@@ -74,7 +74,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
       tone={gate.escalated ? 'alert' : 'default'}
       right={
         <span
-          className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+          className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
             gate.autoApproved
               ? 'border-safe-500/50 bg-safe-900 text-safe-500'
               : 'border-watch-500/50 bg-watch-900 text-watch-500'
@@ -86,7 +86,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
     >
       {e ? (
         <div
-          className={`rounded-lg border-2 border-watch-500/60 bg-watch-900/40 p-4 ${
+          className={`rounded-2xl border-2 border-watch-500/60 bg-watch-900/40 p-4 ${
             e.triggeredByConfidence ? 'escalation-pulse' : ''
           }`}
         >
@@ -121,7 +121,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
                   <span>
                     {r}
                     {/confidence/i.test(r) && (
-                      <span className="ml-2 rounded bg-risk-900 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-risk-500">
+                      <span className="ml-2 rounded-lg bg-risk-900 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-risk-500">
                         confidence
                       </span>
                     )}
@@ -137,7 +137,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-ink-700 bg-ink-800 p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-mist-400">
             No escalation
           </div>
@@ -161,7 +161,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
       </div>
 
       {gate.needsCustomer && (
-        <p className="mt-4 rounded border border-flag-500/40 bg-flag-900/40 px-3 py-2 text-[11px] leading-relaxed text-mist-300">
+        <p className="mt-4 rounded-lg border border-flag-500/40 bg-flag-900/40 px-3 py-2 text-[11px] leading-relaxed text-mist-300">
           This gate leaves the building. No level of internal seniority can decide for the shipping
           line — the ladder above is who releases the options, not who chooses between them.
         </p>

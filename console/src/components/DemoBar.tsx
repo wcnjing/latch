@@ -48,10 +48,8 @@ function Btn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`rounded border px-2.5 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
-        primary
-          ? 'border-flag-500/60 bg-flag-900 text-flag-500 hover:bg-flag-500 hover:text-ink-900'
-          : 'border-ink-600 bg-ink-800 text-mist-300 hover:border-ink-500 hover:text-mist-100'
+      className={`px-3 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+        primary ? 'pill-active hover:brightness-110' : 'pill text-mist-300 hover:text-mist-100'
       }`}
     >
       {children}
@@ -76,7 +74,7 @@ export function DemoBar({
 }: Props) {
   if (!playback) {
     return (
-      <div className="flex flex-wrap items-center gap-3 border-b border-ink-700 bg-ink-850 px-4 py-2">
+      <div className="glass mx-3 mt-3 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-2.5">
         <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-mist-500">
           Demo
         </span>
@@ -89,7 +87,7 @@ export function DemoBar({
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-mist-600">or replay</span>
           <select
-            className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-mist-300"
+            className="pill px-3 py-1 text-[11px] text-mist-300"
             defaultValue=""
             onChange={(e) => {
               if (e.target.value) onStart(e.target.value, 4);
@@ -113,8 +111,8 @@ export function DemoBar({
   const progress = totalSteps ? (playback.cursor / totalSteps) * 100 : 0;
 
   return (
-    <div className="border-b border-ink-700 bg-ink-850">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2">
+    <div className="glass-lit-accent mx-3 mt-3 overflow-hidden rounded-2xl">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
         <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-flag-500">
           Replaying
         </span>
@@ -141,22 +139,22 @@ export function DemoBar({
           </Btn>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-wide text-mist-600">speed</span>
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onSpeed(s)}
-              className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold transition ${
-                playback.speed === s
-                  ? 'border-flag-500/60 bg-flag-900 text-flag-500'
-                  : 'border-ink-700 text-mist-500 hover:text-mist-300'
-              }`}
-            >
-              {s}×
-            </button>
-          ))}
+          <div className="glass-inset flex items-center gap-1 rounded-full p-1">
+            {SPEEDS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSpeed(s)}
+                className={`px-2.5 py-0.5 text-[10px] font-semibold transition ${
+                  playback.speed === s ? 'pill-active' : 'rounded-full text-mist-500 hover:text-mist-100'
+                }`}
+              >
+                {s}×
+              </button>
+            ))}
+          </div>
         </div>
 
         <span className="tnum text-[11px] text-mist-500">
@@ -164,12 +162,12 @@ export function DemoBar({
         </span>
 
         {playback.awaiting && (
-          <span className="rounded border border-watch-500/60 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
+          <span className="rounded-full border border-watch-500/60 bg-watch-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
             waiting for a decision
           </span>
         )}
         {playback.branch && (
-          <span className="rounded border border-ink-600 bg-ink-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-mist-400">
+          <span className="pill px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-mist-400">
             branch: {playback.branch}
           </span>
         )}
@@ -184,7 +182,7 @@ export function DemoBar({
         <Btn onClick={onStop}>Exit replay</Btn>
       </div>
 
-      <div className="h-[3px] bg-ink-800">
+      <div className="h-[3px] bg-white/[0.05]">
         <div
           className="h-full bg-flag-500 transition-[width] duration-200 ease-linear"
           style={{ width: `${progress}%` }}

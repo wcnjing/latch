@@ -28,7 +28,7 @@ function Dial({ c }: { c: ConfidenceVM }) {
         <div className={`tnum text-6xl font-bold leading-none ${tone}`}>{c.value.toFixed(4)}</div>
         <div className="pb-1">
           <div
-            className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
               c.belowThreshold
                 ? 'border-risk-500/50 bg-risk-900 text-risk-500'
                 : 'border-safe-500/50 bg-safe-900 text-safe-500'
@@ -44,7 +44,7 @@ function Dial({ c }: { c: ConfidenceVM }) {
 
       {/* The bar exists to place the value against the threshold, which is the
           only comparison that changes anything. */}
-      <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-ink-750">
+      <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
         <div className={`h-full ${barTone}`} style={{ width: `${pctValue}%` }} />
         <div
           className="absolute top-0 h-full w-[2px] bg-mist-100"
@@ -74,7 +74,7 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
 
   return (
     <div className="mt-1">
-      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-ink-700 pb-1 text-[10px] uppercase tracking-[0.12em] text-mist-500">
+      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-white/10 pb-1 text-[10px] uppercase tracking-[0.12em] text-mist-500">
         <span>Factor</span>
         <span className="text-right">Applied</span>
         <span className="text-right">Running</span>
@@ -84,7 +84,7 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
         const width = Math.max(0, Math.min(1, r.running)) * 100;
         const isStart = r.kind === 'start';
         return (
-          <div key={i} className="border-b border-ink-800 py-2 last:border-0">
+          <div key={i} className="border-b border-white/6 py-2 last:border-0">
             <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4">
               <div>
                 <span className={isStart ? 'text-mist-500' : 'font-medium text-mist-100'}>
@@ -100,9 +100,9 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
               </span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-800">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
                 <div
-                  className={`h-full ${isStart ? 'bg-ink-500' : r.running < c.threshold ? 'bg-risk-500' : 'bg-safe-500'}`}
+                  className={`h-full ${isStart ? 'bg-mist-500' : r.running < c.threshold ? 'bg-risk-500' : 'bg-safe-500'}`}
                   style={{ width: `${width}%` }}
                 />
               </div>
@@ -141,7 +141,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
       <Dial c={c} />
 
       {/* B emits this string to be shown verbatim beside the number. */}
-      <div className="mt-4 rounded border border-ink-700 bg-ink-900 px-3 py-2">
+      <div className="glass-inset mt-4 rounded-xl px-3 py-2">
         <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
           Derivation, as recorded
         </div>
@@ -163,7 +163,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
           </h3>
           <div className="mt-2 space-y-2">
             {c.degradations.map((d, i) => (
-              <div key={i} className="rounded border border-risk-500/40 bg-risk-900/40 px-3 py-2">
+              <div key={i} className="rounded-lg border border-risk-500/40 bg-risk-900/40 px-3 py-2">
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <code className="font-mono text-xs font-semibold text-risk-500">{d.tool}</code>
                   <span className="text-xs text-mist-300">{d.what}</span>
@@ -175,7 +175,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
                 <div className="mt-1 text-[11px] text-mist-400">
                   Fell back to: <span className="text-mist-100">{d.fallback}</span>
                   {d.servedStale && (
-                    <span className="ml-2 rounded border border-watch-500/50 bg-watch-900 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-watch-500">
+                    <span className="ml-2 rounded-lg border border-watch-500/50 bg-watch-900 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-watch-500">
                       {minutesAgo(d.ageMin)}
                     </span>
                   )}
@@ -200,7 +200,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
           {c.unverifiedFields.map((f) => (
             <div
               key={f.field}
-              className="flex flex-wrap items-baseline gap-x-2 rounded border border-ink-700 bg-ink-800 px-3 py-2"
+              className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2"
             >
               <code className="font-mono text-xs text-mist-100">{f.field}</code>
               <UnverifiedMark why={f} />
@@ -225,7 +225,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
         </Note>
       )}
 
-      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-700 pt-3 text-[11px]">
+      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-white/10 pt-3 text-[11px]">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-mist-500">Weakest source</div>
           <div className="mt-0.5 font-mono text-mist-100">{c.weakestSource}</div>

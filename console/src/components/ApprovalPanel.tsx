@@ -75,7 +75,7 @@ function Countdown({
           {clock(seconds)}
         </span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-750">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
         <div
           className={`h-full transition-[width] duration-1000 ease-linear ${urgent ? 'bg-risk-500' : 'bg-watch-500'}`}
           style={{ width: `${fraction * 100}%` }}
@@ -106,7 +106,7 @@ export function ApprovalPanel({
   if (approval.handoff) {
     return (
       <Panel title="Advisory" subtitle="Rung 1 — nothing here can be executed by the agent">
-        <div className="rounded border border-flag-500/40 bg-flag-900/40 p-3">
+        <div className="rounded-lg border border-flag-500/40 bg-flag-900/40 p-3">
           <p className="text-sm text-mist-100">
             This is a notification for the{' '}
             <span className="font-semibold text-flag-500">{approval.roleLabel}</span>, not a request
@@ -119,13 +119,13 @@ export function ApprovalPanel({
         <div className="mt-3 flex gap-2">
           <button
             type="button"
-            className="rounded border border-ink-600 bg-ink-750 px-3 py-2 text-xs font-semibold text-mist-100 transition hover:border-flag-500/60 hover:bg-ink-700"
+            className="rounded-lg border border-white/15 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-mist-100 transition hover:border-flag-500/60 hover:bg-ink-700"
           >
             Acknowledge
           </button>
           <button
             type="button"
-            className="rounded border border-flag-500/50 bg-flag-900 px-3 py-2 text-xs font-semibold text-flag-500 transition hover:bg-flag-900/70"
+            className="rounded-lg border border-flag-500/50 bg-flag-900 px-3 py-2 text-xs font-semibold text-flag-500 transition hover:bg-flag-900/70"
           >
             Hand off to {approval.roleLabel}
           </button>
@@ -171,12 +171,12 @@ export function ApprovalPanel({
       subtitle={`Rung ${gate.rung.number} · ${gate.rung.name}`}
       tone={awaiting ? 'alert' : 'default'}
       right={
-        <span className="rounded border border-watch-500/50 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
+        <span className="rounded-lg border border-watch-500/50 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
           {approval.roleLabel}
         </span>
       }
     >
-      <div className="rounded border border-ink-700 bg-ink-800 px-3 py-2">
+      <div className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
         <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
           If nobody acts
         </div>
@@ -199,20 +199,20 @@ export function ApprovalPanel({
           <button
             type="button"
             onClick={() => onDecide('approved')}
-            className="flex-1 rounded border border-safe-500/60 bg-safe-900 px-3 py-2.5 text-sm font-bold text-safe-500 transition hover:bg-safe-500 hover:text-ink-900"
+            className="flex-1 rounded-lg border border-safe-500/60 bg-safe-900 px-3 py-2.5 text-sm font-bold text-safe-500 transition hover:bg-safe-500 hover:text-ink-900"
           >
             Approve as {approval.roleLabel}
           </button>
           <button
             type="button"
             onClick={() => onDecide('declined')}
-            className="flex-1 rounded border border-risk-500/60 bg-risk-900 px-3 py-2.5 text-sm font-bold text-risk-500 transition hover:bg-risk-500 hover:text-ink-900"
+            className="flex-1 rounded-lg border border-risk-500/60 bg-risk-900 px-3 py-2.5 text-sm font-bold text-risk-500 transition hover:bg-risk-500 hover:text-ink-900"
           >
             Decline
           </button>
         </div>
       ) : settled ? (
-        <div className={`mt-4 rounded border px-3 py-2.5 ${OUTCOME_COPY[settled].tone}`}>
+        <div className={`mt-4 rounded-lg border px-3 py-2.5 ${OUTCOME_COPY[settled].tone}`}>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em]">
             {OUTCOME_COPY[settled].label}
           </div>
