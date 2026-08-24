@@ -44,20 +44,24 @@ export function OverviewPage({
   connections,
   onOpen,
   onViewConnections,
-  onReplay,
 }: {
   connections: ConnectionVM[];
   onOpen: (id: string) => void;
   onViewConnections: () => void;
-  onReplay: () => void;
 }) {
   const live = connections.filter((c) => c.lifecycle === 'live');
-  const atRisk = connections.filter((c) => c.severity === 'AT_RISK');
-  const rescuable = connections.filter((c) => c.rescuableByRemovingItt);
+  const needsAction = live.filter(
+    (c) => c.approval?.actionable === true && c.gate?.status === 'awaiting',
+  );
+  const pendingOutcome = live.filter(
+    (c) => !c.outcome && !needsAction.some((item) => item.id === c.id),
+  );
   const served = connections.filter((c) => c.outcome?.serviceSuccess === true);
-  const attention = atRisk.slice(0, 5);
+  const attention = live.filter(
+    (c) => needsAction.some((item) => item.id === c.id) || pendingOutcome.some((item) => item.id === c.id),
+  ).slice(0, 5);
   const recent = connections.filter((c) => c.outcome).slice(0, 6);
-  const top = attention[0] ?? connections[0];
+  const top = attention[0];
 
   return (
     <main className="overview-page">
@@ -73,16 +77,16 @@ export function OverviewPage({
               Review top priority
             </button>
           )}
-          <button type="button" className="button-primary" onClick={onReplay}>
-            Run failure replay
+          <button type="button" className="button-primary" onClick={onViewConnections}>
+            View connections
           </button>
         </div>
       </header>
 
       <section className="overview-metrics" aria-label="Workspace summary">
-        <Metric label="Needs review" value={atRisk.length} detail="at-risk connections" tone="risk" />
-        <Metric label="Transfer-rescuable" value={rescuable.length} detail="actionable plans" tone="good" />
-        <Metric label="In progress" value={live.length} detail="active replay" />
+        <Metric label="Needs action" value={needsAction.length} detail="operator decisions" tone="risk" />
+        <Metric label="Pending outcome" value={pendingOutcome.length} detail="plans in execution" />
+        <Metric label="Open" value={live.length} detail="active connections" />
         <Metric label="Served" value={served.length} detail="recorded outcomes" tone="good" />
       </section>
 
@@ -90,8 +94,8 @@ export function OverviewPage({
         <section className="product-panel attention-panel" data-tour="attention-queue">
           <header className="product-panel-header">
             <div>
-              <h2>Needs attention</h2>
-              <p>Highest-priority connections first.</p>
+              <h2>Open work</h2>
+              <p>Decisions first, then connections awaiting an outcome.</p>
             </div>
             <button type="button" className="text-action" onClick={onViewConnections}>
               View all
@@ -113,7 +117,11 @@ export function OverviewPage({
                     <SeverityBadge label={c.severityLabel} />
                     <strong className="truncate font-mono text-[12px] text-mist-100">{c.id}</strong>
                   </span>
-                  <span className="mt-1 block text-[10px] text-mist-500">{c.stateLabel}</span>
+                  <span className="mt-1 block text-[10px] text-mist-500">
+                    {c.lifecycle === 'live' && c.approval?.actionable && c.gate?.status === 'awaiting'
+                      ? 'Decision required'
+                      : 'Outcome pending'}
+                  </span>
                 </span>
                 <span>
                   <strong className="tnum block text-[12px] text-mist-100">{c.boxes} boxes</strong>
@@ -123,13 +131,24 @@ export function OverviewPage({
                   {signedHours(c.slack.currentPlanHours)}
                 </span>
                 <span className="text-[11px] leading-snug text-mist-400">
-                  {c.rescuableByRemovingItt
+                  {c.approval?.actionable && c.gate?.status === 'awaiting'
+                    ? c.rescuableByRemovingItt
                     ? `Remove transfer · restore ${c.slack.ittCostHours.toFixed(1)}h`
-                    : c.triage.routeLabel}
+                      : c.triage.routeLabel
+                    : 'Monitor execution · confirm service result'}
                 </span>
                 <span className="text-right text-[16px] text-accent-500" aria-hidden>›</span>
               </button>
             ))}
+            {attention.length === 0 && (
+              <div className="attention-clear-state">
+                <span aria-hidden>✓</span>
+                <div>
+                  <strong>All caught up</strong>
+                  <p>There are no open decisions or pending outcomes.</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

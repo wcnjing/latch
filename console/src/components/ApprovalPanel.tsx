@@ -29,6 +29,7 @@ interface Props {
   secondsLeft: number | null;
   speed: Speed;
   decided: Branch | null;
+  planLabel: string | null;
   onDecide: (branch: Branch) => void;
 }
 
@@ -108,6 +109,7 @@ export function ApprovalPanel({
   secondsLeft,
   speed,
   decided,
+  planLabel,
   onDecide,
 }: Props) {
   if (!approval || !gate) return null;
@@ -162,21 +164,33 @@ export function ApprovalPanel({
 
   return (
     <Panel
-      title="Approval required"
-      subtitle={`${approval.roleLabel} must approve the recommended plan`}
+      title={settled ? 'Decision record' : 'Approval required'}
+      subtitle={settled
+        ? `${approval.roleLabel} decision captured`
+        : planLabel
+          ? `${approval.roleLabel} must approve the selected plan`
+          : `${approval.roleLabel} must approve the recommended plan`}
       tone={awaiting ? 'alert' : 'default'}
       right={
         <span className="rounded-lg border border-watch-500/50 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
-          {approval.roleLabel}
+          {settled ? OUTCOME_COPY[settled].label : approval.roleLabel}
         </span>
       }
     >
-      <div className="rounded-lg border border-ink-900/10 bg-ink-900/[0.025] px-3 py-2">
-        <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
-          If no decision is made
+      {planLabel && (
+        <div className="selected-approval-plan">
+          <span>Selected plan</span>
+          <strong>{planLabel}</strong>
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-mist-200">{inactionCopy(approval, gate)}</p>
-      </div>
+      )}
+      {!settled && (
+        <div className="rounded-lg border border-ink-900/10 bg-ink-900/[0.025] px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
+            If no decision is made
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-mist-200">{inactionCopy(approval, gate)}</p>
+        </div>
+      )}
 
       {awaiting && secondsLeft !== null && approval.countdown && (
         <div className="mt-4">
@@ -196,7 +210,7 @@ export function ApprovalPanel({
             onClick={() => onDecide('approved')}
             className="flex-1 rounded-lg border border-accent-500 bg-accent-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-600"
           >
-            Approve plan
+            Approve selected plan
           </button>
           <button
             type="button"

@@ -49,6 +49,20 @@ const BRANCH_BUNDLE: Record<Branch, FixtureBundle> = {
   lapsed: DEMO_LAPSED_BUNDLE,
 };
 
+/**
+ * The normal console opens on the captured run at its human decision point.
+ * This makes the primary workspace a usable product journey instead of an
+ * archive of already-resolved fixtures. Replay can still restart from step 0.
+ */
+const INITIAL_DECISION_CURSOR = Math.max(
+  0,
+  DEMO_BUNDLE.trace.steps.findIndex(
+    (step) =>
+      step.type === 'gate' &&
+      ['approved', 'rejected', 'lapsed'].includes((step as { status?: string }).status ?? ''),
+  ),
+);
+
 export interface Playback {
   /** Connection id being replayed. */
   id: string;
@@ -122,6 +136,23 @@ function truncate(bundle: FixtureBundle, n: number): FixtureBundle {
 }
 
 /**
+ * Two captured runs are held at their post-decision `executing` state so the
+ * default workspace includes realistic work that has been released but has
+ * not produced a terminal outcome yet. Their recorded endings remain in the
+ * source fixtures and are still available to playback.
+ */
+const PENDING_OUTCOME_IDS = new Set(['SG-CONN-4490', 'SG-CONN-4562']);
+
+function pendingOutcomeSnapshot(bundle: FixtureBundle): FixtureBundle {
+  const resolvedAt = bundle.trace.steps.findIndex(
+    (step) =>
+      step.type === 'state_change' &&
+      ['resolved', 'failed'].includes((step as StateChangeStep).to_state),
+  );
+  return resolvedAt > 0 ? truncate(bundle, resolvedAt) : bundle;
+}
+
+/**
  * Pacing. Deliberate rather than uniform: a tool timing out and a confidence
  * score landing are the beats a viewer needs time to read, and a state change
  * is scaffolding. Fixed values, so two recordings of the same take match.
@@ -186,11 +217,30 @@ export interface ConsoleState {
 }
 
 export function useConsole(): ConsoleState {
-  const baseline = useMemo(() => BUNDLES.map(toViewModel), []);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => [...baseline].sort(byCriticality)[0]?.id ?? null,
+  const baseline = useMemo(
+    () =>
+      BUNDLES.map((bundle) =>
+        toViewModel(
+          PENDING_OUTCOME_IDS.has(bundle.event.connection_id)
+            ? pendingOutcomeSnapshot(bundle)
+            : bundle,
+        ),
+      ),
+    [],
   );
-  const [playback, setPlayback] = useState<Playback | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => DEMO_BUNDLE.event.connection_id,
+  );
+  const [playback, setPlayback] = useState<Playback | null>(() => ({
+    id: DEMO_BUNDLE.event.connection_id,
+    cursor: INITIAL_DECISION_CURSOR,
+    playing: false,
+    speed: 1,
+    awaiting: true,
+    secondsLeft: approvalWindowMin(DEMO_BUNDLE) * 60,
+    branch: null,
+    finished: false,
+  }));
 
   const bundleFor = useCallback(
     (id: string, branch: Branch | null): FixtureBundle | null => {

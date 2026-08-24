@@ -180,6 +180,7 @@ export function DemoStage({
             secondsLeft={playback.secondsLeft}
             speed={playback.speed as Speed}
             decided={playback.branch}
+            planLabel={null}
             onDecide={onDecide}
           />
           <GateTransition gate={c.gate} boxes={c.boxes} />

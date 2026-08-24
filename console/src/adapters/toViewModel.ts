@@ -1169,9 +1169,14 @@ export function toViewModels(bundles: FixtureBundle[]): ConnectionVM[] {
 /** Risk queue ordering: at-risk first, then by B's own priority. */
 export function byCriticality(a: ConnectionVM, b: ConnectionVM): number {
   const rank: Record<RiskSeverity, number> = { AT_RISK: 0, WATCH: 1, SAFE: 2 };
-  const live = (c: ConnectionVM) => (c.lifecycle === 'live' ? 0 : 1);
+  const workflowRank = (c: ConnectionVM) => {
+    if (c.lifecycle !== 'live') return 3;
+    if (c.approval?.actionable === true && c.gate?.status === 'awaiting') return 0;
+    if (!c.outcome) return 1;
+    return 2;
+  };
   return (
-    live(a) - live(b) ||
+    workflowRank(a) - workflowRank(b) ||
     rank[a.severity] - rank[b.severity] ||
     b.priority - a.priority
   );

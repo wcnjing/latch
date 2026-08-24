@@ -1,9 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { ConnectionVM } from '../adapters/types';
 import { hoursAndMinutes } from '../lib/format';
 
-type Filter = 'all' | 'live' | 'risk' | 'rescuable';
+type Filter = 'open' | 'action' | 'pending' | 'history';
+
+function needsDecision(c: ConnectionVM) {
+  return c.lifecycle === 'live' && c.approval?.actionable === true && c.gate?.status === 'awaiting';
+}
+
+function isPendingOutcome(c: ConnectionVM) {
+  return c.lifecycle === 'live' && !c.outcome && !needsDecision(c);
+}
 
 function pressureFor(c: ConnectionVM) {
   if (c.slack.currentPlanHours < 0) {
@@ -31,6 +39,9 @@ function Row({
   replaying: boolean;
 }) {
   const pressure = pressureFor(c);
+  const decisionNeeded = needsDecision(c);
+  const outcomePending = isPendingOutcome(c);
+  const showTimePressure = c.lifecycle === 'live' && !outcomePending;
   const tone =
     c.severity === 'AT_RISK' ? 'risk' : c.severity === 'WATCH' ? 'watch' : 'safe';
 
@@ -39,51 +50,89 @@ function Row({
       type="button"
       onClick={onSelect}
       className={`queue-card queue-card-${tone} ${selected ? 'queue-card-selected' : ''}`}
-      aria-label={`${c.id}, ${pressureLabel(c)}, ${c.boxes} boxes`}
+      aria-label={`${c.id}, ${c.lifecycle === 'live' ? pressureLabel(c) : c.stateLabel}, ${c.boxes} boxes`}
     >
       <div className="queue-card-topline">
         <span className={`queue-status-dot queue-status-dot-${tone}`} aria-hidden />
         <strong className="queue-card-id">{c.id}</strong>
         {replaying && <span className="queue-live-badge">Live</span>}
-        <span className="queue-card-state">{c.stateLabel}</span>
+        <span className={`queue-card-state ${decisionNeeded || outcomePending ? 'queue-card-state-action' : ''}`}>
+          {decisionNeeded ? 'Decision needed' : outcomePending ? 'Outcome pending' : c.stateLabel}
+        </span>
       </div>
 
       <div className="queue-card-impact">
-        <strong className={c.slack.currentPlanHours < 0 ? 'queue-impact-late' : ''}>
-          {pressureLabel(c)}
-        </strong>
-        <span aria-hidden>·</span>
-        <span>{c.boxes} boxes</span>
+        {c.lifecycle === 'live' ? (
+          <>
+            <strong className={c.slack.currentPlanHours < 0 ? 'queue-impact-late' : ''}>
+              {pressureLabel(c)}
+            </strong>
+            <span aria-hidden>·</span>
+            <span>{c.boxes} boxes</span>
+          </>
+        ) : (
+          <>
+            <strong>{c.boxes} boxes</strong>
+            <span aria-hidden>·</span>
+            <span className="truncate">{c.outcome?.label ?? c.stateLabel}</span>
+          </>
+        )}
       </div>
 
-      <div className="queue-pressure-heading">
-        <span>Time pressure</span>
-        <span>{Math.round(pressure)}%</span>
-      </div>
-      <div
-        className="queue-pressure-track"
-        role="progressbar"
-        aria-label="Connection time pressure"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pressure)}
-      >
-        <span className={`queue-pressure-fill queue-pressure-fill-${tone}`} style={{ width: `${pressure}%` }} />
-      </div>
+      {showTimePressure && (
+        <>
+          <div className="queue-pressure-heading">
+            <span>Time pressure</span>
+            <span>{Math.round(pressure)}%</span>
+          </div>
+          <div
+            className="queue-pressure-track"
+            role="progressbar"
+            aria-label="Connection time pressure"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(pressure)}
+          >
+            <span className={`queue-pressure-fill queue-pressure-fill-${tone}`} style={{ width: `${pressure}%` }} />
+          </div>
+        </>
+      )}
+
+      {outcomePending && (
+        <>
+          <div className="queue-pressure-heading">
+            <span>Operational status</span>
+            <span>In progress</span>
+          </div>
+          <div className="queue-outcome-track" role="status" aria-label="Waiting for operational outcome">
+            <span />
+          </div>
+        </>
+      )}
 
       <div className="queue-card-footline">
-        {c.rescuableByRemovingItt ? (
+        {decisionNeeded ? (
           <>
-            <span className="queue-recovery-badge">Recoverable</span>
-            <span>Removing the transfer restores {c.slack.ittCostHours.toFixed(1)}h</span>
+            <span className="queue-action-badge">Action required</span>
+            <span>Review and decide on the recommended plan</span>
+          </>
+        ) : outcomePending ? (
+          <>
+            <span className="queue-pending-badge">Pending outcome</span>
+            <span>Plan released · awaiting service confirmation</span>
           </>
         ) : c.outcome ? (
           <>
             <span className="queue-recorded-badge">Recorded</span>
             <span className="truncate">{c.outcome.label}</span>
           </>
+        ) : c.lifecycle === 'live' && c.rescuableByRemovingItt ? (
+          <>
+            <span className="queue-recovery-badge">Recoverable</span>
+            <span>Removing the transfer restores {c.slack.ittCostHours.toFixed(1)}h</span>
+          </>
         ) : (
-          <span>Review the suggested plans</span>
+          <span>{c.stateNote ?? 'Review the suggested plans'}</span>
         )}
       </div>
     </button>
@@ -101,21 +150,27 @@ export function RiskQueue({
   onSelect: (id: string) => void;
   replayingId: string | null;
 }) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('open');
   const [query, setQuery] = useState('');
-  const live = connections.filter((c) => c.lifecycle === 'live');
-  const atRisk = connections.filter((c) => c.severity === 'AT_RISK');
-  const rescuable = connections.filter((c) => c.rescuableByRemovingItt);
+  const open = connections.filter((c) => c.lifecycle === 'live');
+  const needsAction = open.filter(needsDecision);
+  const pendingOutcome = open.filter(isPendingOutcome);
+  const history = connections.filter((c) => c.lifecycle !== 'live');
+
+  useEffect(() => {
+    const selected = connections.find((c) => c.id === selectedId);
+    if (selected?.lifecycle !== 'live') setFilter('history');
+  }, [connections, selectedId]);
 
   const shown = useMemo(() => {
     const filtered =
-      filter === 'live'
-        ? live
-        : filter === 'risk'
-          ? atRisk
-          : filter === 'rescuable'
-            ? rescuable
-            : connections;
+      filter === 'action'
+          ? needsAction
+          : filter === 'pending'
+            ? pendingOutcome
+          : filter === 'history'
+            ? history
+            : open;
     const normalisedQuery = query.trim().toLowerCase();
     if (!normalisedQuery) return filtered;
     return filtered.filter((c) =>
@@ -124,13 +179,13 @@ export function RiskQueue({
         .toLowerCase()
         .includes(normalisedQuery),
     );
-  }, [atRisk, connections, filter, live, query, rescuable]);
+  }, [filter, history, needsAction, open, pendingOutcome, query]);
 
   const filters = [
-    { id: 'all' as const, label: 'All', count: connections.length },
-    { id: 'live' as const, label: 'Live', count: live.length },
-    { id: 'risk' as const, label: 'At risk', count: atRisk.length },
-    { id: 'rescuable' as const, label: 'Recoverable', count: rescuable.length },
+    { id: 'open' as const, label: 'Open', count: open.length },
+    { id: 'action' as const, label: 'Needs action', count: needsAction.length },
+    { id: 'pending' as const, label: 'Pending', count: pendingOutcome.length },
+    { id: 'history' as const, label: 'History', count: history.length },
   ];
 
   return (

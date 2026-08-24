@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 type TourBox = { top: number; left: number; width: number; height: number; right: number; bottom: number };
-type TourStep = { selector?: string; eyebrow: string; title: string; body: string };
+type TourStep = { selector?: string; placement?: 'side' | 'below'; eyebrow: string; title: string; body: string };
 
 const STEPS: readonly TourStep[] = [
   {
@@ -23,10 +23,11 @@ const STEPS: readonly TourStep[] = [
     body: 'Each compact card shows the time pressure, cargo exposure, and whether the connection can still be recovered.',
   },
   {
-    selector: '[data-tour="connection-detail"]',
+    selector: '[data-tour="connection-workflow"]',
+    placement: 'below',
     eyebrow: 'Step 3',
     title: 'Understand, compare, then review',
-    body: 'Use Situation, Suggested plans, and Outcome in order. The controller sees operational facts—not AI internals.',
+    body: 'Move through Situation, Suggested plans, and Outcome in order. Each view answers one operational question.',
   },
   {
     selector: '[data-tour="operator-tools"]',
@@ -36,7 +37,7 @@ const STEPS: readonly TourStep[] = [
   },
 ];
 
-function tooltipPosition(box: TourBox | null): CSSProperties {
+function tooltipPosition(box: TourBox | null, placement: TourStep['placement'] = 'side'): CSSProperties {
   if (!box) return {};
   if (window.innerWidth < 768) {
     return { left: 12, right: 12, bottom: 12 };
@@ -44,6 +45,13 @@ function tooltipPosition(box: TourBox | null): CSSProperties {
 
   const width = 330;
   const gap = 18;
+  if (placement === 'below') {
+    return {
+      left: Math.max(18, Math.min(box.left + box.width / 2 - width / 2, window.innerWidth - width - 18)),
+      top: Math.min(box.bottom + 14, window.innerHeight - 330),
+      width,
+    };
+  }
   const top = Math.max(64, Math.min(box.top + 18, window.innerHeight - 330));
   if (box.right + width + gap < window.innerWidth) {
     return { left: box.right + gap, top, width };
@@ -111,7 +119,7 @@ export function ProductTour({
     };
   }, [current, open]);
 
-  const cardStyle = useMemo(() => tooltipPosition(box), [box]);
+  const cardStyle = useMemo(() => tooltipPosition(box, current.placement), [box, current.placement]);
   if (!open) return null;
 
   const first = step === 0;
@@ -125,8 +133,8 @@ export function ProductTour({
           style={{
             top: Math.max(8, box.top - 6),
             left: Math.max(8, box.left - 6),
-            width: Math.min(window.innerWidth - 16, box.width + 12),
-            height: Math.min(window.innerHeight - 16, box.height + 12),
+            width: Math.min(window.innerWidth - Math.max(8, box.left - 6) - 8, box.width + 12),
+            height: Math.min(window.innerHeight - Math.max(8, box.top - 6) - 8, box.height + 12),
           }}
         />
       ) : (

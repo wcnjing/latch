@@ -1,19 +1,15 @@
 /** LATCH operations console. */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { toViewModel } from './adapters/toViewModel';
 import { ApprovalPanel } from './components/ApprovalPanel';
-import { ConnectionDetail } from './components/ConnectionDetail';
-import { DemoBar } from './components/DemoBar';
-import { DemoStage } from './components/DemoStage';
+import { ConnectionDetail, type PlanSelection } from './components/ConnectionDetail';
 import { OverviewPage } from './components/OverviewPage';
 import { ProductTour } from './components/ProductTour';
 import { RiskQueue } from './components/RiskQueue';
-import { BUNDLES, DEMO_BUNDLE, DEMO_DECLINED_BUNDLE, DEMO_LAPSED_BUNDLE } from './data/fixtures';
 import { useConsole } from './store/useConsole';
 
-type Page = 'overview' | 'connections' | 'replay';
+type Page = 'overview' | 'connections';
 
 function Topbar({
   page,
@@ -36,7 +32,6 @@ function Topbar({
         {([
           ['overview', 'Overview'],
           ['connections', 'Connections'],
-          ['replay', 'Replay'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -69,8 +64,8 @@ export default function App() {
   const { connections, selected, selectedId, playback } = console_;
   const [page, setPage] = useState<Page>('overview');
   const [focusDetail, setFocusDetail] = useState(false);
-  const [cinema, setCinema] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
+  const [planSelection, setPlanSelection] = useState<(PlanSelection & { connectionId: string }) | null>(null);
   const [tourStep, setTourStep] = useState(0);
   const [tourOpen, setTourOpen] = useState(() => {
     try {
@@ -82,9 +77,11 @@ export default function App() {
 
   useEffect(() => {
     setWorkspaceLoading(true);
-    const finish = window.setTimeout(() => setWorkspaceLoading(false), 720);
+    const finish = window.setTimeout(() => setWorkspaceLoading(false), 320);
     return () => window.clearTimeout(finish);
   }, [page, selectedId]);
+
+  useEffect(() => setPlanSelection(null), [selectedId]);
 
   useEffect(() => {
     if (!tourOpen) return;
@@ -101,7 +98,7 @@ export default function App() {
     try {
       window.localStorage.setItem('latch-operator-tour-v1', 'seen');
     } catch {
-      // The walkthrough remains replayable from Guide when storage is unavailable.
+      // The walkthrough remains available from Guide when storage is unavailable.
     }
     setTourOpen(false);
     if (completed) {
@@ -110,32 +107,11 @@ export default function App() {
     }
   };
 
-  /* The full trace of whatever is being replayed, so the timeline can show the
-     steps that have not been revealed yet as greyed rather than absent. */
-  const fullTimeline = useMemo(() => {
-    if (!playback || !selected || selected.id !== playback.id) return undefined;
-    const bundle =
-      playback.id === DEMO_BUNDLE.event.connection_id
-        ? playback.branch === 'declined'
-          ? DEMO_DECLINED_BUNDLE
-          : playback.branch === 'lapsed'
-            ? DEMO_LAPSED_BUNDLE
-            : DEMO_BUNDLE
-        : BUNDLES.find((b) => b.event.connection_id === playback.id);
-    return bundle ? toViewModel(bundle).timeline : undefined;
-  }, [playback, selected]);
-
-  const totalSteps = fullTimeline?.length ?? selected?.timeline.length ?? 0;
   const openConnection = (id: string) => {
     console_.select(id);
     setFocusDetail(true);
     setPage('connections');
   };
-  const startFailureReplay = () => {
-    setPage('replay');
-    console_.startPlayback(console_.demoId, 4);
-  };
-
   return (
     <div className="app-shell flex min-h-full flex-col">
       <div className="ground" aria-hidden />
@@ -162,13 +138,12 @@ export default function App() {
         <span />
       </div>
 
-      <div className={`workspace-content ${workspaceLoading ? 'workspace-content-loading' : ''}`}>
+      <div className="workspace-content">
         {page === 'overview' && (
           <OverviewPage
             connections={connections}
             onOpen={openConnection}
             onViewConnections={() => setPage('connections')}
-            onReplay={startFailureReplay}
           />
         )}
 
@@ -211,7 +186,12 @@ export default function App() {
 
             <main className="detail-column min-h-0 overflow-y-auto pr-1">
               {selected ? (
-                <ConnectionDetail c={selected} />
+                <ConnectionDetail
+                  c={selected}
+                  selectedPlanKey={planSelection?.connectionId === selected.id ? planSelection.key : null}
+                  selectedPlanLabel={planSelection?.connectionId === selected.id ? planSelection.label : null}
+                  onPlanSelect={(selection) => setPlanSelection({ ...selection, connectionId: selected.id })}
+                />
               ) : (
                 <p className="text-sm text-mist-500">Select a connection.</p>
               )}
@@ -219,7 +199,14 @@ export default function App() {
 
             <aside className="insight-column min-h-0 space-y-3 overflow-y-auto pr-1" data-tour="operator-tools">
               {selected && (
-                selected.approval && selected.gate ? (
+                selected.lifecycle === 'live' && selected.state === 'executing' && !selected.outcome ? (
+                  <section className="product-panel p-4">
+                    <h2 className="text-[14px] font-semibold text-mist-100">Outcome pending</h2>
+                    <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
+                      The plan is in execution. No operator decision is currently required; monitor the Outcome tab for service confirmation.
+                    </p>
+                  </section>
+                ) : selected.lifecycle === 'live' && selected.approval && selected.gate ? (
                   <ApprovalPanel
                     approval={selected.approval}
                     gate={selected.gate}
@@ -227,8 +214,16 @@ export default function App() {
                     secondsLeft={playback?.secondsLeft ?? null}
                     speed={playback?.speed ?? 1}
                     decided={playback?.id === selected.id ? (playback?.branch ?? null) : null}
+                    planLabel={planSelection?.connectionId === selected.id ? planSelection.label : null}
                     onDecide={console_.decide}
                   />
+                ) : selected.outcome ? (
+                  <section className="product-panel p-4">
+                    <h2 className="text-[14px] font-semibold text-mist-100">Recorded outcome</h2>
+                    <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
+                      This connection is complete. Its decision, cargo result, and operational follow-up are captured in the Outcome tab.
+                    </p>
+                  </section>
                 ) : (
                   <section className="product-panel p-4">
                     <h2 className="text-[14px] font-semibold text-mist-100">No operator decision required</h2>
@@ -243,48 +238,10 @@ export default function App() {
           </div>
         )}
 
-        {page === 'replay' && (
-          <div className="replay-page flex min-h-0 flex-1 flex-col">
-          <header className="workspace-heading">
-            <div>
-              <h1>Replay</h1>
-              <p>Walk through a captured agent run, inspect each step, and take the approval decision.</p>
-            </div>
-          </header>
-          <DemoBar
-            playback={playback}
-            connections={connections}
-            demoId={console_.demoId}
-            totalSteps={totalSteps}
-            onStart={console_.startPlayback}
-            onStop={console_.stopPlayback}
-            onPlay={console_.play}
-            onPause={console_.pause}
-            onRestart={console_.restart}
-            onSpeed={console_.setSpeed}
-            onStep={(dir) => (dir === 1 ? console_.stepForward() : console_.stepBack())}
-            cinema={cinema}
-            onCinema={setCinema}
-          />
-
-          {playback && selected && selected.id === playback.id ? (
-            <DemoStage c={selected} playback={playback} onDecide={console_.decide} />
-          ) : (
-            <section className="replay-empty">
-              <span className="replay-empty-icon" aria-hidden>▶</span>
-              <h2>Choose a captured run</h2>
-              <p>
-                The failure-injection scenario shows a tool timeout, stale fallback, confidence
-                downgrade, policy escalation, and operator approval.
-              </p>
-            </section>
-          )}
-          </div>
-        )}
       </div>
 
       <ProductTour
-        open={tourOpen && !workspaceLoading}
+        open={tourOpen}
         step={tourStep}
         onStep={setTourStep}
         onClose={closeTour}
