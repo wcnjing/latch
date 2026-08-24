@@ -1,38 +1,22 @@
-/**
- * The risk queue: every live connection, sorted by criticality.
- *
- * Rows update in place — the list is keyed on connection id, so a connection
- * moving from DELIBERATING to SUPERSEDED changes that row rather than adding
- * one. A resolved connection keeps its row and shows its outcome; it does not
- * disappear, because "what happened to the one I approved ten minutes ago" is a
- * question an operator asks constantly.
- */
+import { useMemo, useState } from 'react';
 
-import type { ConnectionVM, OutcomeTone } from '../adapters/types';
-import { signedHours } from '../lib/format';
-import { SeverityBadge, StateBadge } from './ui';
+import type { ConnectionVM } from '../adapters/types';
+import { hoursAndMinutes } from '../lib/format';
 
-/** The queue dot and the detail badge read the same tone, so they cannot
-    tell the operator two different things about one outcome. */
-const DOT_TONE: Record<OutcomeTone, string> = {
-  good: 'bg-safe-500',
-  bad: 'bg-risk-500',
-  fault: 'bg-risk-500 ring-1 ring-risk-500/50',
-  neutral: 'bg-mist-500',
-  gap: 'bg-transparent ring-1 ring-mist-500',
-};
+type Filter = 'all' | 'live' | 'risk' | 'rescuable';
 
-function ConfidencePip({ c }: { c: ConnectionVM['confidence'] }) {
-  if (!c) {
-    return <span className="tnum text-[11px] text-mist-600">—</span>;
+function pressureFor(c: ConnectionVM) {
+  if (c.slack.currentPlanHours < 0) {
+    return Math.min(100, 58 + Math.abs(c.slack.currentPlanHours) * 14);
   }
-  const tone = c.belowThreshold ? 'text-risk-500' : c.value < 0.9 ? 'text-watch-500' : 'text-safe-500';
-  return (
-    <span className={`tnum text-[11px] font-semibold ${tone}`} title={c.derivation}>
-      {c.value.toFixed(2)}
-      {c.belowThreshold && <span className="ml-1 text-[9px] uppercase">esc</span>}
-    </span>
-  );
+  return Math.max(10, 54 - c.slack.currentPlanHours * 4.5);
+}
+
+function pressureLabel(c: ConnectionVM) {
+  if (c.slack.currentPlanHours < 0) {
+    return `${hoursAndMinutes(c.slack.currentPlanHours).replace(' short', '')} late`;
+  }
+  return `${hoursAndMinutes(c.slack.currentPlanHours)} margin`;
 }
 
 function Row({
@@ -46,78 +30,62 @@ function Row({
   onSelect: () => void;
   replaying: boolean;
 }) {
-  const dim = c.lifecycle !== 'live';
-  const severityBar =
-    c.severity === 'AT_RISK'
-      ? 'bg-risk-500'
-      : c.severity === 'WATCH'
-        ? 'bg-watch-500'
-        : 'bg-safe-500';
+  const pressure = pressureFor(c);
+  const tone =
+    c.severity === 'AT_RISK' ? 'risk' : c.severity === 'WATCH' ? 'watch' : 'safe';
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`relative w-full overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${
-        selected
-          ? 'border-accent-400/50 bg-accent-500/18 shadow-[0_6px_18px_-8px_rgb(43_140_240/0.9)]'
-          : 'border-white/8 bg-white/[0.04] hover:border-white/16 hover:bg-white/[0.08]'
-      } ${dim && !selected ? 'opacity-70' : ''}`}
+      className={`queue-card queue-card-${tone} ${selected ? 'queue-card-selected' : ''}`}
+      aria-label={`${c.id}, ${pressureLabel(c)}, ${c.boxes} boxes`}
     >
-      <span className={`absolute left-0 top-0 h-full w-[3px] ${severityBar}`} />
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <SeverityBadge label={c.severityLabel} />
-          <span className="truncate font-mono text-xs text-mist-100">{c.id}</span>
-          {replaying && (
-            <span className="rounded-full border border-flag-500/50 bg-flag-500/20 px-2 py-[1px] text-[9px] font-bold uppercase tracking-wide text-flag-500">
-              live
-            </span>
-          )}
-        </div>
-        <ConfidencePip c={c.confidence} />
+      <div className="queue-card-topline">
+        <span className={`queue-status-dot queue-status-dot-${tone}`} aria-hidden />
+        <strong className="queue-card-id">{c.id}</strong>
+        {replaying && <span className="queue-live-badge">Live</span>}
+        <span className="queue-card-state">{c.stateLabel}</span>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
-        <div className="flex items-center gap-2 text-mist-400">
-          <span className="tnum">
-            <span
-              className={
-                c.slack.currentPlanHours < 0 ? 'font-semibold text-risk-500' : 'text-mist-200'
-              }
-            >
-              {signedHours(c.slack.currentPlanHours)}
-            </span>{' '}
-            slack
-          </span>
-          <span className="text-mist-500">·</span>
-          <span className="tnum">{c.boxes} boxes</span>
-        </div>
-        <StateBadge label={c.stateLabel} />
+      <div className="queue-card-impact">
+        <strong className={c.slack.currentPlanHours < 0 ? 'queue-impact-late' : ''}>
+          {pressureLabel(c)}
+        </strong>
+        <span aria-hidden>·</span>
+        <span>{c.boxes} boxes</span>
       </div>
 
-      {/* The single most useful thing A sends: would removing the transfer save it. */}
-      {c.rescuableByRemovingItt && (
-        <div className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-flag-500/40 bg-flag-900/50 px-2 py-1">
-          <span className="text-[11px] leading-none text-flag-500">⤳</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-flag-500">
-            Removing the transfer rescues this
-          </span>
-          <span className="tnum ml-auto text-[10px] text-mist-400">
-            +{c.slack.ittCostHours.toFixed(1)}h back
-          </span>
-        </div>
-      )}
+      <div className="queue-pressure-heading">
+        <span>Time pressure</span>
+        <span>{Math.round(pressure)}%</span>
+      </div>
+      <div
+        className="queue-pressure-track"
+        role="progressbar"
+        aria-label="Connection time pressure"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pressure)}
+      >
+        <span className={`queue-pressure-fill queue-pressure-fill-${tone}`} style={{ width: `${pressure}%` }} />
+      </div>
 
-      {c.lifecycle !== 'live' && c.outcome && (
-        <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
-          <span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${DOT_TONE[c.outcome.tone]}`}
-          />
-          <span className="text-mist-400">{c.outcome.label}</span>
-        </div>
-      )}
+      <div className="queue-card-footline">
+        {c.rescuableByRemovingItt ? (
+          <>
+            <span className="queue-recovery-badge">Recoverable</span>
+            <span>Removing the transfer restores {c.slack.ittCostHours.toFixed(1)}h</span>
+          </>
+        ) : c.outcome ? (
+          <>
+            <span className="queue-recorded-badge">Recorded</span>
+            <span className="truncate">{c.outcome.label}</span>
+          </>
+        ) : (
+          <span>Review the suggested plans</span>
+        )}
+      </div>
     </button>
   );
 }
@@ -133,34 +101,82 @@ export function RiskQueue({
   onSelect: (id: string) => void;
   replayingId: string | null;
 }) {
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
   const live = connections.filter((c) => c.lifecycle === 'live');
   const atRisk = connections.filter((c) => c.severity === 'AT_RISK');
   const rescuable = connections.filter((c) => c.rescuableByRemovingItt);
 
+  const shown = useMemo(() => {
+    const filtered =
+      filter === 'live'
+        ? live
+        : filter === 'risk'
+          ? atRisk
+          : filter === 'rescuable'
+            ? rescuable
+            : connections;
+    const normalisedQuery = query.trim().toLowerCase();
+    if (!normalisedQuery) return filtered;
+    return filtered.filter((c) =>
+      [c.id, c.inbound.name, c.outbound.name, c.inbound.terminalLabel, c.outbound.terminalLabel]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalisedQuery),
+    );
+  }, [atRisk, connections, filter, live, query, rescuable]);
+
+  const filters = [
+    { id: 'all' as const, label: 'All', count: connections.length },
+    { id: 'live' as const, label: 'Live', count: live.length },
+    { id: 'risk' as const, label: 'At risk', count: atRisk.length },
+    { id: 'rescuable' as const, label: 'Recoverable', count: rescuable.length },
+  ];
+
   return (
-    <div className="glass flex h-full flex-col overflow-hidden rounded-2xl">
-      <header className="border-b border-white/8 px-4 py-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist-400">
-            Risk queue
-          </h2>
-          <span className="tnum text-[11px] text-mist-500">{connections.length} connections</span>
+    <section className="queue-shell" data-tour="connection-queue" aria-label="Connection queue">
+      <header className="queue-header">
+        <div className="queue-heading">
+          <div>
+            <h2>Connections</h2>
+            <p>Sorted by urgency</p>
+          </div>
+          <span>{shown.length} shown</span>
         </div>
-        <div className="mt-1.5 flex gap-3 text-[10px] text-mist-500">
-          <span>
-            <span className="tnum font-semibold text-risk-500">{atRisk.length}</span> at risk
-          </span>
-          <span>
-            <span className="tnum font-semibold text-flag-500">{rescuable.length}</span> ITT-rescuable
-          </span>
-          <span>
-            <span className="tnum font-semibold text-mist-300">{live.length}</span> in flight
-          </span>
+
+        <label className="queue-search">
+          <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden>
+            <circle cx="8.5" cy="8.5" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path d="m12 12 4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search connections"
+            aria-label="Search connections"
+          />
+        </label>
+
+        <div className="queue-filters" role="tablist" aria-label="Filter connections">
+          {filters.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === item.id}
+              onClick={() => setFilter(item.id)}
+              className={`queue-filter ${filter === item.id ? 'queue-filter-active' : ''}`}
+            >
+              <span>{item.label}</span>
+              <span className="queue-filter-count">{item.count}</span>
+            </button>
+          ))}
         </div>
       </header>
 
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-2">
-        {connections.map((c) => (
+      <div className="queue-list">
+        {shown.map((c) => (
           <Row
             key={c.id}
             c={c}
@@ -169,12 +185,13 @@ export function RiskQueue({
             replaying={c.id === replayingId}
           />
         ))}
+        {shown.length === 0 && (
+          <div className="queue-empty">
+            <strong>No matching connections</strong>
+            <span>Try another search or filter.</span>
+          </div>
+        )}
       </div>
-
-      <footer className="border-t border-white/10 px-3 py-2 text-[10px] leading-relaxed text-mist-500">
-        Sorted by criticality: in-flight first, then severity, then B's own priority
-        (boxes ÷ remaining hours) — the same number the Lock Table arbitrates on.
-      </footer>
-    </div>
+    </section>
   );
 }

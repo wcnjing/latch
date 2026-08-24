@@ -17,11 +17,11 @@ import type { TimelineEventVM, TimelineTone } from '../adapters/types';
 import { latency, tokens, usd } from '../lib/format';
 
 const TONE: Record<TimelineTone, { dot: string; rail: string; label: string; body: string }> = {
-  normal: { dot: 'bg-mist-500', rail: 'bg-white/15', label: 'text-mist-500', body: 'text-mist-200' },
-  muted: { dot: 'bg-mist-600', rail: 'bg-white/15', label: 'text-mist-600', body: 'text-mist-400' },
+  normal: { dot: 'bg-mist-500', rail: 'bg-ink-900/15', label: 'text-mist-500', body: 'text-mist-200' },
+  muted: { dot: 'bg-mist-600', rail: 'bg-ink-900/15', label: 'text-mist-600', body: 'text-mist-400' },
   decision: {
     dot: 'bg-flag-500 ring-4 ring-flag-900',
-    rail: 'bg-white/15',
+    rail: 'bg-ink-900/15',
     label: 'text-flag-500',
     body: 'text-mist-100 font-medium',
   },
@@ -39,7 +39,7 @@ const TONE: Record<TimelineTone, { dot: string; rail: string; label: string; bod
   },
   success: {
     dot: 'bg-safe-500 ring-2 ring-safe-900',
-    rail: 'bg-white/15',
+    rail: 'bg-ink-900/15',
     label: 'text-safe-500',
     body: 'text-mist-100',
   },
@@ -106,7 +106,7 @@ function Event({ e, last, dimmed }: { e: TimelineEventVM; last: boolean; dimmed:
           {open ? '− hide raw step' : '+ raw step'}
         </button>
         {open && (
-          <pre className="mt-1 overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-mist-400">
+          <pre className="mt-1 overflow-x-auto rounded-lg border border-ink-900/10 bg-ink-900/[0.055] p-2 font-mono text-[10px] leading-relaxed text-mist-400">
             {JSON.stringify(e.raw, null, 2)}
           </pre>
         )}
@@ -130,8 +130,8 @@ export function TraceTimeline({
   const revealed = events.length;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.05]">
-      <header className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-2.5">
+    <div className="rounded-2xl border border-ink-900/10 bg-ink-900/[0.025]">
+      <header className="flex items-center justify-between gap-4 border-b border-ink-900/10 px-4 py-2.5">
         <div>
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist-400">
             Execution trace
@@ -144,7 +144,7 @@ export function TraceTimeline({
         <button
           type="button"
           onClick={() => setRawAll((v) => !v)}
-          className="rounded-lg border border-white/15 px-2 py-1 text-[10px] uppercase tracking-wide text-mist-400 transition hover:border-white/20 hover:text-mist-100"
+          className="rounded-lg border border-ink-900/15 px-2 py-1 text-[10px] uppercase tracking-wide text-mist-400 transition hover:border-ink-900/20 hover:text-mist-100"
         >
           {rawAll ? 'Timeline' : 'Raw JSON'}
         </button>
@@ -164,7 +164,7 @@ export function TraceTimeline({
         )}
       </div>
 
-      <footer className="border-t border-white/10 px-4 py-2 text-[10px] leading-relaxed text-mist-500">
+      <footer className="border-t border-ink-900/10 px-4 py-2 text-[10px] leading-relaxed text-mist-500">
         Ordered by sequence, not timestamp. B stamps wall clock at record time, so the `at` values
         in a captured run are not scenario time — durations above come from each step's own
         `latency_ms`.

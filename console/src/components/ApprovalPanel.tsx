@@ -32,6 +32,16 @@ interface Props {
   onDecide: (branch: Branch) => void;
 }
 
+function inactionCopy(approval: ApprovalVM, gate: GateVM) {
+  if (approval.handoff) {
+    return 'If the vessels remain in different terminals, operations must manage the transfer risk another way.';
+  }
+  if (gate.needsCustomer || approval.role === 'customer') {
+    return 'If the shipping line does not respond before the window closes, no onward option is selected.';
+  }
+  return 'If this plan is not approved before the window closes, nothing is booked and the boxes move to the next available service.';
+}
+
 const OUTCOME_COPY: Record<Branch, { label: string; body: string; tone: string }> = {
   approved: {
     label: 'Approved',
@@ -40,12 +50,12 @@ const OUTCOME_COPY: Record<Branch, { label: string; body: string; tone: string }
   },
   declined: {
     label: 'Declined',
-    body: 'The action was not taken, so nothing was booked and the boxes rolled to the next service. B records this as INTERNALLY_DECLINED: a PSA decision, not the line’s.',
+    body: 'The recovery plan was not taken. Nothing was booked and the boxes moved to the next available service.',
     tone: 'border-risk-500/50 bg-risk-900 text-risk-500',
   },
   lapsed: {
     label: 'Auto-declined — window closed',
-    body: 'Nobody signed inside the window. Nothing was booked, the boxes rolled, and B recorded the outcome as APPROVAL_LAPSED — an internal lapse, kept distinct from a shipping line that never replied.',
+    body: 'No decision was recorded before the window closed. Nothing was booked and the boxes moved to the next available service.',
     tone: 'border-risk-500/50 bg-risk-900 text-risk-500',
   },
 };
@@ -75,7 +85,7 @@ function Countdown({
           {clock(seconds)}
         </span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-900/[0.05]">
         <div
           className={`h-full transition-[width] duration-1000 ease-linear ${urgent ? 'bg-risk-500' : 'bg-watch-500'}`}
           style={{ width: `${fraction * 100}%` }}
@@ -84,8 +94,8 @@ function Countdown({
       <p className="mt-1.5 text-[10px] leading-relaxed text-mist-500">
         {windowMin}-minute window{speed > 1 && <> · running at {speed}×</>}.{' '}
         {source === 'policy'
-          ? 'From config.APPROVAL_WINDOW_MIN, recorded on the gate step when the approval was requested.'
-          : 'Rendered by the console — this trace carries no approval deadline.'}
+          ? 'Deadline recorded when approval was requested.'
+          : 'This captured run did not include a recorded approval deadline.'}
       </p>
     </div>
   );
@@ -105,7 +115,7 @@ export function ApprovalPanel({
   /* --- Rung 1: hand off, never approve -------------------------------- */
   if (approval.handoff) {
     return (
-      <Panel title="Advisory" subtitle="Rung 1 — nothing here can be executed by the agent">
+      <Panel title="Planner review" subtitle={`${approval.roleLabel} owns this recommendation`}>
         <div className="rounded-lg border border-flag-500/40 bg-flag-900/40 p-3">
           <p className="text-sm text-mist-100">
             This is a notification for the{' '}
@@ -113,26 +123,11 @@ export function ApprovalPanel({
             for permission.
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-mist-400">
-            {approval.ifNothingHappens}
+            {inactionCopy(approval, gate)}
           </p>
         </div>
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-white/15 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-mist-100 transition hover:border-flag-500/60 hover:bg-ink-700"
-          >
-            Acknowledge
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-flag-500/50 bg-flag-900 px-3 py-2 text-xs font-semibold text-flag-500 transition hover:bg-flag-900/70"
-          >
-            Hand off to {approval.roleLabel}
-          </button>
-        </div>
         <p className="mt-3 text-[11px] leading-relaxed text-mist-500">
-          The most valuable rung is the least autonomous one. Removing the transfer entirely is
-          worth more than booking it well — and it is the one action the agent cannot take.
+          Share the recommendation with {approval.roleLabel}; no booking is made from this screen.
         </p>
       </Panel>
     );
@@ -141,13 +136,13 @@ export function ApprovalPanel({
   /* --- Rung 4: the decision leaves the building ------------------------ */
   if (approval.role === 'customer') {
     return (
-      <Panel title="External gate" subtitle="Rung 4 — the shipping line owns this decision">
+      <Panel title="Shipping line decision" subtitle="The customer owns the final choice">
         <p className="text-sm text-mist-100">
           Ranked options have been released to the line. PSA cannot choose for them at any level of
           seniority.
         </p>
         <p className="mt-2 text-[11px] leading-relaxed text-mist-400">
-          {approval.ifNothingHappens}
+          {inactionCopy(approval, gate)}
         </p>
         {approval.countdown && (
           <p className="mt-2 text-[11px] text-mist-500">{approval.countdown.note}</p>
@@ -168,7 +163,7 @@ export function ApprovalPanel({
   return (
     <Panel
       title="Approval required"
-      subtitle={`Rung ${gate.rung.number} · ${gate.rung.name}`}
+      subtitle={`${approval.roleLabel} must approve the recommended plan`}
       tone={awaiting ? 'alert' : 'default'}
       right={
         <span className="rounded-lg border border-watch-500/50 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
@@ -176,11 +171,11 @@ export function ApprovalPanel({
         </span>
       }
     >
-      <div className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
+      <div className="rounded-lg border border-ink-900/10 bg-ink-900/[0.025] px-3 py-2">
         <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
-          If nobody acts
+          If no decision is made
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-mist-200">{approval.ifNothingHappens}</p>
+        <p className="mt-1 text-xs leading-relaxed text-mist-200">{inactionCopy(approval, gate)}</p>
       </div>
 
       {awaiting && secondsLeft !== null && approval.countdown && (
@@ -199,14 +194,14 @@ export function ApprovalPanel({
           <button
             type="button"
             onClick={() => onDecide('approved')}
-            className="flex-1 rounded-lg border border-safe-500/60 bg-safe-900 px-3 py-2.5 text-sm font-bold text-safe-500 transition hover:bg-safe-500 hover:text-ink-900"
+            className="flex-1 rounded-lg border border-accent-500 bg-accent-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-600"
           >
-            Approve as {approval.roleLabel}
+            Approve plan
           </button>
           <button
             type="button"
             onClick={() => onDecide('declined')}
-            className="flex-1 rounded-lg border border-risk-500/60 bg-risk-900 px-3 py-2.5 text-sm font-bold text-risk-500 transition hover:bg-risk-500 hover:text-ink-900"
+            className="flex-1 rounded-lg border border-risk-500/35 bg-white px-3 py-2.5 text-sm font-semibold text-risk-500 transition hover:bg-risk-900"
           >
             Decline
           </button>
@@ -231,11 +226,6 @@ export function ApprovalPanel({
         </p>
       )}
 
-      <p className="mt-3 text-[11px] leading-relaxed text-mist-500">
-        Every branch of this decision is a recorded run of the same event — approve, decline and
-        lapse were each captured from B's pipeline, so whichever you pick the console continues into
-        a real trace rather than a description of one.
-      </p>
     </Panel>
   );
 }

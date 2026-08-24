@@ -1,643 +1,300 @@
-/**
- * One connection, in full: the two vessel legs and their timing, the slack
- * comparison the whole product turns on, why it is at risk in operator
- * English, and the options B ranked.
- */
+/** Operator-facing connection workspace. Implementation evidence lives elsewhere. */
 
-import { CUT_RUNG } from '../adapters/toViewModel';
-import { isMissing } from '../adapters/types';
-import type { ConnectionVM, OptionVM, Unverified, OutcomeTone } from '../adapters/types';
+import { useEffect, useState } from 'react';
+
+import type { ConnectionVM, OptionVM } from '../adapters/types';
 import { hhmm, hoursAndMinutes, pct, signedHours, stamp } from '../lib/format';
-import { GapMarker, Note, Panel, Placeholder, SeverityBadge, StateBadge, Stat, UnverifiedMark } from './ui';
+import { Panel, SeverityBadge, StateBadge, Stat } from './ui';
 
-/* ---------------------------------------------------------------- legs -- */
+type View = 'situation' | 'plans' | 'outcome';
 
-function Leg({
-  leg,
-  role,
-}: {
-  leg: ConnectionVM['inbound'];
-  role: 'Inbound' | 'Outbound';
-}) {
+function Leg({ leg, role }: { leg: ConnectionVM['inbound']; role: 'Inbound' | 'Outbound' }) {
   const late = leg.deviationMin > 0;
   return (
-    <div className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] p-3">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">{role}</div>
-      <div className="mt-1 truncate text-sm font-semibold text-mist-100" title={leg.name}>
+    <div className="operator-leg">
+      <div className="text-[10px] text-mist-500">{role}</div>
+      <div className="mt-1 truncate text-[14px] font-semibold text-mist-100" title={leg.name}>
         {leg.name}
       </div>
-      <div className="mt-0.5 text-[11px] text-mist-400">{leg.terminalLabel}</div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+      <div className="mt-0.5 text-[11px] text-mist-500">{leg.terminalLabel}</div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-mist-500">Planned</div>
-          <div className="tnum mt-0.5 text-mist-300">{hhmm(leg.scheduled)}</div>
+          <div className="text-[10px] text-mist-500">Planned</div>
+          <div className="tnum mt-1 text-[12px] text-mist-300">{hhmm(leg.scheduled)}</div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-mist-500">Estimated</div>
-          <div className={`tnum mt-0.5 ${late ? 'font-semibold text-risk-500' : 'text-mist-300'}`}>
+          <div className="text-[10px] text-mist-500">Expected</div>
+          <div className={`tnum mt-1 text-[12px] font-medium ${late ? 'text-risk-500' : 'text-mist-300'}`}>
             {hhmm(leg.estimated)}
           </div>
         </div>
       </div>
-
       {leg.deviationMin !== 0 && (
-        <div
-          className={`tnum mt-2 text-[11px] ${late ? 'text-risk-500' : 'text-safe-500'}`}
-        >
-          {late ? '+' : '−'}
-          {Math.abs(leg.deviationMin)} min {late ? 'late' : 'early'}
+        <div className={`tnum mt-3 text-[11px] ${late ? 'text-risk-500' : 'text-safe-500'}`}>
+          {late ? '+' : '−'}{Math.abs(leg.deviationMin)} minutes {late ? 'late' : 'early'}
         </div>
       )}
     </div>
   );
 }
 
-/* -------------------------------------------------------------- slack --- */
-
-function SlackCompare({ c }: { c: ConnectionVM }) {
-  const scale = Math.max(
-    Math.abs(c.slack.currentPlanHours),
-    Math.abs(c.slack.noIttHours),
-    1,
-  );
-  const bar = (h: number) => `${(Math.abs(h) / scale) * 50}%`;
-
-  const Row = ({ label, hours, hint }: { label: string; hours: number; hint: string }) => (
-    <div className="py-2">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-mist-300">{label}</span>
-        <span
-          className={`tnum text-lg font-bold ${hours < 0 ? 'text-risk-500' : 'text-safe-500'}`}
-        >
-          {signedHours(hours)}
-        </span>
+function MarginComparison({ c }: { c: ConnectionVM }) {
+  return (
+    <div className="margin-comparison">
+      <div className="margin-option margin-option-current">
+        <span>Current plan</span>
+        <strong className={c.slack.currentPlanHours < 0 ? 'text-risk-500' : 'text-safe-500'}>
+          {signedHours(c.slack.currentPlanHours)}
+        </strong>
+        <small>
+          {c.slack.currentPlanHours < 0
+            ? `${hoursAndMinutes(c.slack.currentPlanHours)} — boxes miss the cut-off`
+            : `${hoursAndMinutes(c.slack.currentPlanHours)} of remaining margin`}
+        </small>
       </div>
-      {/* Centre line is zero: left of it is short, right of it is margin. */}
-      <div className="relative mt-1.5 h-3 rounded-lg bg-white/[0.05]">
-        <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white/15" />
-        <div
-          className={`absolute top-0 h-full ${hours < 0 ? 'rounded-l bg-risk-500' : 'rounded-r bg-safe-500'}`}
-          style={
-            hours < 0
-              ? { right: '50%', width: bar(hours) }
-              : { left: '50%', width: bar(hours) }
-          }
-        />
+      <div className="margin-arrow" aria-hidden>→</div>
+      <div className="margin-option margin-option-better">
+        <span>Without the terminal transfer</span>
+        <strong className={c.slack.noIttHours < 0 ? 'text-risk-500' : 'text-safe-500'}>
+          {signedHours(c.slack.noIttHours)}
+        </strong>
+        <small>
+          {c.slack.noIttHours > 0
+            ? `${hoursAndMinutes(c.slack.noIttHours)} of usable margin`
+            : 'The connection would still miss its cut-off'}
+        </small>
       </div>
-      <div className="mt-1 text-[10px] text-mist-500">{hint}</div>
-    </div>
-  );
-
-  return (
-    <div>
-      <Row
-        label="Slack under the current plan"
-        hours={c.slack.currentPlanHours}
-        hint={
-          c.slack.currentPlanHours < 0
-            ? `${hoursAndMinutes(c.slack.currentPlanHours)} — the boxes miss the cut-off as planned`
-            : `${hoursAndMinutes(c.slack.currentPlanHours)} of margin as planned`
-        }
-      />
-      <Row
-        label="Slack without the inter-terminal transfer"
-        hours={c.slack.noIttHours}
-        hint="Margin if the transfer requirement were removed entirely"
-      />
-
-      <div className="mt-2 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
-        <span className="text-[11px] text-mist-400">The transfer is costing</span>
-        <span className="tnum text-base font-bold text-flag-500">
-          {c.slack.ittCostHours.toFixed(1)}h
-        </span>
-      </div>
-
-      {c.rescuableByRemovingItt ? (
-        <div className="mt-2 rounded-lg border border-flag-500/50 bg-flag-900/50 px-3 py-2">
-          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-flag-500">
-            Removing the transfer rescues this connection
-          </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-mist-300">
-            Negative margin with the transfer, positive without it. Rung 1 is a live option here,
-            not advisory noise — co-locating the two vessels would eliminate the problem rather than
-            manage it.
-          </p>
-        </div>
-      ) : (
-        <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
-          {c.crossesTerminals
-            ? 'The cargo does cross terminals, but removing the transfer would not by itself save the connection — the margin is negative either way.'
-            : 'Both legs work the same terminal. No inter-terminal transfer is involved.'}
-        </p>
-      )}
     </div>
   );
 }
 
-/* ------------------------------------------------------------- options -- */
-
-const STATUS_STYLE: Record<OptionVM['status'], string> = {
-  chosen: 'border-safe-500/50 bg-safe-900/40',
-  considered: 'border-white/15 bg-white/[0.05]',
-  advisory: 'border-flag-500/40 bg-flag-900/30',
-  ruled_out: 'border-white/10 bg-white/[0.05]/50',
-};
-
-const STATUS_LABEL: Record<OptionVM['status'], string> = {
-  chosen: 'Chosen',
-  considered: 'Considered',
-  advisory: 'Advisory — not the action',
-  ruled_out: 'Ruled out in code, before the model saw it',
-};
-
-/** SGD, and never rendered next to the model's USD. Different units. */
-const sgd = (v: number) => `S$${v.toLocaleString('en-SG', { maximumFractionDigits: 0 })}`;
-const kg = (v: number) => `${v.toLocaleString('en-SG', { maximumFractionDigits: 0 })} kg`;
-
-function Money({
-  value,
-  movesCargo,
-  format,
-  best,
-}: {
-  value: OptionVM['costSgd'];
-  movesCargo: boolean;
-  format: (v: number) => string;
-  best?: boolean;
-}) {
-  if (isMissing(value)) return <GapMarker value={value} className="tnum text-mist-200" />;
-  // Zero on a rung that moves no cargo is the correct value, not an absent one.
-  if (!movesCargo && value === 0) {
-    return <span className="text-[11px] text-mist-500">moves no cargo</span>;
-  }
-  return (
-    <span className={`tnum ${best ? 'font-semibold text-safe-500' : 'text-mist-200'}`}>
-      {format(value)}
-    </span>
-  );
-}
-
-function Options({
-  options,
-  unverified,
-}: {
-  options: OptionVM[];
-  /** Empty when every input was a first-attempt live read. */
-  unverified: Unverified[];
-}) {
-  if (options.length === 0) {
-    return <p className="text-xs text-mist-500">No options were enumerated on this run.</p>;
-  }
-
-  // Which candidate is cheapest / cleanest among the ones that move cargo, so
-  // the chosen option can be read against the alternative rather than alone.
-  const priced = options.filter((o) => o.movesCargo && !isMissing(o.costSgd));
-  const cheapest = priced.length
-    ? Math.min(...priced.map((o) => o.costSgd as number))
-    : null;
-  const cleanest = priced.length
-    ? Math.min(...priced.map((o) => o.emissionsKgCo2e as number))
-    : null;
-
-  return (
-    <div className="space-y-2">
-      {options.map((o) => (
-        <div key={o.id} className={`rounded-lg border p-3 ${STATUS_STYLE[o.status]}`}>
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="rounded-lg border border-white/15 bg-white/[0.05] px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide text-mist-300">
-              Rung {o.rung.number} · {o.rung.name}
-            </span>
-            <span
-              className={`text-[10px] font-semibold uppercase tracking-wide ${
-                o.status === 'chosen'
-                  ? 'text-safe-500'
-                  : o.status === 'advisory'
-                    ? 'text-flag-500'
-                    : 'text-mist-500'
-              }`}
-            >
-              {STATUS_LABEL[o.status]}
-            </span>
-            {o.confidence !== null && (
-              <span className="ml-auto flex items-baseline text-[11px] text-mist-400">
-                <span className="tnum">conf {o.confidence.toFixed(4)}</span>
-                {/* The mark belongs at the number, not in a footnote: this
-                    plan's score rests on an input nobody could verify. */}
-                {unverified.length > 0 && <UnverifiedMark why={unverified[0]} />}
-              </span>
-            )}
-          </div>
-
-          {o.detail && <p className="mt-1.5 text-xs text-mist-100">{o.detail}</p>}
-          {o.rationale && (
-            <p className="mt-1.5 text-xs leading-relaxed text-mist-200">{o.rationale}</p>
-          )}
-          {o.exclusionReason && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-mist-400">{o.exclusionReason}</p>
-          )}
-
-          <div className="mt-2 flex gap-6 border-t border-white/10/60 pt-2 text-[11px]">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[10px] uppercase tracking-wide text-mist-500">Cost</span>
-              <Money
-                value={o.costSgd}
-                movesCargo={o.movesCargo}
-                format={sgd}
-                best={!isMissing(o.costSgd) && o.costSgd === cheapest}
-              />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[10px] uppercase tracking-wide text-mist-500">Emissions</span>
-              <Money
-                value={o.emissionsKgCo2e}
-                movesCargo={o.movesCargo}
-                format={kg}
-                best={!isMissing(o.emissionsKgCo2e) && o.emissionsKgCo2e === cleanest}
-              />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* --------------------------------------------------------------- ladder -- */
-
-function LadderRail({ active }: { active: number | null }) {
-  return (
-    <div className="space-y-1.5">
-      {[1, 2, 3, 4].map((n) => {
-        if (n === 2) {
-          return (
-            <div
-              key={n}
-              className="rounded-xl border border-dashed border-white/15 bg-black/25 px-3 py-2"
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="tnum text-xs font-bold text-mist-500">2</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-mist-500 line-through">
-                  {CUT_RUNG.name}
-                </span>
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-mist-500">
-                  cut
-                </span>
-              </div>
-              <p className="mt-1 text-[10px] leading-relaxed text-mist-600">{CUT_RUNG.whyCut}</p>
-            </div>
-          );
-        }
-        const meta =
-          n === 1
-            ? { name: 'PREVENT', does: 'Reassign the berth so both vessels work one terminal', who: 'Berth Planner — advisory only' }
-            : n === 3
-              ? { name: 'MOVE', does: 'Book the inter-terminal transfer slot', who: 'Vessel Operations' }
-              : { name: 'OFFER', does: 'Put ranked options to the shipping line', who: 'The line decides' };
-        const on = active === n;
-        return (
-          <div
-            key={n}
-            className={`rounded-lg border px-3 py-2 ${
-              on ? 'border-flag-500/60 bg-flag-900/40' : 'border-white/10 bg-white/[0.05]'
-            }`}
-          >
-            <div className="flex items-baseline gap-2">
-              <span className={`tnum text-xs font-bold ${on ? 'text-flag-500' : 'text-mist-500'}`}>
-                {n}
-              </span>
-              <span
-                className={`text-[11px] font-semibold uppercase tracking-wide ${on ? 'text-flag-500' : 'text-mist-300'}`}
-              >
-                {meta.name}
-              </span>
-              {on && (
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-flag-500">
-                  taken
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-[10px] leading-relaxed text-mist-500">{meta.does}</p>
-            <p className="mt-0.5 text-[10px] text-mist-600">{meta.who}</p>
-          </div>
-        );
-      })}
-      <p className="pt-1 text-[10px] leading-relaxed text-mist-500">
-        Autonomy is inversely proportional to value: the rung that would help most is the one the
-        agent may not take.
-      </p>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------- detail -- */
-
-/** Tone to classes. Exhaustive, so a new tone will not compile until it has one. */
-const OUTCOME_TONE: Record<OutcomeTone, string> = {
-  good: 'border-safe-500/50 bg-safe-900 text-safe-500',
-  bad: 'border-risk-500/50 bg-risk-900 text-risk-500',
-  fault: 'border-risk-500 bg-risk-500/20 text-risk-500',
-  neutral: 'border-white/20 bg-white/[0.05] text-mist-400',
-  gap: 'border-dashed border-white/20 bg-white/[0.05] text-mist-500',
-};
-
-const OUTCOME_TITLE: Record<OutcomeTone, string | undefined> = {
-  good: undefined,
-  bad: undefined,
-  fault: 'The agent broke on this connection. This is us failing, not the connection.',
-  neutral: 'The shipping line took no part in this outcome.',
-  gap: 'B did not record enough to classify this outcome. Nothing is inferred here.',
-};
-
-export function ConnectionDetail({ c }: { c: ConnectionVM }) {
-  const activeRung = c.options.find((o) => o.status === 'chosen')?.rung.number ?? null;
-
+function Situation({ c }: { c: ConnectionVM }) {
   return (
     <div className="space-y-4">
-      {/* --- header ---------------------------------------------------- */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <SeverityBadge label={c.severityLabel} big />
-          <h1 className="font-mono text-lg font-semibold text-mist-100">{c.id}</h1>
-          <StateBadge label={c.stateLabel} />
-          <span className="ml-auto font-mono text-[11px] text-mist-500">{c.ucid}</span>
-        </div>
-
-        {c.stateNote && (
-          <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] leading-relaxed text-mist-300">
-            {c.stateNote}
+      <section className={`situation-callout ${c.rescuableByRemovingItt ? 'situation-callout-actionable' : ''}`}>
+        <div>
+          <span className="text-[11px] font-medium text-mist-500">What needs attention</span>
+          <h2>
+            {c.slack.currentPlanHours < 0
+              ? `This connection misses its cut-off by ${hoursAndMinutes(c.slack.currentPlanHours).replace(' short', '')}.`
+              : `This connection has ${hoursAndMinutes(c.slack.currentPlanHours)} of margin remaining.`}
+          </h2>
+          <p>
+            {c.rescuableByRemovingItt
+              ? `Keeping both vessels at one terminal restores ${c.slack.ittCostHours.toFixed(1)} hours and makes the connection viable.`
+              : c.crossesTerminals
+                ? 'The cargo crosses terminals, but removing that transfer alone does not fully recover the connection.'
+                : 'Both vessels use the same terminal; the risk comes from vessel timing rather than a terminal transfer.'}
           </p>
-        )}
-
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat
-            label="Boxes at risk"
-            value={c.boxes}
-            hint={c.boxes > 40 ? 'over the 40-box auto-approve limit' : 'inside the volume limit'}
-            tone={c.boxes > 40 ? 'warn' : 'default'}
-          />
-          <Stat
-            label="Slack remaining"
-            value={signedHours(c.slack.currentPlanHours)}
-            hint={`${pct(c.slack.consumedPct)} of the window consumed`}
-            tone={c.slack.currentPlanHours < 0 ? 'bad' : 'default'}
-          />
-          <Stat
-            label="Priority"
-            value={Math.round(c.priority)}
-            hint="boxes ÷ remaining hours"
-          />
-          <Stat
-            label="Detected"
-            value={<span className="text-sm">{stamp(c.detectedAt)}</span>}
-            hint="SGT"
-          />
         </div>
-      </div>
+        {c.rescuableByRemovingItt && <span className="situation-tag">Recoverable</span>}
+      </section>
 
-      {/* --- vessels ---------------------------------------------------- */}
-      <Panel title="Vessel timing" subtitle="Arrival estimates derived from real AIS observations">
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <Panel title="Vessel timing" subtitle="Planned schedule compared with the latest arrival estimate">
+        <div className="vessel-route">
           <Leg leg={c.inbound} role="Inbound" />
-          <div className="flex items-center justify-center px-1">
-            <div className="text-center">
-              <div className="text-lg leading-none text-mist-500">→</div>
-              {c.crossesTerminals && (
-                <div className="mt-1 whitespace-nowrap rounded-lg border border-flag-500/40 bg-flag-900 px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wide text-flag-500">
-                  ITT
-                </div>
-              )}
-            </div>
+          <div className="route-transfer" aria-label={c.crossesTerminals ? 'Terminal transfer required' : 'Same terminal'}>
+            <span>→</span>
+            <small>{c.crossesTerminals ? 'Terminal transfer' : 'Same terminal'}</small>
           </div>
           <Leg leg={c.outbound} role="Outbound" />
         </div>
       </Panel>
 
-      {/* --- slack ------------------------------------------------------ */}
-      <Panel
-        title="Margin"
-        subtitle="Current plan against the same connection without the transfer"
-      >
-        <SlackCompare c={c} />
+      <Panel title="Connection margin" subtitle="The operational effect of removing the terminal transfer">
+        <MarginComparison c={c} />
       </Panel>
 
-      {/* --- reasons ---------------------------------------------------- */}
-      <Panel title="Why it is at risk">
-        <div className="space-y-2">
-          {c.reasons.map((r) => (
-            <div key={r.code} className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-semibold text-mist-100">{r.title}</span>
-                {!r.emittedByWatcher && (
-                  <span
-                    className="rounded-lg border border-white/15 px-1.5 py-[1px] text-[9px] uppercase tracking-wide text-mist-500"
-                    title="Declared in the enum but never emitted by the live Watcher — see CONTRACTS.md §5"
-                  >
-                    not emitted by the live Watcher
-                  </span>
-                )}
+      <Panel title="Why this connection is at risk">
+        <div className="operator-reasons">
+          {c.reasons.map((reason) => (
+            <div key={reason.code}>
+              <span className="reason-dot" />
+              <div>
+                <strong>{reason.title}</strong>
+                <p>{reason.detail}</p>
               </div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-mist-400">{r.detail}</p>
             </div>
           ))}
         </div>
-
-        <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">Triage</div>
-          <p className="mt-1 text-xs text-mist-200">{c.triage.routeLabel}</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-mist-400">{c.triage.reason}</p>
-          {c.triage.decidedFree && (
-            <p className="mt-1 text-[10px] text-safe-500">
-              Decided deterministically — no model was spent on this one.
-            </p>
-          )}
-        </div>
       </Panel>
+    </div>
+  );
+}
 
-      {/* --- ladder and options ----------------------------------------- */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <Panel
-          title="Options B ranked"
-          subtitle="Code enumerates; the model only ranks. It cannot book a slot that does not exist."
-        >
-          <Options options={c.options} unverified={c.confidence?.unverifiedFields ?? []} />
-          <Note>
-            Costs are in Singapore dollars and are the operational cost of the move. They are
-            deliberately never added to the model spend below, which is inference cost in USD —
-            different units, and summing them would be a category error.
-          </Note>
-        </Panel>
+const PLAN_TITLE: Record<string, string> = {
+  PREVENT: 'Keep both vessels at one terminal',
+  MOVE: 'Book the terminal transfer',
+  OFFER: 'Offer alternatives to the shipping line',
+};
 
-        <Panel title="The ladder">
-          <LadderRail active={activeRung} />
-        </Panel>
-      </div>
+function planEffect(option: OptionVM, c: ConnectionVM) {
+  if (option.rung.name === 'PREVENT') return `Restores ${c.slack.ittCostHours.toFixed(1)} hours of margin`;
+  if (option.rung.name === 'MOVE') return 'Keeps the existing vessel and terminal plan moving';
+  if (option.rung.name === 'OFFER') return 'Lets the shipping line choose its preferred alternative';
+  return 'Provides another way to protect the connection';
+}
 
-      {/* --- contested resources ---------------------------------------- */}
-      {c.locks.length > 0 && (
-        <Panel
-          title="Contested resources"
-          subtitle="Arbitrated on boxes ÷ remaining slack, never on who asked first"
-        >
-          <div className="space-y-2">
-            {c.locks.map((l, i) => (
-              <div
-                key={`${l.resource}-${i}`}
-                className={`rounded-lg border p-3 ${
-                  l.held ? 'border-safe-500/40 bg-safe-900/30' : 'border-risk-500/40 bg-risk-900/30'
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <code className="font-mono text-xs text-mist-100">{l.resource}</code>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wide ${
-                      l.held ? 'text-safe-500' : 'text-risk-500'
-                    }`}
-                  >
-                    {l.held ? 'held' : 'lost'}
-                  </span>
-                  <span className="tnum ml-auto text-[11px] text-mist-400">
-                    priority {Math.round(l.ourPriority)}
-                    {l.winnerPriority !== null && (
-                      <>
-                        {' '}
-                        vs{' '}
-                        <span className={l.held ? 'text-safe-500' : 'text-risk-500'}>
-                          {Math.round(l.winnerPriority)}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-mist-200">{l.outcome}</p>
-                {l.consequence && (
-                  <p className="mt-1 text-[11px] leading-relaxed text-mist-400">{l.consequence}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
+function planDescription(option: OptionVM) {
+  if (option.rung.name === 'PREVENT') {
+    return 'Coordinate a berth change so the inbound and outbound vessels use the same terminal.';
+  }
+  if (option.rung.name === 'MOVE') {
+    return option.detail || 'Reserve the next available transfer movement between terminals.';
+  }
+  if (option.rung.name === 'OFFER') {
+    return option.detail || 'Share the available onward services and let the shipping line choose.';
+  }
+  return option.detail || option.rung.does;
+}
 
-      {/* --- outcome ---------------------------------------------------- */}
-      {c.outcome && (
-        <Panel
-          title="Outcome"
-          right={
-            <span
-              className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${OUTCOME_TONE[c.outcome.tone]}`}
-              title={OUTCOME_TITLE[c.outcome.tone]}
-            >
-              {/* Both the word and the colour come from the adapter, together.
-                  Deriving the colour here from raw flags is what let a system
-                  fault render in the same grey as a routine internal hold. */}
-              {c.outcome.badge}
-            </span>
-          }
-        >
-          <div className="text-base font-semibold text-mist-100">{c.outcome.label}</div>
-          <p className="mt-1 text-xs text-mist-200">{c.outcome.what}</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-mist-400">{c.outcome.why}</p>
+function SuggestedPlans({ c }: { c: ConnectionVM }) {
+  const plans = c.options
+    .filter((option) => option.status !== 'ruled_out')
+    .sort((a, b) => (a.status === 'chosen' ? -1 : b.status === 'chosen' ? 1 : 0))
+    .slice(0, 3);
 
-          {c.outcome.customerGate && (
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] text-mist-400">
-              <span className="tnum text-mist-100">{c.outcome.customerGate.optionsSent}</span>{' '}
-              option{c.outcome.customerGate.optionsSent === 1 ? '' : 's'} released to the line on a{' '}
-              <span className="tnum text-mist-100">{c.outcome.customerGate.windowMin}</span>-minute
-              window
-              {c.outcome.decisionLeadTimeH !== null && (
-                <>
-                  {' '}
-                  ·{' '}
-                  <span className="tnum text-mist-100">
-                    {c.outcome.decisionLeadTimeH.toFixed(1)}h
-                  </span>{' '}
-                  from detection to options reaching them
-                </>
-              )}
-            </div>
-          )}
+  return (
+    <div className="space-y-4">
+      <section className="plan-intro">
+        <div>
+          <h2>Suggested recovery plans</h2>
+          <p>Practical options are shown in recommended order. Technical scoring is intentionally hidden.</p>
+        </div>
+        <span>{plans.length} option{plans.length === 1 ? '' : 's'}</span>
+      </section>
 
-          {c.outcome.actionCostSgd !== null && c.outcome.actionCostSgd > 0 && (
-            <div className="mt-3 flex gap-6 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2">
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-mist-500">
-                  What the action committed
-                </div>
-                <div className="tnum mt-0.5 text-base font-semibold text-mist-100">
-                  {sgd(c.outcome.actionCostSgd)}
-                </div>
-              </div>
-              {c.outcome.actionEmissionsKgCo2e !== null && (
-                <div>
-                  <div className="text-[10px] uppercase tracking-wide text-mist-500">Emissions</div>
-                  <div className="tnum mt-0.5 text-base font-semibold text-mist-100">
-                    {kg(c.outcome.actionEmissionsKgCo2e)}
+      {plans.length > 0 ? (
+        <div className="suggested-plans">
+          {plans.map((option, index) => {
+            const recommended = option.status === 'chosen' || (index === 0 && !plans.some((p) => p.status === 'chosen'));
+            return (
+              <article key={option.id} className={`suggested-plan ${recommended ? 'suggested-plan-recommended' : ''}`}>
+                <header>
+                  <span className="plan-number">{index + 1}</span>
+                  <div>
+                    <h3>{PLAN_TITLE[option.rung.name] ?? option.rung.does}</h3>
+                    <p>{planEffect(option, c)}</p>
                   </div>
+                  <span className={recommended ? 'plan-label-recommended' : 'plan-label'}>
+                    {recommended ? 'Recommended' : option.status === 'advisory' ? 'Planner action' : 'Alternative'}
+                  </span>
+                </header>
+                <div className="plan-description">
+                  <p>{planDescription(option)}</p>
                 </div>
-              )}
-              <p className="max-w-[16rem] self-center text-[10px] leading-relaxed text-mist-500">
-                Operational cost, in Singapore dollars. Kept apart from the model spend below,
-                which is inference cost in USD.
-              </p>
-            </div>
-          )}
-
-          {c.outcome.serviceSuccessReconciled === false && (
-            <div className="mt-3">
-              <Note tone="warn">
-                B reports service_success={String(c.outcome.serviceSuccess)} for{' '}
-                {c.outcome.resolution}, which disagrees with the transcribed
-                classification in the console contract. B's value is shown.
-              </Note>
-            </div>
-          )}
-
-          {c.outcome.excludedFromMetric && (
-            <p className="mt-3 text-[11px] leading-relaxed text-mist-500">
-              Excluded from the north-star denominator rather than counted as a failure.
-            </p>
-          )}
-        </Panel>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <section className="empty-operator-state">
+          <h3>No recovery plan was produced</h3>
+          <p>This connection needs manual review by terminal operations.</p>
+        </section>
       )}
 
-      {/* --- cost ------------------------------------------------------- */}
-      <Panel title="What this decision cost" subtitle="Per decision, not a run average">
-        <div className="space-y-1.5">
-          {c.cost.perDecision.length === 0 ? (
-            <p className="text-xs text-safe-500">
-              No model was spent on this connection at all.
-            </p>
-          ) : (
-            c.cost.perDecision.map((d) => (
-              <div
-                key={d.seq}
-                className="flex flex-wrap items-baseline gap-x-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px]"
-              >
-                <code className="font-mono text-mist-100">{d.model}</code>
-                <span className="text-mist-500">{d.purpose}</span>
-                <span className="tnum ml-auto text-mist-400">
-                  {d.input.toLocaleString()} in / {d.output.toLocaleString()} out
-                </span>
-                <span className="tnum w-16 text-right font-semibold text-mist-100">
-                  ${d.usd.toFixed(4)}
-                </span>
-              </div>
-            ))
-          )}
+      <section className="next-decision">
+        <div>
+          <span>Next step</span>
+          <strong>
+            {c.gate?.needsCustomer
+              ? 'Release the alternatives to the shipping line'
+              : c.gate?.blocks
+                ? `Get approval from ${c.gate.requiredRoleLabel}`
+                : c.approval?.handoff
+                  ? `Hand the recommendation to ${c.approval.roleLabel}`
+                  : 'Proceed with the recommended plan'}
+          </strong>
         </div>
-        <div className="mt-3 flex items-baseline justify-between border-t border-white/10 pt-2">
-          <span className="text-[11px] text-mist-400">Total for this connection</span>
-          <span className="tnum text-base font-semibold text-mist-100">
-            ${c.cost.usd.toFixed(4)}
-          </span>
+        <span className="text-[18px] text-accent-500" aria-hidden>→</span>
+      </section>
+    </div>
+  );
+}
+
+function Outcome({ c }: { c: ConnectionVM }) {
+  if (!c.outcome) {
+    return (
+      <section className="empty-operator-state">
+        <h2>Outcome pending</h2>
+        <p>Complete the required decision to create the operational record.</p>
+      </section>
+    );
+  }
+
+  const tone =
+    c.outcome.tone === 'good'
+      ? 'outcome-good'
+      : c.outcome.tone === 'bad' || c.outcome.tone === 'fault'
+        ? 'outcome-bad'
+        : 'outcome-neutral';
+
+  return (
+    <section className={`operator-outcome ${tone}`}>
+      <span>{c.outcome.badge}</span>
+      <h2>{c.outcome.label}</h2>
+      <p className="outcome-what">{c.outcome.what}</p>
+      <p>{c.outcome.why}</p>
+      {c.outcome.excludedFromMetric && <small>This outcome is excluded from the service metric.</small>}
+    </section>
+  );
+}
+
+export function ConnectionDetail({ c }: { c: ConnectionVM }) {
+  const [view, setView] = useState<View>('situation');
+
+  useEffect(() => setView('situation'), [c.id]);
+
+  return (
+    <div className="space-y-4" data-tour="connection-detail">
+      <section className="connection-summary">
+        <div className="flex flex-wrap items-center gap-3">
+          <SeverityBadge label={c.severityLabel} big />
+          <h1 className="font-mono text-[18px] font-semibold text-mist-100">{c.id}</h1>
+          <StateBadge label={c.stateLabel} />
+          <span className="ml-auto hidden font-mono text-[10px] text-mist-600 sm:inline">{c.ucid}</span>
         </div>
-        <Note>
-          Token counts come from a scripted model seam — no model was consulted on this run — and
-          are priced at B's frozen `config.PRICING` rates. Cost per rescued connection:{' '}
-          <Placeholder what="A's evaluation has not run." />
-        </Note>
-      </Panel>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat label="Boxes affected" value={c.boxes} hint="on this connection" />
+          <Stat
+            label="Current margin"
+            value={signedHours(c.slack.currentPlanHours)}
+            hint={`${pct(c.slack.consumedPct)} of the window used`}
+            tone={c.slack.currentPlanHours < 0 ? 'bad' : 'good'}
+          />
+          <Stat
+            label="Transfer effect"
+            value={`+${c.slack.ittCostHours.toFixed(1)}h`}
+            hint={c.crossesTerminals ? 'available if transfer is removed' : 'no transfer involved'}
+            tone={c.rescuableByRemovingItt ? 'good' : 'default'}
+          />
+          <Stat label="Detected" value={<span className="text-[14px]">{stamp(c.detectedAt)}</span>} hint="Singapore time" />
+        </div>
+      </section>
+
+      <nav className="detail-tabs operator-detail-tabs" role="tablist" aria-label="Connection workflow">
+        {([
+          ['situation', 'Situation'],
+          ['plans', 'Suggested plans'],
+          ['outcome', 'Outcome'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => setView(id)}
+            className={`detail-tab ${view === id ? 'detail-tab-active' : ''}`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'situation' && <Situation c={c} />}
+      {view === 'plans' && <SuggestedPlans c={c} />}
+      {view === 'outcome' && <Outcome c={c} />}
     </div>
   );
 }

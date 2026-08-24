@@ -182,7 +182,7 @@ export function DemoBar({
         <Btn onClick={onStop}>Exit replay</Btn>
       </div>
 
-      <div className="h-[3px] bg-white/[0.05]">
+      <div className="h-[3px] bg-ink-900/[0.025]">
         <div
           className="h-full bg-flag-500 transition-[width] duration-200 ease-linear"
           style={{ width: `${progress}%` }}

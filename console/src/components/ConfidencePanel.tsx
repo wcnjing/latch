@@ -44,7 +44,7 @@ function Dial({ c }: { c: ConfidenceVM }) {
 
       {/* The bar exists to place the value against the threshold, which is the
           only comparison that changes anything. */}
-      <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+      <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-ink-900/[0.05]">
         <div className={`h-full ${barTone}`} style={{ width: `${pctValue}%` }} />
         <div
           className="absolute top-0 h-full w-[2px] bg-mist-100"
@@ -74,7 +74,7 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
 
   return (
     <div className="mt-1">
-      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-white/10 pb-1 text-[10px] uppercase tracking-[0.12em] text-mist-500">
+      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-ink-900/10 pb-1 text-[10px] uppercase tracking-[0.12em] text-mist-500">
         <span>Factor</span>
         <span className="text-right">Applied</span>
         <span className="text-right">Running</span>
@@ -84,7 +84,7 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
         const width = Math.max(0, Math.min(1, r.running)) * 100;
         const isStart = r.kind === 'start';
         return (
-          <div key={i} className="border-b border-white/6 py-2 last:border-0">
+          <div key={i} className="border-b border-ink-900/6 py-2 last:border-0">
             <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4">
               <div>
                 <span className={isStart ? 'text-mist-500' : 'font-medium text-mist-100'}>
@@ -100,7 +100,7 @@ function Waterfall({ c }: { c: ConfidenceVM }) {
               </span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-900/[0.025]">
                 <div
                   className={`h-full ${isStart ? 'bg-mist-500' : r.running < c.threshold ? 'bg-risk-500' : 'bg-safe-500'}`}
                   style={{ width: `${width}%` }}
@@ -200,7 +200,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
           {c.unverifiedFields.map((f) => (
             <div
               key={f.field}
-              className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2"
+              className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-ink-900/10 bg-ink-900/[0.025] px-3 py-2"
             >
               <code className="font-mono text-xs text-mist-100">{f.field}</code>
               <UnverifiedMark why={f} />
@@ -225,7 +225,7 @@ export function ConfidencePanel({ c }: { c: ConfidenceVM | null }) {
         </Note>
       )}
 
-      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-white/10 pt-3 text-[11px]">
+      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-900/10 pt-3 text-[11px]">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-mist-500">Weakest source</div>
           <div className="mt-0.5 font-mono text-mist-100">{c.weakestSource}</div>

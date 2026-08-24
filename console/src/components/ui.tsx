@@ -28,9 +28,9 @@ export function Panel({
   return (
     <section className={`overflow-hidden rounded-2xl ${surface} ${className}`}>
       {title && (
-        <header className="flex items-start justify-between gap-4 border-b border-white/8 px-4 py-3">
+        <header className="flex items-start justify-between gap-4 border-b border-ink-900/8 bg-ink-900/[0.015] px-4 py-3">
           <div>
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist-400">
+            <h2 className="text-[13px] font-semibold text-mist-100">
               {title}
             </h2>
             {subtitle && <p className="mt-0.5 text-xs text-mist-500">{subtitle}</p>}
@@ -43,39 +43,40 @@ export function Panel({
   );
 }
 
-const SEVERITY_STYLE: Record<string, string> = {
-  SAFE: 'bg-safe-500/18 text-safe-500 border-safe-500/45',
-  WATCH: 'bg-watch-500/18 text-watch-500 border-watch-500/45',
-  'AT RISK': 'bg-risk-500/20 text-risk-500 border-risk-500/50',
+const SEVERITY_STYLE: Record<string, { text: string; dot: string }> = {
+  SAFE: { text: 'text-safe-500', dot: 'bg-safe-500' },
+  WATCH: { text: 'text-watch-500', dot: 'bg-watch-500' },
+  'AT RISK': { text: 'text-risk-500', dot: 'bg-risk-500' },
 };
 
 export function SeverityBadge({ label, big = false }: { label: string; big?: boolean }) {
-  const style = SEVERITY_STYLE[label] ?? 'bg-white/8 text-mist-300 border-white/15';
+  const style = SEVERITY_STYLE[label] ?? { text: 'text-mist-400', dot: 'bg-mist-500' };
   return (
     <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border font-semibold uppercase tracking-wider ${style} ${
-        big ? 'px-3 py-1 text-xs' : 'px-2 py-0.5 text-[10px]'
+      className={`inline-flex shrink-0 items-center whitespace-nowrap font-semibold ${style.text} ${
+        big ? 'gap-2 text-xs' : 'gap-1.5 text-[10px]'
       }`}
     >
+      <span className={`${big ? 'h-2 w-2' : 'h-1.5 w-1.5'} rounded-full ${style.dot}`} />
       {label}
     </span>
   );
 }
 
 const STATE_STYLE: Record<string, string> = {
-  Superseded: 'bg-flag-500/16 text-flag-500 border-flag-500/45',
-  Stale: 'bg-watch-500/16 text-watch-500 border-watch-500/45',
-  Lapsed: 'bg-risk-500/16 text-risk-500 border-risk-500/45',
-  'Lost the slot': 'bg-risk-500/16 text-risk-500 border-risk-500/45',
-  Resolved: 'bg-white/8 text-mist-400 border-white/14',
-  Dismissed: 'bg-white/5 text-mist-500 border-white/10',
+  Superseded: 'text-flag-500',
+  Stale: 'text-watch-500',
+  Lapsed: 'text-risk-500',
+  'Lost the slot': 'text-risk-500',
+  Resolved: 'text-mist-500',
+  Dismissed: 'text-mist-600',
 };
 
 export function StateBadge({ label }: { label: string }) {
-  const style = STATE_STYLE[label] ?? 'bg-white/8 text-mist-300 border-white/15';
+  const style = STATE_STYLE[label] ?? 'text-mist-400';
   return (
     <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${style}`}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap text-[10px] font-medium ${style}`}
     >
       {label}
     </span>
@@ -87,7 +88,7 @@ export function GapMarker({ value, className = '' }: { value: MaybeMissing<numbe
   if (!isMissing(value)) return <span className={className}>{value}</span>;
   return (
     <span
-      className={`inline-flex cursor-help items-center gap-1.5 rounded-full border border-dashed border-mist-500/50 bg-white/5 px-2 py-0.5 text-mist-400 ${className}`}
+      className={`inline-flex cursor-help items-center gap-1.5 rounded-full border border-dashed border-mist-500/50 bg-ink-900/[0.025] px-2 py-0.5 text-mist-400 ${className}`}
       title={`${value.label} — ${value.request}`}
     >
       <span className="text-mist-500">—</span>
@@ -144,7 +145,7 @@ export function Stat({
 export function Placeholder({ what }: { what: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-mist-500/60 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-mist-400"
+      className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-mist-500/60 bg-ink-900/[0.025] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-mist-400"
       title={`No measured value. ${what}`}
     >
       placeholder
@@ -156,7 +157,7 @@ export function Note({ children, tone = 'default' }: { children: ReactNode; tone
   const style =
     tone === 'warn'
       ? 'border-watch-500/45 bg-watch-500/12 text-watch-500'
-      : 'border-white/10 bg-white/5 text-mist-400';
+      : 'border-ink-900/10 bg-ink-900/[0.025] text-mist-400';
   return (
     <p className={`rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${style}`}>{children}</p>
   );

@@ -27,8 +27,8 @@ function RoleChip({
     state === 'now'
       ? 'border-watch-500 bg-watch-900 text-watch-500 font-semibold'
       : state === 'was'
-        ? 'border-white/15 bg-white/[0.05] text-mist-500 line-through decoration-mist-600'
-        : 'border-white/10 bg-white/[0.05] text-mist-600';
+        ? 'border-ink-900/15 bg-ink-900/[0.025] text-mist-500 line-through decoration-mist-600'
+        : 'border-ink-900/10 bg-ink-900/[0.025] text-mist-600';
   return (
     <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs ${style}`}>
       {role}
@@ -137,7 +137,7 @@ export function GateTransition({ gate, boxes }: { gate: GateVM | null; boxes: nu
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+        <div className="rounded-2xl border border-ink-900/10 bg-ink-900/[0.025] p-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-mist-400">
             No escalation
           </div>

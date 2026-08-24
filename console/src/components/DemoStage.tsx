@@ -92,7 +92,7 @@ function MiniTimeline({ events }: { events: TimelineEventVM[] }) {
   return (
     <div className="h-full overflow-y-auto pr-2">
       {events.map((e) => (
-        <div key={e.seq} className="flex items-baseline gap-3 border-b border-white/6 py-1.5">
+        <div key={e.seq} className="flex items-baseline gap-3 border-b border-ink-900/6 py-1.5">
           <span className="tnum w-6 text-xs text-mist-500">{String(e.seq).padStart(2, '0')}</span>
           <span
             className={`w-24 shrink-0 text-[11px] font-bold uppercase tracking-wider ${TONE_TEXT[e.tone] ?? 'text-mist-500'}`}
@@ -128,7 +128,7 @@ export function DemoStage({
   return (
     <div className="glass m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
       {/* --- headline ------------------------------------------------- */}
-      <div className="border-b border-white/10 bg-white/[0.05] px-8 py-4">
+      <div className="border-b border-ink-900/10 bg-ink-900/[0.025] px-8 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <SeverityBadge label={c.severityLabel} big />
           <h1 className="font-mono text-2xl font-bold text-mist-100">{c.id}</h1>
@@ -155,7 +155,7 @@ export function DemoStage({
           </div>
         </div>
 
-        <div className="mt-3 border-t border-white/10 pt-3">
+        <div className="mt-3 border-t border-ink-900/10 pt-3">
           <Narration event={current} />
         </div>
       </div>
@@ -172,7 +172,7 @@ export function DemoStage({
           </div>
         </div>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto border-l border-white/8 px-6 py-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto border-l border-ink-900/8 px-6 py-4">
           <ApprovalPanel
             approval={c.approval}
             gate={c.gate}
@@ -189,7 +189,7 @@ export function DemoStage({
 
       {/* The data-honesty line stays on screen in cinema mode. It is exactly
           the frame most likely to be screenshotted out of context. */}
-      <div className="border-t border-white/10 bg-white/[0.05] px-8 py-2 text-[11px] text-mist-500">
+      <div className="border-t border-ink-900/10 bg-ink-900/[0.025] px-8 py-2 text-[11px] text-mist-500">
         {c.provenance.dataBasis}. Model responses scripted — no model was consulted.
       </div>
     </div>
