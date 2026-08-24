@@ -20,7 +20,7 @@ served customer. A box that rolls because nobody was reachable is not.
 |---|---|---|---|
 | **A** | Dustie Tang | Real AIS ingestion, validated vessel calls, causal arrival updates, and the risk events B consumes | `src/latch/replay.py`, `watcher.py`, `Data Inspection/` |
 | **B** | wcnjing | The agent core: triage, deliberation, gates, locks, the append-only trace | `src/latch/`, `tests/`, `scripts/` |
-| **C** | csgohh | The operator console and the confidence display | `console/` |
+| **C** | csgohh | The operator console: overview, connection workflow, confidence and trace display | `console/` |
 
 The seams between them are structural protocols, not imports, so no workstream
 blocks on another's schedule. `src/latch/models.py` is the shared contract and
@@ -31,9 +31,17 @@ breaking, and announce them.**
 
 ```bash
 uv sync
-uv run pytest                                  # 284 tests
+uv run pytest                                  # 303 tests
 uv run python scripts/run_scenarios.py         # 30 disruption scenarios, no model, instant
 uv run latch --events fixtures/mock_events.json --model fake
+```
+
+Against the real AIS extract (needs `git lfs pull`):
+
+```bash
+uv run python scripts/eval_eta.py                      # arrival error vs observed crossings
+uv run python scripts/eval_detection.py                # detection rate and decision lead time
+uv run python scripts/run_historical.py --model local  # the agent on real timing, no API spend
 ```
 
 The console (workstream C):
@@ -59,28 +67,87 @@ validated — a failure there is a prompt problem.
   — what the AIS data does and does not contain, written before anything was
   built on it.
 - **[console/CONTRACTS.md](console/CONTRACTS.md)** — nine divergences C found
-  between the design sketch and A and B as they actually are. Three have
-  landed; the rest are open and listed.
+  between the design sketch and A and B as they actually are. Four have landed;
+  the remaining five are open and listed, with what each one blocks.
 
 ## Measured, not asserted
 
-Three numbers we can defend, and one we cannot:
+Everything here is computed against observed vessel behaviour. Nothing in this
+section touches the synthetic connection layer, because scoring ourselves
+against labels we wrote would not be a measurement.
 
-- **ETA error against observed crossings**: 0.37 h at 1 hour of lead time,
-  0.89 h at 3 h, 2.76 h at 6 h, 15.93 h at 24 h. The bias is roughly equal to
-  the error at every horizon, because the median vessel spends **76.9 % of its
-  final 24 hours below one knot** — long-range error is queueing, not
-  kinematics. This is why the useful horizon is about six hours, and why
-  "improves with real PSA terminal data" is evidence rather than a wish.
-- **Case registry**: 74.6 % of agent work was redundant before supersession
-  was added.
-- **Cost per risk**: computed from real token counts inside each trace, not
-  averaged after the fact.
-- **Connection-risk accuracy is unmeasurable by construction** and we do not
-  report it. We author the connection labels, so scoring ourselves against
-  them would be scoring our own homework.
+### Arrival prediction
 
+Error against observed boundary crossings: **0.37 h** at 1 hour of lead time,
+**0.89 h** at 3 h, **2.76 h** at 6 h, **15.93 h** at 24 h. The bias is roughly
+equal to the error at every horizon, because the median vessel spends **76.9 %
+of its final 24 hours below one knot** — long-range error is queueing, not
+kinematics. This is why the useful horizon is about six hours, and why
+"improves with real PSA terminal data" is evidence rather than a wish.
 
+### Detection
+
+Of the vessel calls that arrived materially later than the plan in force, what
+share had we flagged, and how often did we cry wolf. Full extract: 609,975
+observations, 1,853 crossings, 260 scored calls, 25 % of which deteriorated.
+
+| | detected | precision | false alarms |
+|---|---|---|---|
+| by T−1h | **78.5 %** | 68.0 % | 12.3 % |
+| by T−3h | 58.5 % | 46.3 % | 22.6 % |
+| by T−6h | **63.1 %** | 44.6 % | 26.2 % |
+
+65 positives, so the intervals are wide and the 3 h and 6 h rows are not
+separable. The false-alarm rate is quoted beside recall every time, and the
+next paragraph is why.
+
+**This measurement nearly shipped broken, and the failure is worth showing.**
+The first version used the raw kinematic ETA as the reference and reported
+100 % detection, 100 % precision and zero false alarms. That was not a good
+detector: the raw estimate is optimistic by 7 h at 12 hours out and nearly 20 h
+at 24 h, so *every* call "deteriorated", no negatives existed, and recall was
+1.0 by construction. The perfect score was the tell. The reference is now
+bias-corrected per lead bucket, and the correction is fitted on the earlier
+half of the month and scored on the later half so it never sees the calls it is
+judged on. See `latch/detection_eval`; `tests/test_detection_eval.py` keeps a
+guard that reproduces the original bug.
+
+Scope, and it belongs beside the number: this is deterioration against our own
+calibrated estimate, not lateness against a berth window PSA published — the
+extract carries no official schedule. It measures the early-warning layer. It
+says nothing about whether the agent's decisions are good.
+
+### Decision lead time
+
+**Median 16.5 h** between the first alarm and the vessel's actual arrival
+(p25 8.2 h, p75 21.2 h, n = 62).
+
+This is what sits where "connections rescued" would go, and the substitution is
+deliberate. Connections rescued requires a counterfactual — what would have
+happened without LATCH — that no dataset contains, so any number in that slot
+would be invented. Lead time is observed, and it is the claim the product
+actually makes: not that boxes were saved, but that the decision reached the
+line while options still existed.
+
+### The agent on real timing
+
+`run_historical.py --model local` runs the real model (qwen3:8b, local, no API
+spend) over real October 2023 AIS rather than scripted responses. From 50,000
+arrival updates: 6,766 risk events, **73.3 % of agent work avoided** by the
+case registry's supersession, 25 admitted cases, 11 served.
+
+Vessel timing there is real and every connection, terminal, box count and
+cut-off is generated. It measures agent behaviour on realistic timing, not
+containers saved.
+
+### What we refuse to report
+
+**Connection-risk accuracy.** We author the connection labels, so scoring
+against them is grading our own homework.
+
+**The vessel's own broadcast ETA as a baseline.** Vessels frequently broadcast
+an ETA for their *next* port rather than Singapore, so beating it would prove
+nothing.
 
 ## Historical AIS Data & Replay
 
@@ -189,19 +256,31 @@ The checksum above can be used to verify that the exact dataset used in our expe
 
 ## What is real and what is not
 
-Stated here as plainly as it is stated on the slide.
+Stated here as plainly as it is stated on the slide, and on the console header
+where it cannot be cropped out of a screen recording.
 
 | Layer | Status |
 |---|---|
-| Vessel timing | Real, from OCEANS-X — subject to the day-1 data gate |
-| Terminal assignment | Carried on every call as `TerminalResolution`: berth, terminal, inferred, or simulated |
-| Connection graph | Synthetic, generated from real liner service rotations, parameters frozen before evaluation |
-| ITT inventory | Synthetic — no public dataset of Singapore ITT capacity exists |
-| Every write action | Stubbed. Interfaces are modelled on `COPRAR` / `IFTMBF` message semantics; the contribution is the decision layer, and the execution layer is deliberately out of scope |
+| Vessel movement | **Real.** One month of Singapore AIS positions, speeds and timestamps — [Mendeley, CC BY 4.0](https://doi.org/10.17632/r37vwd493d.1). See [COMPLIANCE.md](COMPLIANCE.md) |
+| Arrival estimates | **Derived** from that movement by position and current speed alone, causally. Error measured above, not assumed |
+| Terminal assignment | Carried on every call as `TerminalResolution`: berth, terminal, inferred, or simulated. On the historical path it is `simulated`, and the console surfaces that per connection |
+| Connection graph | Synthetic. Generated from real liner service rotations with parameters frozen before evaluation |
+| Box counts and cut-offs | Synthetic. No public source exists |
+| ITT inventory | Synthetic — no public dataset of Singapore inter-terminal capacity exists |
+| Model responses | Scripted in the captured console fixtures, so those traces measure the pipeline rather than the agent. `--model local` runs the real model; see *The agent on real timing* above |
+| Every write action | Stubbed. Interfaces are modelled on `COPRAR` / `IFTMBF` / `IFTSAI` message semantics; the contribution is the decision layer, and execution is deliberately out of scope |
 
 `TerminalResolution` is not decoration. It travels with every vessel call and
 feeds the confidence calculation, so the provenance of the inter-terminal split
-is mechanical rather than rhetorical.
+lowers the agent's own certainty rather than being a caption.
+
+**One thing we do not have.** There is no official scheduled arrival, berth
+assignment or port-call record anywhere in this repository. The AIS extract
+does not contain them, and the vessel's own broadcast ETA is frequently for its
+next port. `POLL_INTERVAL_SEC` and the `oceans_x.vessel_movements` source
+string in fixtures name the feed a production deployment would use; **no
+OCEANS-X data was obtained or used here**, and every "real" claim above rests
+on the Mendeley extract alone.
 
 ## Contracts
 
