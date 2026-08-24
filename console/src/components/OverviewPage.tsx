@@ -90,6 +90,21 @@ export function OverviewPage({
         <Metric label="Served" value={served.length} detail="recorded outcomes" tone="good" />
       </section>
 
+      {/* These four are counts over the captured fixtures. In a row styled like
+          a metrics row they can read as measured results, and "Served 2" in
+          particular reads as a claim about performance. It is not one: no
+          evaluation has been run. Marking the absence is the honest move —
+          reserving a slot for a number we do not have would imply we expect to
+          fill it with a favourable one. */}
+      <p className="metrics-provenance">
+        <span className="metrics-provenance-flag">Pending evaluation</span>
+        <span>
+          Counts above describe the captured scenario fixtures, not measured performance.
+          Detection rate and connections rescued are not shown because workstream A's
+          historical evaluation has not run.
+        </span>
+      </p>
+
       <div className="overview-grid">
         <section className="product-panel attention-panel" data-tour="attention-queue">
           <header className="product-panel-header">
