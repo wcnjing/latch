@@ -1,0 +1,899 @@
+[
+  {
+    "assignment": {
+      "identity": {
+        "destination_terminal": "tuas",
+        "digest": "25fe1aea9f8a6fdb277ce15fd81d54b7c81abe0c5782b8c620757a3bb56c16a5",
+        "origin_terminal": "tuas",
+        "port_un_locode": "SGSIN",
+        "reference_arrival_window": {
+          "inbound_reference_arrival": "2023-10-01T00:00:00.000000Z",
+          "outbound_reference_arrival": "2023-10-01T06:00:00.000000Z"
+        },
+        "sequence": 1,
+        "topology_version": "synthetic-connection-topology-v1",
+        "ucid": "UCID-SGSIN-0001-25FE1AEA9F8A"
+      },
+      "inbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T00:00:00.000000Z",
+        "reference_observed_at": "2023-09-30T23:00:00.000000Z",
+        "source_row_number": 101,
+        "source_type": "real_ais_observation"
+      },
+      "inbound_candidate_id": "candidate_01d312fda79a6eab5382",
+      "inbound_source_call_id": "fixture-call-1",
+      "inbound_vessel_id": "fixture-vessel-1",
+      "outbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T06:00:00.000000Z",
+        "reference_observed_at": "2023-10-01T05:00:00.000000Z",
+        "source_row_number": 102,
+        "source_type": "real_ais_observation"
+      },
+      "outbound_candidate_id": "candidate_4c56248c57ba9e9c9c1e",
+      "outbound_source_call_id": "fixture-call-2",
+      "outbound_vessel_id": "fixture-vessel-2"
+    },
+    "box_count": null,
+    "destination": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSATUA",
+      "tcl_version": "v20260609",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated"
+    },
+    "evidence": [
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "ais_source_fields",
+        "note": "Real timestamped AIS fields retained without synthetic replacement.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "box_count",
+        "note": "Optional exact synthetic volume; impact_band remains required.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "candidate_id",
+        "note": "Canonical digest of identifier-free first-AVAILABLE candidate content.",
+        "source_reference": "latch://synthetic-ucid/pr3-canonical-candidate-digest",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "candidate_pairing",
+        "note": "Pairing is canonical seeded benchmark construction.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_cutoff_lead",
+        "note": "Configured benchmark lead informed by feeder cut-off context; not a PSA rule.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_at",
+        "note": "Inbound reference arrival plus experimental cargo_ready_offset.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_offset",
+        "note": "Single benchmark offset absorbs generic terminal handling before IGT.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "difficulty_band",
+        "note": "Derived from planning margin and frozen experimental thresholds.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "first_available_reference_arrival",
+        "note": "First AVAILABLE causal reference only; no later prediction or crossing outcome.",
+        "source_reference": "latch://replay/pr2-causal-arrival-update",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "impact_band",
+        "note": "Required scenario label; quotas do not claim PSA prevalence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planned_cutoff",
+        "note": "Outbound reference arrival minus configured cargo_cutoff_lead.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planning_margin",
+        "note": "Planned cutoff minus cargo-ready time and configured transfer duration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "process_scenario_configuration",
+        "note": "LOW, REFERENCE, and CONSERVATIVE are test-only sensitivity configurations applied after topology is frozen.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "public_sea_transit_reference",
+        "note": "Approximately 13 nm and four-hour aIGF transit mission profile; evidence metadata only.",
+        "source_reference": "https://www.mpa.gov.sg/api/media/e39c5ffe-8693-4605-b724-e3e5b062f34c/MPA-PSA-aIGF-EOI-Clarifications.pdf",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_gap",
+        "note": "Outbound minus inbound first-AVAILABLE causal reference arrival.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "reference_arrival_gap_band",
+        "note": "Optional topology quota interval over the raw causal reference-arrival gap.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_window",
+        "note": "Immutable interval between paired first-AVAILABLE causal reference arrivals; not an official service window.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "source_call_lineage",
+        "note": "Audit-only PR #2 call grouping derived with the exploratory boundary.",
+        "source_reference": "latch://replay/pr2-retrospective-call-segmentation",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "terminal_assignment",
+        "note": "Candidate-to-terminal assignment is simulated, not observed.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_cluster_context",
+        "note": "MPA/PSA describe Pasir Panjang and Tuas as the main terminal clusters.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_pasir_panjang",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSAPPT.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_tuas",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSATUA.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "topology_version_and_sequence",
+        "note": "Frozen topology/schema version and deterministic connection sequence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_duration",
+        "note": "Actual benchmark duration comes only from scenario configuration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_mode_assignment",
+        "note": "Mode assignment is requested by an explicit quota cell.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "transfer_mode_catalog",
+        "note": "MPA/PSA describe road and sea feeder as real IGT modes.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "ucid_identity",
+        "note": "Connection-slot identity inspired by UCID; not an official assigned UCID.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "vessel_lineage",
+        "note": "Audit-only anonymised AIS vessel identifier; used for self-pair rejection.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      }
+    ],
+    "identity": {
+      "destination_terminal": "tuas",
+      "digest": "25fe1aea9f8a6fdb277ce15fd81d54b7c81abe0c5782b8c620757a3bb56c16a5",
+      "origin_terminal": "tuas",
+      "port_un_locode": "SGSIN",
+      "reference_arrival_window": {
+        "inbound_reference_arrival": "2023-10-01T00:00:00.000000Z",
+        "outbound_reference_arrival": "2023-10-01T06:00:00.000000Z"
+      },
+      "sequence": 1,
+      "topology_version": "synthetic-connection-topology-v1",
+      "ucid": "UCID-SGSIN-0001-25FE1AEA9F8A"
+    },
+    "impact_band": "small",
+    "origin": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSATUA",
+      "tcl_version": "v20260609",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated"
+    },
+    "process_projections": [
+      {
+        "cargo_cutoff_lead": 7200000000,
+        "cargo_ready_at": "2023-10-01T01:00:00.000000Z",
+        "cargo_ready_offset": 3600000000,
+        "difficulty_band": "standard",
+        "planned_cutoff": "2023-10-01T04:00:00.000000Z",
+        "planning_margin": 10800000000,
+        "scenario": "low",
+        "transfer_duration": 0,
+        "transfer_mode": "none"
+      },
+      {
+        "cargo_cutoff_lead": 10800000000,
+        "cargo_ready_at": "2023-10-01T02:00:00.000000Z",
+        "cargo_ready_offset": 7200000000,
+        "difficulty_band": "tight",
+        "planned_cutoff": "2023-10-01T03:00:00.000000Z",
+        "planning_margin": 3600000000,
+        "scenario": "reference",
+        "transfer_duration": 0,
+        "transfer_mode": "none"
+      },
+      {
+        "cargo_cutoff_lead": 14400000000,
+        "cargo_ready_at": "2023-10-01T03:00:00.000000Z",
+        "cargo_ready_offset": 10800000000,
+        "difficulty_band": "infeasible",
+        "planned_cutoff": "2023-10-01T02:00:00.000000Z",
+        "planning_margin": -3600000000,
+        "scenario": "conservative",
+        "transfer_duration": 0,
+        "transfer_mode": "none"
+      }
+    ]
+  },
+  {
+    "assignment": {
+      "identity": {
+        "destination_terminal": "pasir_panjang",
+        "digest": "78a128393972ef482d55a7e6a422d17e8fca832f3970ffb0902d2b7d472a9cbe",
+        "origin_terminal": "tuas",
+        "port_un_locode": "SGSIN",
+        "reference_arrival_window": {
+          "inbound_reference_arrival": "2023-10-01T06:00:00.000000Z",
+          "outbound_reference_arrival": "2023-10-01T09:00:00.000000Z"
+        },
+        "sequence": 2,
+        "topology_version": "synthetic-connection-topology-v1",
+        "ucid": "UCID-SGSIN-0002-78A128393972"
+      },
+      "inbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T06:00:00.000000Z",
+        "reference_observed_at": "2023-10-01T05:00:00.000000Z",
+        "source_row_number": 102,
+        "source_type": "real_ais_observation"
+      },
+      "inbound_candidate_id": "candidate_4c56248c57ba9e9c9c1e",
+      "inbound_source_call_id": "fixture-call-2",
+      "inbound_vessel_id": "fixture-vessel-2",
+      "outbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T09:00:00.000000Z",
+        "reference_observed_at": "2023-10-01T08:00:00.000000Z",
+        "source_row_number": 103,
+        "source_type": "real_ais_observation"
+      },
+      "outbound_candidate_id": "candidate_ecdb60b356b7ce4a128c",
+      "outbound_source_call_id": "fixture-call-3",
+      "outbound_vessel_id": "fixture-vessel-3"
+    },
+    "box_count": 24,
+    "destination": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSAPPT",
+      "tcl_version": "v20260609",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "evidence": [
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "ais_source_fields",
+        "note": "Real timestamped AIS fields retained without synthetic replacement.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "box_count",
+        "note": "Optional exact synthetic volume; impact_band remains required.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "candidate_id",
+        "note": "Canonical digest of identifier-free first-AVAILABLE candidate content.",
+        "source_reference": "latch://synthetic-ucid/pr3-canonical-candidate-digest",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "candidate_pairing",
+        "note": "Pairing is canonical seeded benchmark construction.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_cutoff_lead",
+        "note": "Configured benchmark lead informed by feeder cut-off context; not a PSA rule.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_at",
+        "note": "Inbound reference arrival plus experimental cargo_ready_offset.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_offset",
+        "note": "Single benchmark offset absorbs generic terminal handling before IGT.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "difficulty_band",
+        "note": "Derived from planning margin and frozen experimental thresholds.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "first_available_reference_arrival",
+        "note": "First AVAILABLE causal reference only; no later prediction or crossing outcome.",
+        "source_reference": "latch://replay/pr2-causal-arrival-update",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "impact_band",
+        "note": "Required scenario label; quotas do not claim PSA prevalence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planned_cutoff",
+        "note": "Outbound reference arrival minus configured cargo_cutoff_lead.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planning_margin",
+        "note": "Planned cutoff minus cargo-ready time and configured transfer duration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "process_scenario_configuration",
+        "note": "LOW, REFERENCE, and CONSERVATIVE are test-only sensitivity configurations applied after topology is frozen.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "public_sea_transit_reference",
+        "note": "Approximately 13 nm and four-hour aIGF transit mission profile; evidence metadata only.",
+        "source_reference": "https://www.mpa.gov.sg/api/media/e39c5ffe-8693-4605-b724-e3e5b062f34c/MPA-PSA-aIGF-EOI-Clarifications.pdf",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_gap",
+        "note": "Outbound minus inbound first-AVAILABLE causal reference arrival.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "reference_arrival_gap_band",
+        "note": "Optional topology quota interval over the raw causal reference-arrival gap.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_window",
+        "note": "Immutable interval between paired first-AVAILABLE causal reference arrivals; not an official service window.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "source_call_lineage",
+        "note": "Audit-only PR #2 call grouping derived with the exploratory boundary.",
+        "source_reference": "latch://replay/pr2-retrospective-call-segmentation",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "terminal_assignment",
+        "note": "Candidate-to-terminal assignment is simulated, not observed.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_cluster_context",
+        "note": "MPA/PSA describe Pasir Panjang and Tuas as the main terminal clusters.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_pasir_panjang",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSAPPT.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_tuas",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSATUA.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "topology_version_and_sequence",
+        "note": "Frozen topology/schema version and deterministic connection sequence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_duration",
+        "note": "Actual benchmark duration comes only from scenario configuration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_mode_assignment",
+        "note": "Mode assignment is requested by an explicit quota cell.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "transfer_mode_catalog",
+        "note": "MPA/PSA describe road and sea feeder as real IGT modes.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "ucid_identity",
+        "note": "Connection-slot identity inspired by UCID; not an official assigned UCID.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "vessel_lineage",
+        "note": "Audit-only anonymised AIS vessel identifier; used for self-pair rejection.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      }
+    ],
+    "identity": {
+      "destination_terminal": "pasir_panjang",
+      "digest": "78a128393972ef482d55a7e6a422d17e8fca832f3970ffb0902d2b7d472a9cbe",
+      "origin_terminal": "tuas",
+      "port_un_locode": "SGSIN",
+      "reference_arrival_window": {
+        "inbound_reference_arrival": "2023-10-01T06:00:00.000000Z",
+        "outbound_reference_arrival": "2023-10-01T09:00:00.000000Z"
+      },
+      "sequence": 2,
+      "topology_version": "synthetic-connection-topology-v1",
+      "ucid": "UCID-SGSIN-0002-78A128393972"
+    },
+    "impact_band": "medium",
+    "origin": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSATUA",
+      "tcl_version": "v20260609",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated"
+    },
+    "process_projections": [
+      {
+        "cargo_cutoff_lead": 7200000000,
+        "cargo_ready_at": "2023-10-01T07:00:00.000000Z",
+        "cargo_ready_offset": 3600000000,
+        "difficulty_band": "infeasible",
+        "planned_cutoff": "2023-10-01T07:00:00.000000Z",
+        "planning_margin": -2700000000,
+        "scenario": "low",
+        "transfer_duration": 2700000000,
+        "transfer_mode": "road"
+      },
+      {
+        "cargo_cutoff_lead": 10800000000,
+        "cargo_ready_at": "2023-10-01T08:00:00.000000Z",
+        "cargo_ready_offset": 7200000000,
+        "difficulty_band": "infeasible",
+        "planned_cutoff": "2023-10-01T06:00:00.000000Z",
+        "planning_margin": -10800000000,
+        "scenario": "reference",
+        "transfer_duration": 3600000000,
+        "transfer_mode": "road"
+      },
+      {
+        "cargo_cutoff_lead": 14400000000,
+        "cargo_ready_at": "2023-10-01T09:00:00.000000Z",
+        "cargo_ready_offset": 10800000000,
+        "difficulty_band": "infeasible",
+        "planned_cutoff": "2023-10-01T05:00:00.000000Z",
+        "planning_margin": -21600000000,
+        "scenario": "conservative",
+        "transfer_duration": 7200000000,
+        "transfer_mode": "road"
+      }
+    ]
+  },
+  {
+    "assignment": {
+      "identity": {
+        "destination_terminal": "tuas",
+        "digest": "7ff014230dab9bdcf618a0b44aca18e97c351f7e4f290d29a59ad8fc9da592be",
+        "origin_terminal": "pasir_panjang",
+        "port_un_locode": "SGSIN",
+        "reference_arrival_window": {
+          "inbound_reference_arrival": "2023-10-01T00:00:00.000000Z",
+          "outbound_reference_arrival": "2023-10-01T14:00:00.000000Z"
+        },
+        "sequence": 3,
+        "topology_version": "synthetic-connection-topology-v1",
+        "ucid": "UCID-SGSIN-0003-7FF014230DAB"
+      },
+      "inbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T00:00:00.000000Z",
+        "reference_observed_at": "2023-09-30T23:00:00.000000Z",
+        "source_row_number": 101,
+        "source_type": "real_ais_observation"
+      },
+      "inbound_candidate_id": "candidate_01d312fda79a6eab5382",
+      "inbound_source_call_id": "fixture-call-1",
+      "inbound_vessel_id": "fixture-vessel-1",
+      "outbound_candidate": {
+        "boundary_version": "exploratory-circle-v1",
+        "reference_arrival": "2023-10-01T14:00:00.000000Z",
+        "reference_observed_at": "2023-10-01T13:00:00.000000Z",
+        "source_row_number": 104,
+        "source_type": "real_ais_observation"
+      },
+      "outbound_candidate_id": "candidate_da40ad6f5903c54cbd09",
+      "outbound_source_call_id": "fixture-call-4",
+      "outbound_vessel_id": "fixture-vessel-4"
+    },
+    "box_count": 60,
+    "destination": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSATUA",
+      "tcl_version": "v20260609",
+      "terminal": "tuas",
+      "terminal_resolution": "simulated"
+    },
+    "evidence": [
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "ais_source_fields",
+        "note": "Real timestamped AIS fields retained without synthetic replacement.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "box_count",
+        "note": "Optional exact synthetic volume; impact_band remains required.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "candidate_id",
+        "note": "Canonical digest of identifier-free first-AVAILABLE candidate content.",
+        "source_reference": "latch://synthetic-ucid/pr3-canonical-candidate-digest",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "candidate_pairing",
+        "note": "Pairing is canonical seeded benchmark construction.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_cutoff_lead",
+        "note": "Configured benchmark lead informed by feeder cut-off context; not a PSA rule.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_at",
+        "note": "Inbound reference arrival plus experimental cargo_ready_offset.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "cargo_ready_offset",
+        "note": "Single benchmark offset absorbs generic terminal handling before IGT.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "difficulty_band",
+        "note": "Derived from planning margin and frozen experimental thresholds.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "first_available_reference_arrival",
+        "note": "First AVAILABLE causal reference only; no later prediction or crossing outcome.",
+        "source_reference": "latch://replay/pr2-causal-arrival-update",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "impact_band",
+        "note": "Required scenario label; quotas do not claim PSA prevalence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planned_cutoff",
+        "note": "Outbound reference arrival minus configured cargo_cutoff_lead.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "planning_margin",
+        "note": "Planned cutoff minus cargo-ready time and configured transfer duration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "process_scenario_configuration",
+        "note": "LOW, REFERENCE, and CONSERVATIVE are test-only sensitivity configurations applied after topology is frozen.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "public_sea_transit_reference",
+        "note": "Approximately 13 nm and four-hour aIGF transit mission profile; evidence metadata only.",
+        "source_reference": "https://www.mpa.gov.sg/api/media/e39c5ffe-8693-4605-b724-e3e5b062f34c/MPA-PSA-aIGF-EOI-Clarifications.pdf",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_gap",
+        "note": "Outbound minus inbound first-AVAILABLE causal reference arrival.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "reference_arrival_gap_band",
+        "note": "Optional topology quota interval over the raw causal reference-arrival gap.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "reference_arrival_window",
+        "note": "Immutable interval between paired first-AVAILABLE causal reference arrivals; not an official service window.",
+        "source_reference": "latch://synthetic-ucid/pr3-causal-reference-window",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "source_call_lineage",
+        "note": "Audit-only PR #2 call grouping derived with the exploratory boundary.",
+        "source_reference": "latch://replay/pr2-retrospective-call-segmentation",
+        "value_origin": "derived"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "terminal_assignment",
+        "note": "Candidate-to-terminal assignment is simulated, not observed.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_cluster_context",
+        "note": "MPA/PSA describe Pasir Panjang and Tuas as the main terminal clusters.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_pasir_panjang",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSAPPT.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "terminal_identity_tuas",
+        "note": "SMDG TCL v20260609 identifies SGSIN + PSATUA.",
+        "source_reference": "https://smdg.org/documents/smdg-code-lists/smdg-terminal-code-list/",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "topology_version_and_sequence",
+        "note": "Frozen topology/schema version and deterministic connection sequence.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_duration",
+        "note": "Actual benchmark duration comes only from scenario configuration.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "transfer_mode_assignment",
+        "note": "Mode assignment is requested by an explicit quota cell.",
+        "source_reference": "latch://synthetic-ucid/pr3-experiment-config",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "public_anchor",
+        "field_name": "transfer_mode_catalog",
+        "note": "MPA/PSA describe road and sea feeder as real IGT modes.",
+        "source_reference": "https://www.mpa.gov.sg/docs/mpalibraries/mpa-documents-files/ittd/mpa-psa-expression-of-interest-to-design-and-develop-aigf.pdf?Status=Master&sfvrsn=c6cde904_7",
+        "value_origin": "real"
+      },
+      {
+        "assumption_basis": "experimental",
+        "field_name": "ucid_identity",
+        "note": "Connection-slot identity inspired by UCID; not an official assigned UCID.",
+        "source_reference": "https://unece.org/trade/documents/2025/11/white-paper-transshipment-potential-closer-integration-between-actors",
+        "value_origin": "synthetic"
+      },
+      {
+        "assumption_basis": "not_applicable",
+        "field_name": "vessel_lineage",
+        "note": "Audit-only anonymised AIS vessel identifier; used for self-pair rejection.",
+        "source_reference": "doi:10.17632/r37vwd493d.1",
+        "value_origin": "real"
+      }
+    ],
+    "identity": {
+      "destination_terminal": "tuas",
+      "digest": "7ff014230dab9bdcf618a0b44aca18e97c351f7e4f290d29a59ad8fc9da592be",
+      "origin_terminal": "pasir_panjang",
+      "port_un_locode": "SGSIN",
+      "reference_arrival_window": {
+        "inbound_reference_arrival": "2023-10-01T00:00:00.000000Z",
+        "outbound_reference_arrival": "2023-10-01T14:00:00.000000Z"
+      },
+      "sequence": 3,
+      "topology_version": "synthetic-connection-topology-v1",
+      "ucid": "UCID-SGSIN-0003-7FF014230DAB"
+    },
+    "impact_band": "large",
+    "origin": {
+      "port_un_locode": "SGSIN",
+      "smdg_terminal_code": "PSAPPT",
+      "tcl_version": "v20260609",
+      "terminal": "pasir_panjang",
+      "terminal_resolution": "simulated"
+    },
+    "process_projections": [
+      {
+        "cargo_cutoff_lead": 7200000000,
+        "cargo_ready_at": "2023-10-01T01:00:00.000000Z",
+        "cargo_ready_offset": 3600000000,
+        "difficulty_band": "comfortable",
+        "planned_cutoff": "2023-10-01T12:00:00.000000Z",
+        "planning_margin": 34200000000,
+        "scenario": "low",
+        "transfer_duration": 5400000000,
+        "transfer_mode": "sea"
+      },
+      {
+        "cargo_cutoff_lead": 10800000000,
+        "cargo_ready_at": "2023-10-01T02:00:00.000000Z",
+        "cargo_ready_offset": 7200000000,
+        "difficulty_band": "comfortable",
+        "planned_cutoff": "2023-10-01T11:00:00.000000Z",
+        "planning_margin": 25200000000,
+        "scenario": "reference",
+        "transfer_duration": 7200000000,
+        "transfer_mode": "sea"
+      },
+      {
+        "cargo_cutoff_lead": 14400000000,
+        "cargo_ready_at": "2023-10-01T03:00:00.000000Z",
+        "cargo_ready_offset": 10800000000,
+        "difficulty_band": "standard",
+        "planned_cutoff": "2023-10-01T10:00:00.000000Z",
+        "planning_margin": 14400000000,
+        "scenario": "conservative",
+        "transfer_duration": 10800000000,
+        "transfer_mode": "sea"
+      }
+    ]
+  }
+]
