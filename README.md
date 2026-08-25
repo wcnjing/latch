@@ -269,14 +269,14 @@ and may differ by sensitivity scenario.
 
 The committed fixture is intentionally only three connections, sufficient to
 exercise the contract. Its explicit cells are not a production quota and make
-no claim about PSA prevalence. PR #3 adds no Watcher state, outcome label,
-baseline, risk evaluation, performance metric, agent, UI, or API integration.
+no claim about PSA prevalence. PR #3 itself added no Watcher state, outcome
+label, baseline, risk evaluation, performance metric, agent, UI, or API
+integration.
 
-`latch.synthetic` is not currently wired into the existing runtime/demo
-connection path based on `latch.connections`. Existing Watcher,
-historical-run, demo, console, and deck figures are not outputs of
-`latch.synthetic`. Integrating it with, or replacing, the runtime connection
-layer is a separate future integration decision.
+The PR #4 assessment API now joins `latch.synthetic` connections to PR #2
+causal updates without replacing the legacy runtime/demo path based on
+`latch.connections`. Existing historical-run, demo, console, and deck figures
+remain legacy outputs, not PR #4 historical experiment results.
 
 Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
 candidate count for each quota cell. Historical CSV generation remains
@@ -285,6 +285,52 @@ accepted before enabling full historical generation.
 
 **TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
 PREVALENCE.**
+
+## PR #4 causal connection-risk Watcher
+
+`latch.watcher.assess_connection` dynamically assesses a fixed PR #3 UCID
+using only the latest `AVAILABLE` PR #2 inbound and outbound predictions known
+at or before the requested assessment time. PR #2 timing is derived causally
+from real AIS observations. The connection, terminal assignment, process
+scenario, transfer assumptions, impact and optional box count supplied by PR
+#3 are synthetic. They are not actual PSA connections or operational records.
+
+For the one configured LOW, REFERENCE, or CONSERVATIVE process projection, the
+Watcher recomputes live timing rather than reusing PR #3 reference-time
+projections:
+
+```text
+inbound_cargo_ready_at = inbound_predicted_arrival + cargo_ready_offset
+outbound_cargo_cutoff = outbound_predicted_arrival - cargo_cutoff_lead
+current_plan_ready_at = inbound_cargo_ready_at + transfer_duration
+current_plan_slack = outbound_cargo_cutoff - current_plan_ready_at
+no_itt_slack = outbound_cargo_cutoff - inbound_cargo_ready_at
+```
+
+An available assessment is `SAFE` when slack is greater than the configured
+warning margin, `WATCH` when it is positive and no greater than the margin,
+and `AT_RISK` when it is zero or negative. `UNAVAILABLE` is a separate
+assessment status meaning that one or both causal predictions are absent; it
+is not a risk severity. Terminal prevention is marked avoidable exactly when
+current-plan slack is negative and no-ITT slack is non-negative. Same-terminal
+connections have zero transfer duration and cannot be terminal-prevention
+cases.
+
+The separate **derived reference-delay baseline** uses only the inbound
+prediction and its first-available derived reference:
+
+```text
+delay = inbound_predicted_arrival - inbound_reference_arrival
+alert = delay >= configured_reference_delay_threshold
+```
+
+Both thresholds and every process duration are experimental configuration,
+not PSA or industry operating standards. The Watcher never substitutes a final
+geofence crossing, future update, retrospective eligibility/quality result,
+PR #3 reference-window timestamp, or final outcome. Historical `call_id` is
+used only as an opaque join key; its membership was retrospectively segmented,
+so this benchmark is not represented as a fully live call-discovery system.
+Historical performance labels and metrics remain out of scope for PR #4.
 
 ### Git LFS
 
@@ -317,7 +363,7 @@ where it cannot be cropped out of a screen recording.
 | Arrival estimates | **Derived** from that movement by position and current speed alone, causally. Error measured above, not assumed |
 | Terminal assignment | Carried on every call as `TerminalResolution`: berth, terminal, inferred, or simulated. On the historical path it is `simulated`, and the console surfaces that per connection |
 | Connection graph | Synthetic. Generated from real liner service rotations with parameters frozen before evaluation |
-| PR #3 synthetic benchmark | Separate deterministic `latch.synthetic` contract fixture generated from first-available causal AIS references and frozen quota cells; not wired into `latch.connections` or any current runtime/demo result |
+| PR #3 synthetic benchmark | Deterministic `latch.synthetic` contract fixture generated from first-available causal AIS references and frozen quota cells; PR #4 assesses it through a separate causal API and does not replace `latch.connections` or existing runtime/demo results |
 | Box counts and cut-offs | Synthetic. No public source exists |
 | ITT inventory | Synthetic — no public dataset of Singapore inter-terminal capacity exists |
 | Model responses | Scripted in the captured console fixtures, so those traces measure the pipeline rather than the agent. `--model local` runs the real model; see *The agent on real timing* above |
