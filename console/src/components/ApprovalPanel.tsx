@@ -19,7 +19,7 @@
 
 import type { ApprovalVM, GateVM } from '../adapters/types';
 import { clock } from '../lib/format';
-import type { Branch, Speed } from '../store/useConsole';
+import type { Branch } from '../store/useConsole';
 import { Panel } from './ui';
 
 interface Props {
@@ -27,7 +27,6 @@ interface Props {
   gate: GateVM | null;
   awaiting: boolean;
   secondsLeft: number | null;
-  speed: Speed;
   decided: Branch | null;
   planLabel: string | null;
   onDecide: (branch: Branch) => void;
@@ -64,13 +63,9 @@ const OUTCOME_COPY: Record<Branch, { label: string; body: string; tone: string }
 function Countdown({
   seconds,
   windowMin,
-  speed,
-  source,
 }: {
   seconds: number;
   windowMin: number;
-  speed: Speed;
-  source: 'policy' | 'console-timer';
 }) {
   const total = windowMin * 60;
   const fraction = Math.max(0, Math.min(1, seconds / total));
@@ -80,7 +75,7 @@ function Countdown({
     <div>
       <div className="flex items-baseline justify-between">
         <span className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
-          Auto-declines in
+          Decision closes in
         </span>
         <span className={`tnum text-3xl font-bold ${urgent ? 'text-risk-500' : 'text-watch-500'}`}>
           {clock(seconds)}
@@ -92,12 +87,6 @@ function Countdown({
           style={{ width: `${fraction * 100}%` }}
         />
       </div>
-      <p className="mt-1.5 text-[10px] leading-relaxed text-mist-500">
-        {windowMin}-minute window{speed > 1 && <> · running at {speed}×</>}.{' '}
-        {source === 'policy'
-          ? 'Deadline recorded when approval was requested.'
-          : 'This captured run did not include a recorded approval deadline.'}
-      </p>
     </div>
   );
 }
@@ -107,7 +96,6 @@ export function ApprovalPanel({
   gate,
   awaiting,
   secondsLeft,
-  speed,
   decided,
   planLabel,
   onDecide,
@@ -120,17 +108,12 @@ export function ApprovalPanel({
       <Panel title="Planner review" subtitle={`${approval.roleLabel} owns this recommendation`}>
         <div className="rounded-lg border border-flag-500/40 bg-flag-900/40 p-3">
           <p className="text-sm text-mist-100">
-            This is a notification for the{' '}
-            <span className="font-semibold text-flag-500">{approval.roleLabel}</span>, not a request
-            for permission.
+            Send this plan to <span className="font-semibold text-flag-500">{approval.roleLabel}</span>.
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-mist-400">
             {inactionCopy(approval, gate)}
           </p>
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-mist-500">
-          Share the recommendation with {approval.roleLabel}; no booking is made from this screen.
-        </p>
       </Panel>
     );
   }
@@ -140,15 +123,11 @@ export function ApprovalPanel({
     return (
       <Panel title="Shipping line decision" subtitle="The customer owns the final choice">
         <p className="text-sm text-mist-100">
-          Ranked options have been released to the line. PSA cannot choose for them at any level of
-          seniority.
+          The options have been sent. The shipping line must choose.
         </p>
         <p className="mt-2 text-[11px] leading-relaxed text-mist-400">
           {inactionCopy(approval, gate)}
         </p>
-        {approval.countdown && (
-          <p className="mt-2 text-[11px] text-mist-500">{approval.countdown.note}</p>
-        )}
       </Panel>
     );
   }
@@ -164,18 +143,9 @@ export function ApprovalPanel({
 
   return (
     <Panel
-      title={settled ? 'Decision record' : 'Approval required'}
-      subtitle={settled
-        ? `${approval.roleLabel} decision captured`
-        : planLabel
-          ? `${approval.roleLabel} must approve the selected plan`
-          : `${approval.roleLabel} must approve the recommended plan`}
+      title={settled ? 'Decision recorded' : 'Decision needed'}
+      subtitle={settled ? approval.roleLabel : `Approval by ${approval.roleLabel}`}
       tone={awaiting ? 'alert' : 'default'}
-      right={
-        <span className="rounded-lg border border-watch-500/50 bg-watch-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-watch-500">
-          {settled ? OUTCOME_COPY[settled].label : approval.roleLabel}
-        </span>
-      }
     >
       {planLabel && (
         <div className="selected-approval-plan">
@@ -186,7 +156,7 @@ export function ApprovalPanel({
       {!settled && (
         <div className="rounded-lg border border-ink-900/10 bg-ink-900/[0.025] px-3 py-2">
           <div className="text-[10px] uppercase tracking-[0.12em] text-mist-500">
-            If no decision is made
+            If you wait
           </div>
           <p className="mt-1 text-xs leading-relaxed text-mist-200">{inactionCopy(approval, gate)}</p>
         </div>
@@ -197,8 +167,6 @@ export function ApprovalPanel({
           <Countdown
             seconds={secondsLeft}
             windowMin={approval.countdown.windowMin}
-            source={approval.countdown.source}
-            speed={speed}
           />
         </div>
       )}
@@ -210,7 +178,7 @@ export function ApprovalPanel({
             onClick={() => onDecide('approved')}
             className="flex-1 rounded-lg border border-accent-500 bg-accent-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-600"
           >
-            Approve selected plan
+            Approve plan
           </button>
           <button
             type="button"
@@ -228,15 +196,10 @@ export function ApprovalPanel({
           <p className="mt-1 text-[11px] leading-relaxed text-mist-300">
             {OUTCOME_COPY[settled].body}
           </p>
-          {gate.latencyS ? (
-            <p className="tnum mt-1 text-[10px] text-mist-500">
-              Signature took {gate.latencyS.toFixed(0)}s
-            </p>
-          ) : null}
         </div>
       ) : (
         <p className="mt-4 text-xs text-mist-500">
-          This run is complete. Replay it to take the decision yourself.
+          This decision is closed.
         </p>
       )}
 

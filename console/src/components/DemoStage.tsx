@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react';
 
 import type { ConnectionVM, TimelineEventVM } from '../adapters/types';
 import { latency, signedHours, usd } from '../lib/format';
-import type { Branch, Playback, Speed } from '../store/useConsole';
+import type { Branch, Playback } from '../store/useConsole';
 import { ApprovalPanel } from './ApprovalPanel';
 import { ConfidencePanel } from './ConfidencePanel';
 import { GateTransition } from './GateTransition';
@@ -178,7 +178,6 @@ export function DemoStage({
             gate={c.gate}
             awaiting={playback.awaiting}
             secondsLeft={playback.secondsLeft}
-            speed={playback.speed as Speed}
             decided={playback.branch}
             planLabel={null}
             onDecide={onDecide}

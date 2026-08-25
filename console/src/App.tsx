@@ -4,46 +4,14 @@ import { useEffect, useState } from 'react';
 
 import { ApprovalPanel } from './components/ApprovalPanel';
 import { ConnectionDetail, type PlanSelection } from './components/ConnectionDetail';
-import { OverviewPage } from './components/OverviewPage';
 import { ProductTour } from './components/ProductTour';
 import { RiskQueue } from './components/RiskQueue';
 import { useConsole } from './store/useConsole';
 
-type Page = 'overview' | 'connections';
-
-function Topbar({
-  page,
-  onPage,
-  onGuide,
-}: {
-  page: Page;
-  onPage: (page: Page) => void;
-  onGuide: () => void;
-}) {
+function Topbar({ onGuide }: { onGuide: () => void }) {
   return (
     <header className="topbar">
-      <button type="button" className="wordmark" onClick={() => onPage('overview')}>
-        LATCH
-      </button>
-      <span className="hidden h-4 w-px bg-ink-900/12 sm:block" />
-      <span className="hidden text-[12px] text-mist-500 sm:inline">Operations Console</span>
-
-      <nav className="primary-nav" aria-label="Primary navigation">
-        {([
-          ['overview', 'Overview'],
-          ['connections', 'Connections'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-current={page === id ? 'page' : undefined}
-            onClick={() => onPage(id)}
-            className={page === id ? 'primary-nav-active' : ''}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <span className="wordmark">LATCH</span>
 
       <button type="button" className="guide-button" onClick={onGuide}>
         <span aria-hidden>?</span>
@@ -52,36 +20,14 @@ function Topbar({
 
       <div className="hidden items-center gap-2 text-[11px] md:flex">
         <span className="font-medium text-mist-300">PSA Singapore</span>
-        <span className="text-mist-600">·</span>
-        <span className="text-mist-500">Scenario data</span>
       </div>
     </header>
   );
 }
 
-/**
- * The data-basis sentence, verbatim and always on screen.
- *
- * The wording is read from `provenance.dataBasis` in the captured fixtures
- * rather than typed here, so what the screen claims and what the data claims
- * cannot drift apart. It sits directly under the topbar on every page: the
- * point is that a judge scanning a screen recording sees it without opening
- * anything, and a frame cropped out of context still carries it.
- */
-function DataBasisLine({ basis }: { basis: string | null }) {
-  if (!basis) return null;
-  return (
-    <div className="data-basis-line">
-      <span className="data-basis-label">Data basis</span>
-      <span className="data-basis-text">{basis}</span>
-    </div>
-  );
-}
-
 export default function App() {
   const console_ = useConsole();
-  const { connections, selected, selectedId, playback } = console_;
-  const [page, setPage] = useState<Page>('overview');
+  const { connections, selected, selectedId, playback, select } = console_;
   const [focusDetail, setFocusDetail] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [planSelection, setPlanSelection] = useState<(PlanSelection & { connectionId: string }) | null>(null);
@@ -93,25 +39,32 @@ export default function App() {
       return true;
     }
   });
+  const open = connections.filter((c) => c.lifecycle === 'live');
+  const needsAction = open.filter(
+    (c) => c.approval?.actionable === true && c.gate?.status === 'awaiting',
+  );
+  const pending = open.length - needsAction.length;
+  const tourDecisionId = needsAction[0]?.id ?? null;
+  const showOperatorTools = Boolean(
+    selected?.lifecycle === 'live' &&
+    selected.approval &&
+    selected.gate &&
+    !(selected.state === 'executing' && !selected.outcome),
+  );
 
   useEffect(() => {
     setWorkspaceLoading(true);
     const finish = window.setTimeout(() => setWorkspaceLoading(false), 320);
     return () => window.clearTimeout(finish);
-  }, [page, selectedId]);
+  }, [selectedId]);
 
   useEffect(() => setPlanSelection(null), [selectedId]);
 
   useEffect(() => {
     if (!tourOpen) return;
-    if (tourStep <= 1) {
-      setPage('overview');
-      setFocusDetail(false);
-      return;
-    }
-    setPage('connections');
-    setFocusDetail(tourStep >= 3);
-  }, [tourOpen, tourStep]);
+    if (tourStep >= 2 && tourDecisionId && selectedId !== tourDecisionId) select(tourDecisionId);
+    setFocusDetail(tourStep >= 2);
+  }, [selectedId, select, tourDecisionId, tourOpen, tourStep]);
 
   const closeTour = (completed: boolean) => {
     try {
@@ -120,33 +73,18 @@ export default function App() {
       // The walkthrough remains available from Guide when storage is unavailable.
     }
     setTourOpen(false);
-    if (completed) {
-      setPage('connections');
-      setFocusDetail(true);
-    }
+    if (completed) setFocusDetail(true);
   };
 
-  const openConnection = (id: string) => {
-    console_.select(id);
-    setFocusDetail(true);
-    setPage('connections');
-  };
   return (
     <div className="app-shell flex min-h-full flex-col">
       <div className="ground" aria-hidden />
       <Topbar
-        page={page}
         onGuide={() => {
           setTourStep(0);
           setTourOpen(true);
         }}
-        onPage={(next) => {
-          setPage(next);
-          if (next === 'connections') setFocusDetail(false);
-        }}
       />
-
-      <DataBasisLine basis={connections[0]?.provenance.dataBasis ?? null} />
 
       <div
         className={`workspace-loading-bar ${workspaceLoading ? 'workspace-loading-bar-active' : ''}`}
@@ -160,16 +98,7 @@ export default function App() {
       </div>
 
       <div className="workspace-content">
-        {page === 'overview' && (
-          <OverviewPage
-            connections={connections}
-            onOpen={openConnection}
-            onViewConnections={() => setPage('connections')}
-          />
-        )}
-
-        {page === 'connections' && (
-          <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <header className="workspace-heading">
             <div className="flex items-start gap-3">
               {focusDetail && (
@@ -184,24 +113,28 @@ export default function App() {
               )}
               <div>
               <h1>Connections</h1>
-              <p>Select a connection, understand the risk, review the suggested plans, then take the required decision.</p>
+              <p>
+                {needsAction.length > 0
+                  ? `${needsAction.length} needs your decision`
+                  : 'No decisions needed'}
+                {pending > 0 ? ` · ${pending} in progress` : ''}
+              </p>
               </div>
             </div>
             <span className="text-[11px] text-mist-500">
-              {connections.length} captured connections · SGT
+              {open.length} open · Singapore time
             </span>
           </header>
 
-          <div className={`console-grid ${focusDetail ? 'mobile-detail' : 'mobile-list'} grid min-h-0 flex-1 gap-3 p-4 pt-3`}>
+          <div className={`console-grid ${showOperatorTools ? '' : 'console-grid-no-tools'} ${focusDetail ? 'mobile-detail' : 'mobile-list'} grid min-h-0 flex-1 gap-3 p-4 pt-3`}>
             <div className="connection-list-pane min-h-0">
               <RiskQueue
                 connections={connections}
                 selectedId={selectedId}
                 onSelect={(id) => {
-                  console_.select(id);
+                  select(id);
                   setFocusDetail(true);
                 }}
-                replayingId={playback?.id ?? null}
               />
             </div>
 
@@ -218,47 +151,21 @@ export default function App() {
               )}
             </main>
 
-            <aside className="insight-column min-h-0 space-y-3 overflow-y-auto pr-1" data-tour="operator-tools">
-              {selected && (
-                selected.lifecycle === 'live' && selected.state === 'executing' && !selected.outcome ? (
-                  <section className="product-panel p-4">
-                    <h2 className="text-[14px] font-semibold text-mist-100">Outcome pending</h2>
-                    <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
-                      The plan is in execution. No operator decision is currently required; monitor the Outcome tab for service confirmation.
-                    </p>
-                  </section>
-                ) : selected.lifecycle === 'live' && selected.approval && selected.gate ? (
-                  <ApprovalPanel
-                    approval={selected.approval}
-                    gate={selected.gate}
-                    awaiting={playback?.awaiting === true && playback.id === selected.id}
-                    secondsLeft={playback?.secondsLeft ?? null}
-                    speed={playback?.speed ?? 1}
-                    decided={playback?.id === selected.id ? (playback?.branch ?? null) : null}
-                    planLabel={planSelection?.connectionId === selected.id ? planSelection.label : null}
-                    onDecide={console_.decide}
-                  />
-                ) : selected.outcome ? (
-                  <section className="product-panel p-4">
-                    <h2 className="text-[14px] font-semibold text-mist-100">Recorded outcome</h2>
-                    <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
-                      This connection is complete. Its decision, cargo result, and operational follow-up are captured in the Outcome tab.
-                    </p>
-                  </section>
-                ) : (
-                  <section className="product-panel p-4">
-                    <h2 className="text-[14px] font-semibold text-mist-100">No operator decision required</h2>
-                    <p className="mt-2 text-[11px] leading-relaxed text-mist-500">
-                      This connection has no pending approval. Review its situation or recorded outcome.
-                    </p>
-                  </section>
-                )
-              )}
-            </aside>
+            {showOperatorTools && selected && selected.approval && selected.gate && (
+              <aside className="insight-column min-h-0 space-y-3 overflow-y-auto pr-1" data-tour="operator-tools">
+                <ApprovalPanel
+                  approval={selected.approval}
+                  gate={selected.gate}
+                  awaiting={playback?.awaiting === true && playback.id === selected.id}
+                  secondsLeft={playback?.secondsLeft ?? null}
+                  decided={playback?.id === selected.id ? (playback?.branch ?? null) : null}
+                  planLabel={planSelection?.connectionId === selected.id ? planSelection.label : null}
+                  onDecide={console_.decide}
+                />
+              </aside>
+            )}
           </div>
-          </div>
-        )}
-
+        </div>
       </div>
 
       <ProductTour

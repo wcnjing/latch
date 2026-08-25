@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { ConnectionVM, OptionVM } from '../adapters/types';
 import { hhmm, hoursAndMinutes, pct, signedHours, stamp } from '../lib/format';
-import { Panel, SeverityBadge, StateBadge, Stat } from './ui';
+import { Panel, SeverityBadge, Stat } from './ui';
 
-type View = 'situation' | 'plans' | 'outcome';
+type View = 'situation' | 'plans' | 'actions';
 
 function VesselChip({
   leg,
@@ -40,13 +40,13 @@ function VesselChip({
 
 function PlacementVisual({ c }: { c: ConnectionVM }) {
   const recommendColocation = c.crossesTerminals && c.rescuableByRemovingItt;
-  const historical = c.lifecycle !== 'live';
+  const recordOnly = c.lifecycle !== 'live' || c.state === 'executing';
 
   return (
     <div className="placement-visual">
       <section className="placement-row">
         <header>
-          <span>{historical ? 'Arrangement at detection' : 'Current arrangement'}</span>
+          <span>{recordOnly ? 'Arrangement at detection' : 'Current arrangement'}</span>
           <small>{c.crossesTerminals ? 'Cargo crosses terminals' : 'Already co-located'}</small>
         </header>
         <div className="placement-current-grid">
@@ -68,8 +68,8 @@ function PlacementVisual({ c }: { c: ConnectionVM }) {
       {recommendColocation ? (
         <section className="placement-row placement-row-proposed">
           <header>
-            <span>{historical ? 'Placement considered' : 'Proposed placement'}</span>
-            <small className="placement-recommended-label">{historical ? 'Historical' : 'Recommended'}</small>
+            <span>{recordOnly ? 'Placement considered' : 'Proposed placement'}</span>
+            <small className="placement-recommended-label">{recordOnly ? 'Recorded' : 'Recommended'}</small>
           </header>
           <div className="placement-proposal-grid">
             <div className="placement-terminal placement-terminal-target">
@@ -86,7 +86,7 @@ function PlacementVisual({ c }: { c: ConnectionVM }) {
               <span>Operational effect</span>
               <strong>+{c.slack.ittCostHours.toFixed(1)}h margin</strong>
               <p>No terminal transfer for the boxes.</p>
-              <small>{historical ? 'Historical plan · exact berth required planner confirmation' : 'Proposed only · exact berth requires planner confirmation'}</small>
+              <small>{recordOnly ? 'Plan recorded at decision time' : 'Exact berth requires planner confirmation'}</small>
             </div>
           </div>
         </section>
@@ -100,46 +100,19 @@ function PlacementVisual({ c }: { c: ConnectionVM }) {
   );
 }
 
-function MarginComparison({ c }: { c: ConnectionVM }) {
-  return (
-    <div className="margin-comparison">
-      <div className="margin-option margin-option-current">
-        <span>{c.lifecycle === 'live' ? 'Current plan' : 'Plan at detection'}</span>
-        <strong className={c.slack.currentPlanHours < 0 ? 'text-risk-500' : 'text-safe-500'}>
-          {signedHours(c.slack.currentPlanHours)}
-        </strong>
-        <small>
-          {c.slack.currentPlanHours < 0
-            ? `${hoursAndMinutes(c.slack.currentPlanHours)} — boxes miss the cut-off`
-            : `${hoursAndMinutes(c.slack.currentPlanHours)} of remaining margin`}
-        </small>
-      </div>
-      <div className="margin-arrow" aria-hidden>→</div>
-      <div className="margin-option margin-option-better">
-        <span>Without the terminal transfer</span>
-        <strong className={c.slack.noIttHours < 0 ? 'text-risk-500' : 'text-safe-500'}>
-          {signedHours(c.slack.noIttHours)}
-        </strong>
-        <small>
-          {c.slack.noIttHours > 0
-            ? `${hoursAndMinutes(c.slack.noIttHours)} of usable margin`
-            : 'The connection would still miss its cut-off'}
-        </small>
-      </div>
-    </div>
-  );
-}
-
 function Situation({ c }: { c: ConnectionVM }) {
   const historical = c.lifecycle !== 'live';
+  const executing = c.state === 'executing' && !c.outcome;
   return (
     <div className="space-y-4">
       <section className={`situation-callout ${c.rescuableByRemovingItt ? 'situation-callout-actionable' : ''}`}>
         <div>
-          <span className="text-[11px] font-medium text-mist-500">{historical ? 'Original risk' : 'What needs attention'}</span>
+          <span className="text-[11px] font-medium text-mist-500">{historical ? 'Original risk' : executing ? 'Connection status' : 'What needs attention'}</span>
           <h2>
             {historical
-              ? `This connection is closed as ${c.stateLabel.toLowerCase()}.`
+              ? 'This connection is closed.'
+              : executing
+                ? 'The recovery plan is in progress.'
               : c.slack.currentPlanHours < 0
               ? `This connection misses its cut-off by ${hoursAndMinutes(c.slack.currentPlanHours).replace(' short', '')}.`
               : `This connection has ${hoursAndMinutes(c.slack.currentPlanHours)} of margin remaining.`}
@@ -147,6 +120,8 @@ function Situation({ c }: { c: ConnectionVM }) {
           <p>
             {historical
               ? c.outcome?.what ?? c.stateNote ?? 'The captured risk is retained here for historical review.'
+              : executing
+                ? `${c.boxes} boxes are being monitored while operations confirms the service result.`
               : c.rescuableByRemovingItt
               ? `Keeping both vessels at one terminal restores ${c.slack.ittCostHours.toFixed(1)} hours and makes the connection viable.`
               : c.crossesTerminals
@@ -156,36 +131,18 @@ function Situation({ c }: { c: ConnectionVM }) {
         </div>
         {historical
           ? <span className="situation-tag situation-tag-closed">Closed</span>
+          : executing
+            ? <span className="situation-tag">In progress</span>
           : c.rescuableByRemovingItt && <span className="situation-tag">Recoverable</span>}
       </section>
 
       <Panel
-        title={historical ? 'Vessel placement record' : 'Vessel placement'}
-        subtitle={historical ? 'Captured arrangement and the plan considered at the time' : 'Current terminal calls and the proposed co-location plan'}
+        title={historical || executing ? 'Vessel placement record' : 'Vessel placement'}
+        subtitle={historical || executing ? 'Arrangement and placement considered at decision time' : 'Current calls and proposed placement'}
       >
         <PlacementVisual c={c} />
       </Panel>
 
-      <Panel
-        title={historical ? 'Historical connection margin' : 'Connection margin'}
-        subtitle={historical ? 'Margin captured when the risk was detected' : 'The operational effect of removing the terminal transfer'}
-      >
-        <MarginComparison c={c} />
-      </Panel>
-
-      <Panel title={historical ? 'Why this connection was flagged' : 'Why this connection is at risk'}>
-        <div className="operator-reasons">
-          {c.reasons.map((reason) => (
-            <div key={reason.code}>
-              <span className="reason-dot" />
-              <div>
-                <strong>{reason.title}</strong>
-                <p>{reason.detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </div>
   );
 }
@@ -380,8 +337,8 @@ function SuggestedPlans({
     <div className="space-y-4">
       <section className="plan-intro">
         <div>
-          <h2>Suggested recovery plans</h2>
-          <p>Distinct strategies are shown once. Select a plan to inspect its operational steps.</p>
+          <h2>Plans</h2>
+          <p>Compare the options, then select one for approval.</p>
         </div>
         <span>{plans.length} option{plans.length === 1 ? '' : 's'}</span>
       </section>
@@ -437,217 +394,257 @@ function SuggestedPlans({
         />
       )}
 
-      <section className="next-decision">
-        <div>
-          <span>Next step</span>
-          <strong>
-            {c.lifecycle !== 'live'
-              ? 'This plan is historical; review the recorded outcome'
-              : c.state === 'executing'
-                ? 'Monitor execution and confirm the service result'
-                : c.gate?.needsCustomer
-                  ? 'Release the alternatives to the shipping line'
-                  : c.gate?.blocks
-                    ? `Get approval from ${c.gate.requiredRoleLabel}`
-                    : c.approval?.handoff
-                      ? `Hand the recommendation to ${c.approval.roleLabel}`
-                      : 'Proceed with the recommended plan'}
-          </strong>
-        </div>
-        <span className="text-[18px] text-accent-500" aria-hidden>→</span>
-      </section>
     </div>
   );
 }
 
-function OutcomeFact({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="outcome-fact">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </div>
-  );
-}
+type OperatorAction = { title: string; detail: string; owner: string };
 
-function Outcome({ c, selectedPlanLabel }: { c: ConnectionVM; selectedPlanLabel: string | null }) {
-  if (!c.outcome) {
-    const executionPending = c.lifecycle === 'live' && (
-      c.state === 'executing' || c.gate?.status === 'approved'
-    );
-
-    if (executionPending) {
-      const chosen = c.options.find((option) => option.status === 'chosen') ?? null;
-      const releasedPlan = selectedPlanLabel ?? (chosen ? planTitle(chosen, c) : 'Recovery plan');
-      return (
-        <section className="pending-outcome-panel execution-outcome-panel">
-          <header>
-            <span>Execution in progress</span>
-            <h2>Waiting for the service outcome</h2>
-            <p>The decision is complete and the plan has been released. No further approval is needed right now.</p>
-          </header>
-          <div className="execution-outcome-status">
-            <div className="execution-outcome-bar" role="status" aria-label="Waiting for service confirmation">
-              <span />
-            </div>
-            <div className="execution-outcome-steps">
-              <article className="execution-step execution-step-complete">
-                <span>✓</span>
-                <div>
-                  <strong>Decision captured</strong>
-                  <small>{c.gate?.status === 'approved' ? 'Approved for execution' : 'No approval required'}</small>
-                </div>
-              </article>
-              <article className="execution-step execution-step-active">
-                <span>2</span>
-                <div>
-                  <strong>Plan in execution</strong>
-                  <small>{releasedPlan}</small>
-                </div>
-              </article>
-              <article className="execution-step">
-                <span>3</span>
-                <div>
-                  <strong>Outcome pending</strong>
-                  <small>Waiting for terminal service confirmation</small>
-                </div>
-              </article>
-            </div>
-          </div>
-          <footer className="execution-outcome-note">
-            <span>{c.boxes} boxes being monitored</span>
-            <strong>Refreshes when the operational result is recorded</strong>
-          </footer>
-        </section>
-      );
-    }
-
-    return (
-      <section className="pending-outcome-panel">
-        <header>
-          <span>Awaiting operator decision</span>
-          <h2>No outcome has been recorded yet</h2>
-          <p>Approve, decline, or let the window close. The recorded outcome will replace these possible paths.</p>
-        </header>
-        <div className="outcome-paths">
-          <article className="outcome-path outcome-path-good">
-            <span>Approve</span>
-            <strong>Execute the recommended plan</strong>
-            <p>The selected movement is released and the connection continues toward service.</p>
-          </article>
-          <article className="outcome-path">
-            <span>Decline</span>
-            <strong>Do not book the recovery</strong>
-            <p>Nothing is committed and the boxes move to the next available service.</p>
-          </article>
-          <article className="outcome-path">
-            <span>No response</span>
-            <strong>Window closes automatically</strong>
-            <p>The plan is auto-declined and the lapse is recorded separately.</p>
-          </article>
-        </div>
-      </section>
-    );
+function mailboxFor(contact: string): string {
+  const normalised = contact.toLowerCase();
+  if (normalised.includes('shipping line')) return 'duty.operations@carrier.example';
+  if (normalised.includes('customer')) return 'customer.operations@terminal.example';
+  if (normalised.includes('duty manager')) return 'duty.manager@terminal.example';
+  if (normalised.includes('vessel planning')) return 'vessel.planning@terminal.example';
+  if (normalised.includes('vessel operations')) return 'vessel.operations@terminal.example';
+  if (normalised.includes('terminal operations')) {
+    const terminal = normalised.replace('terminal operations', '').trim().replaceAll(' ', '.');
+    return `${terminal || 'terminal'}.operations@terminal.example`;
   }
+  return 'operations@terminal.example';
+}
 
-  const tone =
-    c.outcome.tone === 'good'
-      ? 'outcome-good'
-      : c.outcome.tone === 'bad' || c.outcome.tone === 'fault'
-        ? 'outcome-bad'
-        : 'outcome-neutral';
-
+function Actions({
+  c,
+  selectedPlanKey,
+  selectedPlanLabel,
+  onOpenPlans,
+}: {
+  c: ConnectionVM;
+  selectedPlanKey: string | null;
+  selectedPlanLabel: string | null;
+  onOpenPlans: () => void;
+}) {
   const chosen = c.options.find((option) => option.status === 'chosen') ?? null;
-  const planWasExecuted = c.outcome.serviceSuccess === true || c.gate?.status === 'approved';
-  const proposedPlan = selectedPlanLabel ?? (chosen ? planTitle(chosen, c) : null);
-  const executedPlan = planWasExecuted
-    ? proposedPlan ?? 'Executed plan was not recorded'
-    : proposedPlan
-      ? `Not executed · ${proposedPlan} was proposed`
-      : 'No recovery plan was executed';
-  const decision =
-    c.gate?.status === 'approved'
-      ? 'Approved'
-      : c.gate?.status === 'rejected'
-        ? 'Declined'
-        : c.gate?.status === 'lapsed'
-          ? 'Window lapsed'
-          : c.outcome.customerGate
-            ? 'Shipping line decision'
-            : 'Recorded automatically';
-  const owner = c.outcome.reachedTheLine
-    ? 'Shipping line'
-    : c.gate?.requiredRoleLabel ?? (c.outcome.agentFault ? 'System' : 'Terminal Operations');
-  const cargoResult = c.outcome.serviceSuccess === true
-    ? `${c.boxes} boxes served`
-    : c.outcome.serviceSuccess === false
-      ? `${c.boxes} boxes rolled`
-      : `${c.boxes} boxes recorded`;
-  const customerContact = c.outcome.reachedTheLine === true
-    ? c.outcome.customerGate
-      ? `Yes · ${c.outcome.customerGate.optionsSent} option${c.outcome.customerGate.optionsSent === 1 ? '' : 's'} sent`
-      : 'Yes'
-    : c.outcome.reachedTheLine === false
-      ? 'No · resolved internally'
-      : 'Not recorded';
-  const metricStatus = c.outcome.excludedFromMetric === true
-    ? 'Excluded'
-    : c.outcome.excludedFromMetric === false
-      ? 'Included'
-      : 'Not recorded';
+  const planKey = selectedPlanKey ?? chosen?.rung.name ?? null;
+  const planLabel = selectedPlanLabel ?? (chosen ? planTitle(chosen, c) : 'the selected recovery plan');
+  const executionPending = c.lifecycle === 'live' && c.state === 'executing' && !c.outcome;
+  const decisionNeeded = c.lifecycle === 'live' && c.approval?.actionable === true && c.gate?.status === 'awaiting';
+  const successful = c.outcome?.serviceSuccess === true;
+  const [copied, setCopied] = useState(false);
+
+  let title: string;
+  let summary: string;
+  let contact: string;
+  let where: string;
+  let subject: string;
+  let message: string;
+  let actions: OperatorAction[];
+
+  if (decisionNeeded) {
+    const operationalContact = planKey === 'PREVENT'
+      ? `${c.inbound.terminalLabel} berth planner`
+      : planKey === 'OFFER'
+        ? 'Shipping line duty contact'
+        : 'Inter-terminal transfer desk';
+    const operationalLocation = planKey === 'PREVENT'
+      ? `${c.inbound.terminalLabel} vessel planning desk`
+      : planKey === 'OFFER'
+        ? 'Customer communications queue'
+        : `${c.inbound.terminalLabel} transfer desk`;
+    title = 'Choose, approve, and issue the plan';
+    summary = `${c.boxes} boxes need an approved recovery instruction before the decision window closes.`;
+    contact = c.gate?.requiredRoleLabel ?? 'Vessel Operations';
+    where = 'Approval panel on this page';
+    subject = `${c.id} — approval required for ${planLabel}`;
+    actions = [
+      {
+        title: 'Choose the recovery plan',
+        detail: 'Open Plans, compare the viable options, and select one for approval.',
+        owner: 'You',
+      },
+      {
+        title: 'Get the operational approval',
+        detail: `Ask ${contact} to approve ${planLabel}.`,
+        owner: contact,
+      },
+      {
+        title: 'Issue the instruction',
+        detail: `Send the approved plan to ${operationalContact} at the ${operationalLocation}.`,
+        owner: operationalContact,
+      },
+    ];
+    message = `${c.id} — approval requested for ${planLabel}. ${c.boxes} boxes connect from ${c.inbound.name} at ${c.inbound.terminalLabel} to ${c.outbound.name} at ${c.outbound.terminalLabel}. Current margin is ${signedHours(c.slack.currentPlanHours)}. Please confirm approval and operational capacity.`;
+  } else if (executionPending) {
+    title = 'Confirm the recovery is complete';
+    summary = `${planLabel} is in progress. Follow the handoff through to terminal receipt and loading confirmation.`;
+    contact = `${c.outbound.terminalLabel} Terminal Operations`;
+    where = `${c.inbound.terminalLabel} → ${c.outbound.terminalLabel} operations channel`;
+    subject = `${c.id} — confirm terminal receipt and loading status`;
+    actions = [
+      {
+        title: 'Check the current movement',
+        detail: `Confirm all ${c.boxes} boxes have left ${c.inbound.terminalLabel}.`,
+        owner: `${c.inbound.terminalLabel} Terminal Operations`,
+      },
+      {
+        title: 'Confirm terminal receipt',
+        detail: `Ask ${c.outbound.terminalLabel} to confirm the boxes are received and staged.`,
+        owner: contact,
+      },
+      {
+        title: 'Record the loading result',
+        detail: `Confirm whether the boxes loaded on ${c.outbound.name}, then close or rebook the connection.`,
+        owner: 'Vessel Operations',
+      },
+    ];
+    message = `${c.id} — status check for ${planLabel}. Please confirm movement and terminal receipt for ${c.boxes} boxes from ${c.inbound.terminalLabel} to ${c.outbound.terminalLabel}, and advise whether loading on ${c.outbound.name} remains on track.`;
+  } else if (c.outcome) {
+    title = successful ? 'Close the operational follow-up' : 'Rebook and notify the shipping line';
+    summary = successful
+      ? `${c.boxes} boxes were served. Confirm the final loading record and close the customer update.`
+      : `${c.boxes} boxes were not served. Move them to the next available service and send the revised routing.`;
+    contact = successful ? `${c.outbound.terminalLabel} Terminal Operations` : 'Shipping line service desk';
+    where = successful ? `${c.outbound.terminalLabel} loading desk` : 'Customer booking queue';
+    subject = successful
+      ? `${c.id} — final loading confirmation`
+      : `${c.id} — rebooking required for ${c.boxes} boxes`;
+    actions = successful
+      ? [
+          {
+            title: 'Confirm final loading',
+            detail: `Check that all ${c.boxes} boxes are recorded against ${c.outbound.name}.`,
+            owner: contact,
+          },
+          {
+            title: 'Close the customer update',
+            detail: 'Send the final service confirmation and close the connection record.',
+            owner: 'Customer Operations',
+          },
+        ]
+      : [
+          {
+            title: 'Find the next service',
+            detail: `Rebook all ${c.boxes} boxes from ${c.outbound.terminalLabel}.`,
+            owner: 'Shipping line service desk',
+          },
+          {
+            title: 'Send the revised routing',
+            detail: 'Share the new vessel, cut-off, and booking reference with terminal operations.',
+            owner: 'Customer Operations',
+          },
+          {
+            title: 'Update the connection record',
+            detail: 'Attach the revised booking and close the rolled connection.',
+            owner: 'Vessel Operations',
+          },
+        ];
+    message = successful
+      ? `${c.id} — please confirm final loading for all ${c.boxes} boxes on ${c.outbound.name} at ${c.outbound.terminalLabel}. Once confirmed, we will close the connection record.`
+      : `${c.id} — ${c.boxes} boxes were not served on ${c.outbound.name}. Please confirm the next available onward service from ${c.outbound.terminalLabel} and return the revised vessel, cut-off, and booking reference.`;
+  } else {
+    title = 'Verify the connection before acting';
+    summary = 'The latest operational state is incomplete. Confirm the vessel calls before issuing a recovery instruction.';
+    contact = 'Vessel planning desk';
+    where = `${c.inbound.terminalLabel} and ${c.outbound.terminalLabel} operations channels`;
+    subject = `${c.id} — verify vessel call details`;
+    actions = [
+      {
+        title: 'Verify both vessel calls',
+        detail: `Confirm the latest estimates for ${c.inbound.name} and ${c.outbound.name}.`,
+        owner: contact,
+      },
+      {
+        title: 'Re-open only if the risk remains',
+        detail: 'Create a new connection review with the confirmed terminal and timing data.',
+        owner: 'Vessel Operations',
+      },
+    ];
+    message = `${c.id} — please confirm the current terminal and estimated time for ${c.inbound.name} and ${c.outbound.name}. The connection record is incomplete and should not be acted on until both calls are verified.`;
+  }
+  const emailAddress = mailboxFor(contact);
+  const emailBody = `Hello ${contact},\n\n${message}\n\nPlease reply with confirmation and any operational constraints.\n\nRegards,\nTerminal Operations`;
+  const emailDraft = `To: ${emailAddress}\nSubject: ${subject}\n\n${emailBody}`;
+  const mailto = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(emailDraft);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
-    <section className={`operator-outcome ${tone}`}>
-      <header className="outcome-hero">
+    <section className="action-workspace">
+      <header className="action-hero">
         <div>
-          <span>{c.outcome.badge}</span>
-          <h2>{c.outcome.label}</h2>
-          <p className="outcome-what">{c.outcome.what}</p>
+          <span>Operator actions</span>
+          <h2>{title}</h2>
+          <p>{summary}</p>
         </div>
-        <span className="outcome-recorded-chip">Recorded outcome</span>
+        {decisionNeeded && (
+          <button type="button" className="button-primary" onClick={onOpenPlans}>
+            Review plans
+          </button>
+        )}
       </header>
 
-      <div className="outcome-facts">
-        <OutcomeFact
-          label="Cargo result"
-          value={cargoResult}
-          detail={c.outcome.serviceSuccess === true ? 'Outbound service protected' : c.outcome.what}
-        />
-        <OutcomeFact label="Decision" value={decision} detail={`Owned by ${owner}`} />
-        <OutcomeFact label="Customer contacted" value={customerContact} detail={c.outcome.reachedTheLine ? 'External decision path' : 'Internal decision path'} />
-        <OutcomeFact label="Service metric" value={metricStatus} detail={c.outcome.why} />
+      <div className="action-grid">
+        <section className="action-checklist">
+          <h3>Do this next</h3>
+          <ol>
+            {actions.map((action, index) => (
+              <li key={action.title}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{action.title}</strong>
+                  <p>{action.detail}</p>
+                  <small>{action.owner}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <aside className="action-contact-card">
+          <span>Who to contact</span>
+          <strong>{contact}</strong>
+          <a href={`mailto:${emailAddress}`}>{emailAddress}</a>
+          <dl>
+            <div>
+              <dt>Where</dt>
+              <dd>{where}</dd>
+            </div>
+            <div>
+              <dt>Connection</dt>
+              <dd>{c.id}</dd>
+            </div>
+          </dl>
+        </aside>
       </div>
 
-      <div className="outcome-detail-grid">
-        <section>
-          <h3>Execution record</h3>
-          <dl>
-            <div><dt>Plan</dt><dd>{executedPlan}</dd></div>
-            <div><dt>Route</dt><dd>{c.inbound.terminalLabel} → {c.outbound.terminalLabel}</dd></div>
-            <div><dt>Decision owner</dt><dd>{owner}</dd></div>
-            <div><dt>Connection</dt><dd>{c.id}</dd></div>
-          </dl>
-        </section>
-        <section>
-          <h3>Operational follow-up</h3>
-          <dl>
-            <div><dt>Boxes</dt><dd>{c.boxes}</dd></div>
-            <div><dt>Result</dt><dd>{c.outcome.what}</dd></div>
-            <div><dt>Customer</dt><dd>{customerContact}</dd></div>
-            <div><dt>Next action</dt><dd>{c.outcome.serviceSuccess ? 'Monitor final loading confirmation' : 'Rebook on the next available service'}</dd></div>
-          </dl>
-        </section>
-      </div>
-
-      {c.outcome.customerGate && (
-        <div className="outcome-customer-record">
-          <span>Shipping line window</span>
-          <strong>
-            {c.outcome.customerGate.optionsSent} option{c.outcome.customerGate.optionsSent === 1 ? '' : 's'} ·{' '}
-            {c.outcome.customerGate.windowMin} minutes · {c.outcome.customerGate.outcome}
-          </strong>
-        </div>
-      )}
+      <section className="action-message-card">
+        <header>
+          <div>
+            <span>Email draft</span>
+            <h3>Ready for review</h3>
+          </div>
+          <div className="action-message-actions">
+            <button type="button" className="button-secondary" onClick={copyMessage}>
+              {copied ? 'Copied' : 'Copy email'}
+            </button>
+            <a className="button-primary" href={mailto}>Open email</a>
+          </div>
+        </header>
+        <dl className="action-email-fields">
+          <div><dt>To</dt><dd>{emailAddress}</dd></div>
+          <div><dt>Subject</dt><dd>{subject}</dd></div>
+        </dl>
+        <div className="action-email-body">{emailBody}</div>
+      </section>
     </section>
   );
 }
@@ -665,6 +662,7 @@ export function ConnectionDetail({
 }) {
   const [view, setView] = useState<View>('situation');
   const detailRef = useRef<HTMLDivElement>(null);
+  const outcomePending = c.lifecycle === 'live' && c.state === 'executing' && !c.outcome;
 
   useEffect(() => setView('situation'), [c.id]);
 
@@ -689,43 +687,26 @@ export function ConnectionDetail({
     <div ref={detailRef} className="space-y-4" data-tour="connection-detail">
       <section className="connection-summary">
         <div className="flex flex-wrap items-center gap-3">
-          <SeverityBadge label={c.severityLabel} big />
+          <SeverityBadge label={c.lifecycle === 'live' ? c.severityLabel : 'CLOSED'} big />
           <h1 className="font-mono text-[18px] font-semibold text-mist-100">{c.id}</h1>
-          <StateBadge label={c.stateLabel} />
-          <span className="ml-auto hidden font-mono text-[10px] text-mist-600 sm:inline">{c.ucid}</span>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Stat label="Boxes affected" value={c.boxes} hint="on this connection" />
-          {c.lifecycle === 'live' ? (
-            <>
-              <Stat
-                label="Current margin"
-                value={signedHours(c.slack.currentPlanHours)}
-                hint={`${pct(c.slack.consumedPct)} of the window used`}
-                tone={c.slack.currentPlanHours < 0 ? 'bad' : 'good'}
-              />
-              <Stat
-                label="Transfer effect"
-                value={`+${c.slack.ittCostHours.toFixed(1)}h`}
-                hint={c.crossesTerminals ? 'available if transfer is removed' : 'no transfer involved'}
-                tone={c.rescuableByRemovingItt ? 'good' : 'default'}
-              />
-            </>
-          ) : (
-            <>
-              <Stat
-                label="Final status"
-                value={c.outcome?.serviceSuccess === true ? 'Served' : c.outcome ? 'Not served' : c.stateLabel}
-                hint={c.outcome?.label ?? c.stateNote ?? 'Connection closed'}
-                tone={c.outcome?.serviceSuccess === true ? 'good' : c.outcome ? 'bad' : 'default'}
-              />
-              <Stat
-                label="Decision path"
-                value={c.outcome?.reachedTheLine ? 'Customer' : 'Internal'}
-                hint={c.outcome?.reachedTheLine ? 'shipping line contacted' : 'resolved within operations'}
-              />
-            </>
-          )}
+          {!outcomePending && c.lifecycle === 'live' ? (
+            <Stat
+              label="Current margin"
+              value={signedHours(c.slack.currentPlanHours)}
+              hint={`${pct(c.slack.consumedPct)} of the window used`}
+              tone={c.slack.currentPlanHours < 0 ? 'bad' : 'good'}
+            />
+          ) : c.lifecycle !== 'live' ? (
+            <Stat
+              label="Final status"
+              value={c.outcome?.serviceSuccess === true ? 'Served' : c.outcome ? 'Not served' : c.stateLabel}
+              hint={c.outcome?.label ?? c.stateNote ?? 'Connection closed'}
+              tone={c.outcome?.serviceSuccess === true ? 'good' : c.outcome ? 'bad' : 'default'}
+            />
+          ) : null}
           <Stat label="Detected" value={<span className="text-[14px]">{stamp(c.detectedAt)}</span>} hint="Singapore time" />
         </div>
       </section>
@@ -733,8 +714,8 @@ export function ConnectionDetail({
       <nav className="detail-tabs operator-detail-tabs" role="tablist" aria-label="Connection workflow" data-tour="connection-workflow">
         {([
           ['situation', 'Situation'],
-          ['plans', 'Suggested plans'],
-          ['outcome', 'Outcome'],
+          ['plans', 'Plans'],
+          ['actions', 'Actions'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -753,7 +734,14 @@ export function ConnectionDetail({
       {view === 'plans' && (
         <SuggestedPlans c={c} selectedPlanKey={selectedPlanKey} onPlanSelect={onPlanSelect} />
       )}
-      {view === 'outcome' && <Outcome c={c} selectedPlanLabel={selectedPlanLabel} />}
+      {view === 'actions' && (
+        <Actions
+          c={c}
+          selectedPlanKey={selectedPlanKey}
+          selectedPlanLabel={selectedPlanLabel}
+          onOpenPlans={() => setView('plans')}
+        />
+      )}
     </div>
   );
 }

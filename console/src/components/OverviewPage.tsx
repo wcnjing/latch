@@ -95,20 +95,8 @@ function HeadlineCase({ c, onOpen }: { c: ConnectionVM; onOpen: (id: string) => 
         </div>
       </div>
 
-      {/* The escalation sentence is the product in one line: nobody lowered the
-          confidence, and the gate moved the decision to a named human on its
-          own. It belongs on the landing screen, not three clicks in. */}
-      {c.gate?.escalation && c.confidence && (
-        <p className="headline-case-escalation">
-          Confidence landed at <strong className="tnum">{c.confidence.value.toFixed(2)}</strong>, so
-          the agent could not act alone — it escalated from{' '}
-          <em>{c.gate.escalation.wouldHaveBeenLabel}</em> to{' '}
-          <strong>{c.gate.escalation.becameLabel}</strong>.
-        </p>
-      )}
-
       <button type="button" className="button-primary headline-case-action" onClick={() => onOpen(c.id)}>
-        Review this connection
+        Review connection
       </button>
     </section>
   );
@@ -130,7 +118,6 @@ export function OverviewPage({
   const pendingOutcome = live.filter(
     (c) => !c.outcome && !needsAction.some((item) => item.id === c.id),
   );
-  const served = connections.filter((c) => c.outcome?.serviceSuccess === true);
   const recent = connections.filter((c) => c.outcome).slice(0, 5);
 
   // The decision that cannot wait outranks work that is merely in flight.
@@ -140,21 +127,19 @@ export function OverviewPage({
   return (
     <main className="overview-page">
       <header className="landing-heading">
-        <p className="landing-eyebrow">LATCH · Look-Ahead Transhipment Connection Handler</p>
+        <p className="landing-eyebrow">Today’s transhipment connections</p>
         <h1>
-          {spell(live.length)} connection{live.length === 1 ? '' : 's'}{' '}
-          {live.length === 1 ? 'is' : 'are'} losing the slack {live.length === 1 ? 'it needs' : 'they need'}{' '}
-          to make {live.length === 1 ? 'its' : 'their'} outbound ship.
+          {spell(live.length)} open connection{live.length === 1 ? '' : 's'}.
         </h1>
         {needsAction.length > 0 ? (
           <p className="landing-sub">
-            {spell(needsAction.length)} need{needsAction.length === 1 ? 's' : ''} a decision from you
-            now. The rest are running.
+            {spell(needsAction.length)} need{needsAction.length === 1 ? 's' : ''} your decision now.{' '}
+            {pendingOutcome.length > 0 && `${spell(pendingOutcome.length)} ${pendingOutcome.length === 1 ? 'is' : 'are'} in progress.`}
           </p>
         ) : (
           <p className="landing-sub">
-            None is waiting on a decision. {spell(pendingOutcome.length)}{' '}
-            {pendingOutcome.length === 1 ? 'is' : 'are'} executing a released plan.
+            Nothing needs a decision. {spell(pendingOutcome.length)}{' '}
+            {pendingOutcome.length === 1 ? 'is' : 'are'} in progress.
           </p>
         )}
       </header>
@@ -176,10 +161,10 @@ export function OverviewPage({
           <header className="product-panel-header">
             <div>
               <h2>Also open</h2>
-              <p>Plans released and running, with no outcome recorded yet.</p>
+              <p>Plans in progress and waiting for confirmation.</p>
             </div>
             <button type="button" className="text-action" onClick={onViewConnections}>
-              View all {connections.length}
+              View open connections
             </button>
           </header>
 
@@ -230,7 +215,7 @@ export function OverviewPage({
           </div>
         </section>
 
-        <aside className="space-y-3">
+        <aside>
           <section className="product-panel">
             <header className="product-panel-header">
               <div>
@@ -254,30 +239,6 @@ export function OverviewPage({
             </div>
           </section>
 
-          {/* The counts, demoted to what they are: an index of the queue. They
-              led the page before, at a size that made four small integers read
-              as measured results — which is why they needed a disclaimer to
-              undo. The note stays, attached to the thing it qualifies. */}
-          <section className="tally-panel">
-            <div className="tally-row">
-              <span>Awaiting a decision</span>
-              <strong className="tnum text-risk-500">{needsAction.length}</strong>
-            </div>
-            <div className="tally-row">
-              <span>Running</span>
-              <strong className="tnum">{pendingOutcome.length}</strong>
-            </div>
-            <div className="tally-row">
-              <span>Customer held a live decision</span>
-              <strong className="tnum text-safe-500">{served.length}</strong>
-            </div>
-            <p className="tally-note">
-              <span className="metrics-provenance-flag">Pending evaluation</span>
-              Counts over the captured scenario fixtures, not measured performance. Detection rate
-              and connections rescued are not shown because workstream A's historical evaluation has
-              not run.
-            </p>
-          </section>
         </aside>
       </div>
     </main>

@@ -8,32 +8,32 @@ const STEPS: readonly TourStep[] = [
   {
     eyebrow: 'A clearer operating rhythm',
     title: 'Welcome to LATCH',
-    body: 'See how a terminal controller can move from an urgent connection to a confident decision in under a minute.',
-  },
-  {
-    selector: '[data-tour="attention-queue"]',
-    eyebrow: 'Step 1',
-    title: 'Start with what needs attention',
-    body: 'The overview ranks connections by urgency, so the next job is obvious without reading every alert.',
+    body: 'See what needs attention, compare the plans, and make a decision.',
   },
   {
     selector: '[data-tour="connection-queue"]',
+    eyebrow: 'Step 1',
+    title: 'Choose a connection',
+    body: 'Decision needed, in progress, and closed records are kept in one list.',
+  },
+  {
+    selector: '[data-tour="connection-detail"]',
     eyebrow: 'Step 2',
-    title: 'Choose one connection',
-    body: 'Each compact card shows the time pressure, cargo exposure, and whether the connection can still be recovered.',
+    title: 'See the operational picture',
+    body: 'The selected connection opens beside the list, so you never lose your place.',
   },
   {
     selector: '[data-tour="connection-workflow"]',
     placement: 'below',
     eyebrow: 'Step 3',
-    title: 'Understand, compare, then review',
-    body: 'Move through Situation, Suggested plans, and Outcome in order. Each view answers one operational question.',
+    title: 'Understand, choose, then act',
+    body: 'Use Situation, Plans, and Actions to move the connection from risk to execution.',
   },
   {
     selector: '[data-tour="operator-tools"]',
     eyebrow: 'Step 4',
     title: 'Make the operational decision',
-    body: 'The final panel shows only who needs to decide, the plain-language consequence, and the available action.',
+    body: 'Choose a plan, understand what happens if you wait, then approve or decline.',
   },
 ];
 

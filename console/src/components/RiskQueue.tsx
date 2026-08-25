@@ -31,19 +31,23 @@ function Row({
   c,
   selected,
   onSelect,
-  replaying,
 }: {
   c: ConnectionVM;
   selected: boolean;
   onSelect: () => void;
-  replaying: boolean;
 }) {
   const pressure = pressureFor(c);
   const decisionNeeded = needsDecision(c);
   const outcomePending = isPendingOutcome(c);
   const showTimePressure = c.lifecycle === 'live' && !outcomePending;
   const tone =
-    c.severity === 'AT_RISK' ? 'risk' : c.severity === 'WATCH' ? 'watch' : 'safe';
+    c.lifecycle !== 'live'
+      ? 'closed'
+      : c.severity === 'AT_RISK'
+        ? 'risk'
+        : c.severity === 'WATCH'
+          ? 'watch'
+          : 'safe';
 
   return (
     <button
@@ -55,20 +59,17 @@ function Row({
       <div className="queue-card-topline">
         <span className={`queue-status-dot queue-status-dot-${tone}`} aria-hidden />
         <strong className="queue-card-id">{c.id}</strong>
-        {replaying && <span className="queue-live-badge">Live</span>}
-        <span className={`queue-card-state ${decisionNeeded || outcomePending ? 'queue-card-state-action' : ''}`}>
-          {decisionNeeded ? 'Decision needed' : outcomePending ? 'Outcome pending' : c.stateLabel}
+        <span className={`queue-card-state ${decisionNeeded ? 'queue-card-state-action' : ''}`}>
+          {decisionNeeded ? 'Decision needed' : outcomePending ? 'In progress' : c.outcome ? 'Closed' : c.stateLabel}
         </span>
       </div>
 
       <div className="queue-card-impact">
         {c.lifecycle === 'live' ? (
           <>
-            <strong className={c.slack.currentPlanHours < 0 ? 'queue-impact-late' : ''}>
-              {pressureLabel(c)}
-            </strong>
+            <strong>{c.boxes} boxes</strong>
             <span aria-hidden>·</span>
-            <span>{c.boxes} boxes</span>
+            <span className={c.slack.currentPlanHours < 0 ? 'queue-impact-late' : ''}>{pressureLabel(c)}</span>
           </>
         ) : (
           <>
@@ -82,8 +83,8 @@ function Row({
       {showTimePressure && (
         <>
           <div className="queue-pressure-heading">
-            <span>Time pressure</span>
-            <span>{Math.round(pressure)}%</span>
+            <span>Decision window</span>
+            <span>{Math.round(pressure)}% used</span>
           </div>
           <div
             className="queue-pressure-track"
@@ -101,8 +102,7 @@ function Row({
       {outcomePending && (
         <>
           <div className="queue-pressure-heading">
-            <span>Operational status</span>
-            <span>In progress</span>
+            <span>Waiting for service confirmation</span>
           </div>
           <div className="queue-outcome-track" role="status" aria-label="Waiting for operational outcome">
             <span />
@@ -110,31 +110,6 @@ function Row({
         </>
       )}
 
-      <div className="queue-card-footline">
-        {decisionNeeded ? (
-          <>
-            <span className="queue-action-badge">Action required</span>
-            <span>Review and decide on the recommended plan</span>
-          </>
-        ) : outcomePending ? (
-          <>
-            <span className="queue-pending-badge">Pending outcome</span>
-            <span>Plan released · awaiting service confirmation</span>
-          </>
-        ) : c.outcome ? (
-          <>
-            <span className="queue-recorded-badge">Recorded</span>
-            <span className="truncate">{c.outcome.label}</span>
-          </>
-        ) : c.lifecycle === 'live' && c.rescuableByRemovingItt ? (
-          <>
-            <span className="queue-recovery-badge">Recoverable</span>
-            <span>Removing the transfer restores {c.slack.ittCostHours.toFixed(1)}h</span>
-          </>
-        ) : (
-          <span>{c.stateNote ?? 'Review the suggested plans'}</span>
-        )}
-      </div>
     </button>
   );
 }
@@ -143,12 +118,10 @@ export function RiskQueue({
   connections,
   selectedId,
   onSelect,
-  replayingId,
 }: {
   connections: ConnectionVM[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  replayingId: string | null;
 }) {
   const [filter, setFilter] = useState<Filter>('open');
   const [query, setQuery] = useState('');
@@ -156,13 +129,23 @@ export function RiskQueue({
   const needsAction = open.filter(needsDecision);
   const pendingOutcome = open.filter(isPendingOutcome);
   const history = connections.filter((c) => c.lifecycle !== 'live');
+  const selectedLifecycle = connections.find((c) => c.id === selectedId)?.lifecycle ?? null;
+  const searching = query.trim().length > 0;
 
   useEffect(() => {
-    const selected = connections.find((c) => c.id === selectedId);
-    if (selected?.lifecycle !== 'live') setFilter('history');
-  }, [connections, selectedId]);
+    if (selectedLifecycle && selectedLifecycle !== 'live') setFilter('history');
+  }, [selectedId, selectedLifecycle]);
 
   const shown = useMemo(() => {
+    const normalisedQuery = query.trim().toLowerCase();
+    if (normalisedQuery) {
+      return connections.filter((c) =>
+        [c.id, c.inbound.name, c.outbound.name, c.inbound.terminalLabel, c.outbound.terminalLabel]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalisedQuery),
+      );
+    }
     const filtered =
       filter === 'action'
           ? needsAction
@@ -171,15 +154,8 @@ export function RiskQueue({
           : filter === 'history'
             ? history
             : open;
-    const normalisedQuery = query.trim().toLowerCase();
-    if (!normalisedQuery) return filtered;
-    return filtered.filter((c) =>
-      [c.id, c.inbound.name, c.outbound.name, c.inbound.terminalLabel, c.outbound.terminalLabel]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalisedQuery),
-    );
-  }, [filter, history, needsAction, open, pendingOutcome, query]);
+    return filtered;
+  }, [connections, filter, history, needsAction, open, pendingOutcome, query]);
 
   const filters = [
     { id: 'open' as const, label: 'Open', count: open.length },
@@ -187,14 +163,22 @@ export function RiskQueue({
     { id: 'pending' as const, label: 'Pending', count: pendingOutcome.length },
     { id: 'history' as const, label: 'History', count: history.length },
   ];
+  const queueTitle = searching
+    ? 'Search results'
+    : filter === 'history'
+      ? 'Recent records'
+      : filter === 'pending'
+        ? 'In progress'
+        : filter === 'action'
+          ? 'Needs your decision'
+          : 'Most urgent first';
 
   return (
     <section className="queue-shell" data-tour="connection-queue" aria-label="Connection queue">
       <header className="queue-header">
         <div className="queue-heading">
           <div>
-            <h2>Connections</h2>
-            <p>Sorted by urgency</p>
+            <h2>{queueTitle}</h2>
           </div>
           <span>{shown.length} shown</span>
         </div>
@@ -208,7 +192,7 @@ export function RiskQueue({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search connections"
+            placeholder="Search all connections"
             aria-label="Search connections"
           />
         </label>
@@ -219,9 +203,12 @@ export function RiskQueue({
               key={item.id}
               type="button"
               role="tab"
-              aria-selected={filter === item.id}
-              onClick={() => setFilter(item.id)}
-              className={`queue-filter ${filter === item.id ? 'queue-filter-active' : ''}`}
+              aria-selected={!searching && filter === item.id}
+              onClick={() => {
+                setQuery('');
+                setFilter(item.id);
+              }}
+              className={`queue-filter ${!searching && filter === item.id ? 'queue-filter-active' : ''}`}
             >
               <span>{item.label}</span>
               <span className="queue-filter-count">{item.count}</span>
@@ -237,7 +224,6 @@ export function RiskQueue({
             c={c}
             selected={c.id === selectedId}
             onSelect={() => onSelect(c.id)}
-            replaying={c.id === replayingId}
           />
         ))}
         {shown.length === 0 && (
