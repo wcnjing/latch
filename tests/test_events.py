@@ -1,17 +1,20 @@
 """A-to-B contract tests. These pin the format A and B agreed on."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from latch.events import (
+    Assumptions,
+    ConnectionType,
     ReasonCode,
     RiskEvent,
     RiskSeverity,
     WatcherConfidence,
 )
-from latch.models import SourceKind
+from latch.models import SourceKind, Terminal, TerminalResolution
 
 AGREED = {
     "connection_id": "DEMO-001",
@@ -69,6 +72,25 @@ def test_itt_is_the_problem_when_removing_it_would_save_the_connection():
         }
     )
     assert not not_avoidable.itt_is_the_problem
+
+
+def test_itt_counterfactual_uses_strict_current_and_inclusive_no_itt_boundaries():
+    rescued_at_zero = RiskEvent.from_dict(
+        AGREED
+        | {
+            "current_plan_slack_hours": -1.0,
+            "no_itt_slack_hours": 0.0,
+        }
+    )
+    exactly_at_current_cutoff = RiskEvent.from_dict(
+        AGREED
+        | {
+            "current_plan_slack_hours": 0.0,
+            "no_itt_slack_hours": 2.0,
+        }
+    )
+    assert rescued_at_zero.itt_is_the_problem
+    assert not exactly_at_current_cutoff.itt_is_the_problem
 
 
 def test_already_fitting_connection_is_not_an_itt_problem():
@@ -131,6 +153,75 @@ def test_optional_enrichment_flows_through_when_a_starts_sending_it():
     assert risk.inbound.terminal_resolution.value == "berth"
     assert risk.ucid == "UCID-SGSIN-0001"
     assert risk.crosses_terminals
+
+
+def test_pr4_enrichment_round_trip_is_lossless_and_maps_real_causal_times():
+    assessed_at = datetime(2026, 8, 25, 12, tzinfo=UTC)
+    inbound_reference = assessed_at + timedelta(hours=5)
+    inbound_prediction = inbound_reference + timedelta(hours=2)
+    outbound_reference = assessed_at + timedelta(hours=14)
+    outbound_prediction = outbound_reference + timedelta(hours=1)
+    event = RiskEvent(
+        connection_id="UCID-SGSIN-0001-ABCDEF",
+        state=RiskSeverity.AT_RISK,
+        current_plan_slack_hours=-1.0,
+        no_itt_slack_hours=0.0,
+        avoidable_by_terminal_prevention=True,
+        affected_boxes=24,
+        watcher_confidence=WatcherConfidence.MEDIUM,
+        reason_codes=(
+            ReasonCode.INBOUND_ETA_SLIP,
+            ReasonCode.INTER_TERMINAL_TRANSFER_TIME,
+        ),
+        detected_at=assessed_at,
+        ucid="UCID-SGSIN-0001-ABCDEF",
+        inbound_terminal=Terminal.TUAS,
+        outbound_terminal=Terminal.PASIR_PANJANG,
+        terminal_resolution=TerminalResolution.SIMULATED,
+        assumptions=Assumptions(
+            connection_type=ConnectionType.INTER_TERMINAL,
+            transfer_scenario=(
+                "synthetic PR #3 reference process scenario; not a PSA operating rule"
+            ),
+        ),
+        inbound_vessel="inbound-vessel",
+        outbound_vessel="outbound-vessel",
+        source="real_ais_causal_predictions+synthetic_pr3_connection",
+        inbound_reference_arrival=inbound_reference,
+        inbound_predicted_arrival=inbound_prediction,
+        outbound_reference_arrival=outbound_reference,
+        outbound_predicted_arrival=outbound_prediction,
+    )
+
+    restored = RiskEvent.from_dict(json.loads(json.dumps(event.to_dict())))
+    risk = restored.to_connection_risk()
+
+    assert restored == event
+    assert risk.ucid == event.ucid
+    assert risk.inbound.scheduled == inbound_reference
+    assert risk.inbound.estimated == inbound_prediction
+    assert risk.outbound.scheduled == outbound_reference
+    assert risk.outbound.estimated == outbound_prediction
+    assert restored.assumptions.any_synthetic
+    assert "not a PSA operating rule" in restored.assumptions.transfer_scenario
+
+
+def test_legacy_event_without_causal_times_keeps_adapter_fallback():
+    event = RiskEvent.from_dict(AGREED | {"detected_at": "2026-08-25T12:00:00+00:00"})
+    risk = event.to_connection_risk()
+    assert event.inbound_reference_arrival is None
+    assert risk.inbound.scheduled == event.detected_at
+    assert risk.inbound.estimated == event.detected_at + timedelta(
+        hours=event.slack_deficit_hours
+    )
+
+
+def test_partial_causal_timing_is_rejected_instead_of_fabricated():
+    event = RiskEvent.from_dict(
+        AGREED | {"inbound_reference_arrival": "2026-08-25T12:00:00+00:00"}
+    )
+    with pytest.raises(ValueError, match="all four arrivals"):
+        event.to_connection_risk()
 
 
 def test_the_four_mock_cases_are_genuinely_different():

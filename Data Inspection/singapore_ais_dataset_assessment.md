@@ -825,10 +825,11 @@ canonical. Deterministic global allocation succeeds whenever the requested
 slots have a feasible unique-pair matching and raises `ImpossibleQuotaError`
 without partial output otherwise.
 
-PR #3 implements no Watcher states, outcome labels, no-ITT risk evaluation,
-delay baseline, historical performance or lead-time metrics, agent logic, UI,
-or API integration. Historical quota design and the actual full-data run are
-deferred to PR #4/#5.
+PR #3 itself implements no Watcher states, outcome labels, no-ITT risk
+evaluation, delay baseline, historical performance or lead-time metrics,
+agent logic, UI, or API integration. PR #4 adds a separate causal assessment
+path; historical quota design and the actual full-data experiment remain
+deferred to PR #5.
 
 Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
 candidate count for each quota cell. Historical CSV generation remains
@@ -846,3 +847,73 @@ provenance completeness, exact and impossible quotas, overlapping-pool global
 allocation, input immutability, the unfiltered PR #2 adapter, CLI rejection of
 unconfigured historical CSV generation, and byte-equivalent regeneration of
 the committed fixture.
+
+## Stage 5: PR #4 causal connection-risk Watcher
+
+### Runtime assessment contract
+
+PR #4 joins a fixed PR #3 `SyntheticConnection` to the latest `AVAILABLE` PR
+#2 `CausalArrivalUpdate` for each source call at or before an explicit
+`assessed_at`. It selects exactly the configured LOW, REFERENCE, or
+CONSERVATIVE process projection. It does not regenerate topology or UCIDs and
+does not reuse the projection's reference-time `cargo_ready_at`,
+`planned_cutoff`, `planning_margin`, or difficulty as current risk output.
+
+The current calculation is:
+
+```text
+inbound_cargo_ready_at = inbound_predicted_arrival + cargo_ready_offset
+outbound_cargo_cutoff = outbound_predicted_arrival - cargo_cutoff_lead
+current_plan_ready_at = inbound_cargo_ready_at + transfer_duration
+current_plan_slack = outbound_cargo_cutoff - current_plan_ready_at
+no_itt_slack = outbound_cargo_cutoff - inbound_cargo_ready_at
+```
+
+The warning margin is configured by the caller. Available assessments are
+SAFE above that margin, WATCH when slack is positive through and including the
+margin, and AT_RISK at zero or below. `UNAVAILABLE` is an assessment status,
+not a severity, and is returned without fabricated slack when either leg lacks
+a causal prediction. Terminal prevention is avoidable exactly when
+`current_plan_slack < 0` and `no_itt_slack >= 0`. For same-terminal
+connections the benchmark invariant requires mode NONE and zero transfer
+duration, so both slack values are equal.
+
+Watcher-level quality is the weaker GOOD/DEGRADED quality of the two selected
+AIS-derived updates. That observation quality is kept separate from explicit
+synthetic/experimental provenance for terminals and process assumptions. An
+available assessment with an exact synthetic box count can be adapted to the
+legacy `RiskEvent`/Agent Core boundary. The adapter preserves actual PR #2
+reference and predicted arrivals; it does not manufacture vessel times from
+slack. Unavailable or box-count-free assessments are not adapted into work.
+
+### Derived reference-delay baseline
+
+The deliberately simple derived reference-delay baseline accepts only the
+selected inbound causal update, assessment time, and configured threshold:
+
+```text
+delay = inbound_predicted_arrival - inbound_reference_arrival
+alert = delay >= configured_threshold
+```
+
+It ignores outbound timing, terminal assignment, topology, transfer mode and
+duration, cargo assumptions, boxes, and the no-ITT counterfactual. The
+reference is the first available derived PR #2 prediction, not an official
+vessel schedule. Neither this threshold nor the Watcher warning margin or PR
+#3 process settings is a PSA or industry operating standard.
+
+### Anti-hindsight boundary
+
+Selection rejects updates observed after `assessed_at` and retains the latest
+earlier available prediction even if a later ineligible row exists. It never
+falls back to a final derived geofence crossing, later trajectory point,
+retrospective benchmark eligibility or call-level quality, future ETA
+revision, PR #3 reference-window timing, or final connection outcome.
+Historical `call_id` is only an opaque join key. Because call membership was
+retrospectively segmented in PR #2, this remains an explicit benchmark
+limitation rather than a claim of fully live call discovery.
+
+PR #4 adds no outcome labels, recall, precision, lead-time metric, false-alert
+rate, sensitivity experiment, or headline historical result. Those evaluation
+questions remain PR #5 scope. The synthetic connections and assumptions are
+not actual PSA operational data.

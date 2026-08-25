@@ -36,6 +36,16 @@ from latch.models import (
 WIRE_VERSION = 1
 
 
+def _optional_datetime(value: object) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise TypeError("causal arrival timing must be an ISO-8601 string or datetime")
+
+
 class RiskSeverity(StrEnum):
     """A's own classification of the connection."""
 
@@ -131,6 +141,8 @@ class ReasonCode(StrEnum):
     BERTH_CONGESTION = "BERTH_CONGESTION"
     YARD_CONGESTION = "YARD_CONGESTION"
     DISCHARGE_SEQUENCE = "DISCHARGE_SEQUENCE"
+    INBOUND_PREDICTION_UNAVAILABLE = "INBOUND_PREDICTION_UNAVAILABLE"
+    OUTBOUND_PREDICTION_UNAVAILABLE = "OUTBOUND_PREDICTION_UNAVAILABLE"
 
 
 # How much A's own confidence discounts a plan built on its numbers. A LOW
@@ -222,6 +234,15 @@ class RiskEvent:
     outbound_vessel: str = "UNKNOWN"
     source: str = "watcher.mock"
 
+    # PR #4 causal timing enrichment.  Older event producers omit all four and
+    # retain the historical adapter fallback below.  New Watcher events carry
+    # the actual selected PR #2 values so the adapter never fabricates vessel
+    # times from assessment time and slack.
+    inbound_reference_arrival: datetime | None = None
+    inbound_predicted_arrival: datetime | None = None
+    outbound_reference_arrival: datetime | None = None
+    outbound_predicted_arrival: datetime | None = None
+
     # --- derived signals ----------------------------------------------------
 
     @property
@@ -252,8 +273,8 @@ class RiskEvent:
         """
         return (
             self.avoidable_by_terminal_prevention
-            and self.no_itt_slack_hours > 0
-            and self.current_plan_slack_hours <= 0
+            and self.no_itt_slack_hours >= 0
+            and self.current_plan_slack_hours < 0
         )
 
     @property
@@ -320,6 +341,18 @@ class RiskEvent:
             inbound_vessel=payload.get("inbound_vessel", "UNKNOWN"),
             outbound_vessel=payload.get("outbound_vessel", "UNKNOWN"),
             source=payload.get("source", "watcher.mock"),
+            inbound_reference_arrival=_optional_datetime(
+                payload.get("inbound_reference_arrival")
+            ),
+            inbound_predicted_arrival=_optional_datetime(
+                payload.get("inbound_predicted_arrival")
+            ),
+            outbound_reference_arrival=_optional_datetime(
+                payload.get("outbound_reference_arrival")
+            ),
+            outbound_predicted_arrival=_optional_datetime(
+                payload.get("outbound_predicted_arrival")
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -337,6 +370,25 @@ class RiskEvent:
             payload["detected_at"] = self.detected_at.isoformat()
         if self.ucid is not None:
             payload["ucid"] = self.ucid
+        payload.update(
+            {
+                "inbound_terminal": self.inbound_terminal.value,
+                "outbound_terminal": self.outbound_terminal.value,
+                "terminal_resolution": self.terminal_resolution.value,
+                "inbound_vessel": self.inbound_vessel,
+                "outbound_vessel": self.outbound_vessel,
+                "source": self.source,
+                **self.assumptions.as_dict(),
+            }
+        )
+        for key, value in (
+            ("inbound_reference_arrival", self.inbound_reference_arrival),
+            ("inbound_predicted_arrival", self.inbound_predicted_arrival),
+            ("outbound_reference_arrival", self.outbound_reference_arrival),
+            ("outbound_predicted_arrival", self.outbound_predicted_arrival),
+        ):
+            if value is not None:
+                payload[key] = value.isoformat()
         return payload
 
     # --- adapter ------------------------------------------------------------
@@ -353,21 +405,50 @@ class RiskEvent:
         total_min = max(self.no_itt_slack_hours, 0.0) * 60.0
         remaining_min = self.current_plan_slack_hours * 60.0
 
+        timing_fields = (
+            self.inbound_reference_arrival,
+            self.inbound_predicted_arrival,
+            self.outbound_reference_arrival,
+            self.outbound_predicted_arrival,
+        )
+        if any(value is not None for value in timing_fields) and not all(
+            value is not None for value in timing_fields
+        ):
+            raise ValueError(
+                "causal vessel timing enrichment must provide all four arrivals"
+            )
+        if all(value is not None for value in timing_fields):
+            inbound_scheduled = self.inbound_reference_arrival
+            inbound_estimated = self.inbound_predicted_arrival
+            outbound_scheduled = self.outbound_reference_arrival
+            outbound_estimated = self.outbound_predicted_arrival
+            assert inbound_scheduled is not None
+            assert inbound_estimated is not None
+            assert outbound_scheduled is not None
+            assert outbound_estimated is not None
+        else:
+            # Backwards-compatible behavior for legacy/demo RiskEvents that did
+            # not carry PR #2 causal timing metadata.
+            inbound_scheduled = detected
+            inbound_estimated = detected + timedelta(hours=self.slack_deficit_hours)
+            outbound_scheduled = detected + timedelta(minutes=total_min)
+            outbound_estimated = outbound_scheduled
+
         inbound = VesselCall(
             vessel_name=self.inbound_vessel,
             service_code="UNKNOWN",
             terminal=self.inbound_terminal,
             terminal_resolution=self.terminal_resolution,
-            scheduled=detected,
-            estimated=detected + timedelta(hours=self.slack_deficit_hours),
+            scheduled=inbound_scheduled,
+            estimated=inbound_estimated,
         )
         outbound = VesselCall(
             vessel_name=self.outbound_vessel,
             service_code="UNKNOWN",
             terminal=self.outbound_terminal,
             terminal_resolution=self.terminal_resolution,
-            scheduled=detected + timedelta(minutes=total_min),
-            estimated=detected + timedelta(minutes=total_min),
+            scheduled=outbound_scheduled,
+            estimated=outbound_estimated,
         )
         return ConnectionRisk(
             risk_id=self.connection_id,
