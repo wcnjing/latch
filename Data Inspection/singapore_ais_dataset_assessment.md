@@ -917,3 +917,45 @@ PR #4 adds no outcome labels, recall, precision, lead-time metric, false-alert
 rate, sensitivity experiment, or headline historical result. Those evaluation
 questions remain PR #5 scope. The synthetic connections and assumptions are
 not actual PSA operational data.
+
+## Stage 6: PR #5 Phase 2 causal historical Watcher foundation
+
+The separate `scripts/run_historical.py --mode watcher-eval` path now composes
+PR #2 real AIS-derived causal arrival updates, PR #3 synthetic connections,
+and PR #4 `assess_connection()`. The existing default runner remains the
+legacy inbound-only agent demonstration and its figures keep their prior
+meaning.
+
+PR #3's current candidate-pair enumeration is quadratic per quota cell. This
+phase does not expand it. It declares a deterministic causal-order prefix of
+accepted/reset-confirmed calls and a separate four-cell historical quota
+configuration. The default bound is 256 source calls and eight connections
+per cell; both values are exposed by the CLI. This is an explicitly bounded,
+retrospectively constructed benchmark, not a full historical connection
+population and not a prevalence estimate.
+
+Live replay uses `observed_at`, original source-row number, then `call_id` as
+its stable order. Each graph connection has an activation cursor equal to the
+later of its inbound and outbound first-available candidate observation
+cursors. No assessment occurs before that cursor. This prevents the completed
+synthetic graph from revealing a future outbound candidate at an earlier
+Watcher timestamp, including at tied timestamps whose source rows differ. It
+does not solve retrospective call discovery: source call membership and the
+overall graph are still known only after derived geofence crossings.
+
+Connections join to replay state only with
+`assignment.inbound_source_call_id` and
+`assignment.outbound_source_call_id`. At every active source update,
+`assess_connection()` receives chronological prefixes for those two calls and
+selects its own current causal predictions. PR #3 reference-arrival timestamps
+are not substituted into slack. The embedded derived reference-delay baseline
+is copied into the evaluation record from the same assessment and therefore
+retains the same selected inbound causal prediction.
+
+Final `DerivedArrivalEvent` values, including the final derived geofence
+crossing, eligibility, exclusions, and completed-call quality, are held in a
+separate evaluation-only view. They are never accepted by the causal replay
+state or passed into the Watcher. Phase 2 intentionally stops at assessment
+records and diagnostic counts: it constructs no retrospective feasibility
+outcome, invokes no agent or case registry, and writes no legacy `TraceStore`
+metric or historical figure.

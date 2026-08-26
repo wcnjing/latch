@@ -278,10 +278,12 @@ causal updates without replacing the legacy runtime/demo path based on
 `latch.connections`. Existing historical-run, demo, console, and deck figures
 remain legacy outputs, not PR #4 historical experiment results.
 
-Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
-candidate count for each quota cell. Historical CSV generation remains
-intentionally disabled; this scalability item must be addressed or explicitly
-accepted before enabling full historical generation.
+Candidate-pair enumeration and SHA-256 ranking remain quadratic in the
+candidate count for each quota cell. Generic unbounded historical CSV
+generation remains disabled. The Phase 2 Watcher evaluation instead declares
+a deterministic bounded source population and separate historical quota
+configuration; it does not present the tiny contract fixture or a silent
+sample as the full historical graph.
 
 **TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
 PREVALENCE.**
@@ -331,6 +333,40 @@ PR #3 reference-window timestamp, or final outcome. Historical `call_id` is
 used only as an opaque join key; its membership was retrospectively segmented,
 so this benchmark is not represented as a fully live call-discovery system.
 Historical performance labels and metrics remain out of scope for PR #4.
+
+## PR #5 Phase 2 causal historical Watcher evaluation
+
+`latch.historical_eval` composes reset-confirmed PR #2 calls, the PR #3
+synthetic generator, and `assess_connection()` without changing the legacy
+historical runner. The new entry point is explicit:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval
+```
+
+The default bounded benchmark takes the first 256 accepted calls after sorting
+by their first causal update and requests eight unique connections in each of
+four declared topology/mode quota cells. Both bounds are CLI configuration.
+This is a scalability decision around PR #3's current quadratic candidate-pair
+enumeration, not an estimate of connection prevalence.
+
+Updates replay in `(observed_at, source_row_number, call_id)` order. A
+synthetic connection activates only after the later of its two candidate
+observation cursors, so a same-timestamp candidate on a later source row is
+not exposed early. Once active, the Watcher receives only the inbound and
+outbound chronological prefixes accumulated so far. Legs join through
+`assignment.inbound_source_call_id` and
+`assignment.outbound_source_call_id`; vessel ID is lineage and a self-pair
+guard, not the primary join.
+
+The output records Watcher status, severity, slack, selected derived causal
+arrival predictions, ages, reason codes, and the embedded derived
+reference-delay baseline. Final `DerivedArrivalEvent` values are retained in a
+separate evaluation-only population view and never enter `assess_connection()`.
+No retrospective outcomes, accuracy metrics, agent runs, case-registry claims,
+or legacy trace metrics are produced in this phase. The graph remains a
+retrospectively constructed benchmark; causal activation does not make it a
+true live call-discovery benchmark.
 
 ### Git LFS
 
@@ -474,6 +510,7 @@ Run the whole chain:
 
 ```bash
 uv run python scripts/run_historical.py --limit 20000   # A's output -> agent decisions
+uv run python scripts/run_historical.py --mode watcher-eval  # PR #2 + #3 + #4 diagnostics
 uv run python scripts/demo.py --from-ais                # one real vessel, narrated
 ```
 

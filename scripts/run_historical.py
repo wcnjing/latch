@@ -17,16 +17,28 @@ So the *trigger* is real and the *stakes* are invented. A number produced here
 measures whether the agent behaves sensibly on realistic vessel timing — not
 how many containers PSA would have saved.
 
-Run:  uv run python scripts/run_historical.py --limit 50000
+Legacy run:  uv run python scripts/run_historical.py --limit 50000
+
+Causal Watcher evaluation (diagnostic counts only):
+  uv run python scripts/run_historical.py --mode watcher-eval
 """
 
 import argparse
 from collections import Counter
+from datetime import timedelta
 from pathlib import Path
 
 from latch.cases import CaseRegistry
 from latch.connections import ConnectionParams
 from latch.events import RiskSeverity
+from latch.historical_eval import (
+    DEFAULT_CONNECTIONS_PER_QUOTA,
+    DEFAULT_SOURCE_CALL_LIMIT,
+    HistoricalPopulationConfig,
+    evaluate_historical_csv,
+    file_sha256,
+    historical_synthetic_config,
+)
 from latch.llm import FakeModel, OllamaModel
 from latch.replay import (
     ArrivalBoundary,
@@ -35,7 +47,8 @@ from latch.replay import (
 )
 from latch.runner import AutoApprove, CustomerSilent, handle
 from latch.trace import TraceStore
-from latch.watcher import events_from_signals
+from latch.watcher import WatcherConfig, events_from_signals
+from latch.synthetic import ProcessScenario
 
 DEFAULT_CSV = (
     Path(__file__).resolve().parent.parent
@@ -66,9 +79,75 @@ def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
         yield update
 
 
+def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
+    """Record causal Watcher assessments without invoking the agent."""
+
+    dataset_digest = file_sha256(args.csv)
+    population_config = HistoricalPopulationConfig(
+        source_call_limit=args.benchmark_call_limit
+    )
+    synthetic_config = historical_synthetic_config(
+        dataset_sha256=dataset_digest,
+        connections_per_quota=args.connections_per_quota,
+    )
+    watcher_config = WatcherConfig(
+        warning_margin=timedelta(hours=args.watcher_warning_hours),
+        reference_delay_threshold=timedelta(
+            minutes=args.baseline_delay_minutes
+        ),
+        process_scenario=ProcessScenario(args.process_scenario),
+    )
+    result = evaluate_historical_csv(
+        args.csv,
+        replay_config=replay_config,
+        population_config=population_config,
+        synthetic_config=synthetic_config,
+        watcher_config=watcher_config,
+    )
+    counts = result.diagnostics
+    severity = dict(counts.severity_distribution)
+
+    print("causal historical Watcher evaluation (diagnostic counts only)")
+    print(
+        "benchmark scope         "
+        f"first {args.benchmark_call_limit:,} accepted calls by causal update order"
+    )
+    print(f"accepted PR #2 calls   {counts.accepted_call_count:7,}")
+    print(
+        f"bounded replay calls   {counts.bounded_population_call_count:7,}  "
+        "(retrospectively constructed benchmark)"
+    )
+    print(f"PR #3 candidates       {counts.source_candidate_count:7,}")
+    print(f"synthetic connections  {counts.generated_connection_count:7,}")
+    print(
+        f"causally activated     {counts.causally_activated_connection_count:7,}"
+    )
+    print(f"Watcher assessments    {counts.assessment_count:7,}")
+    print(
+        f"unavailable pair       {counts.unavailable_assessment_count:7,}  "
+        f"{counts.unavailable_assessment_fraction:6.1%}"
+    )
+    print("severity distribution")
+    for state in ("SAFE", "WATCH", "AT_RISK"):
+        print(f"  {state:8}            {severity.get(state, 0):7,}")
+    print(f"baseline alerts        {counts.baseline_alert_count:7,}")
+    print(
+        "\nReal AIS observations supply derived causal arrival predictions. "
+        "Connections,\nterminals, and process assumptions are synthetic. "
+        "Causal activation does not\nturn this into a live call-discovery "
+        "benchmark, and these counts are not\nperformance claims."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
+    parser.add_argument(
+        "--mode",
+        choices=("legacy", "watcher-eval"),
+        default="legacy",
+        help="legacy keeps the original inbound-only agent run semantics",
+    )
     parser.add_argument(
         "--limit", type=int, default=50_000, help="arrival updates to read from A"
     )
@@ -79,6 +158,25 @@ def main() -> None:
         help="cap agent invocations; the point is the mix, not the volume",
     )
     parser.add_argument("--model", choices=("fake", "local"), default="fake")
+    parser.add_argument(
+        "--benchmark-call-limit",
+        type=int,
+        default=DEFAULT_SOURCE_CALL_LIMIT,
+        help="explicit deterministic accepted-call bound for watcher-eval",
+    )
+    parser.add_argument(
+        "--connections-per-quota",
+        type=int,
+        default=DEFAULT_CONNECTIONS_PER_QUOTA,
+        help="connections in each of four declared historical quota cells",
+    )
+    parser.add_argument("--watcher-warning-hours", type=float, default=2.0)
+    parser.add_argument("--baseline-delay-minutes", type=float, default=15.0)
+    parser.add_argument(
+        "--process-scenario",
+        choices=tuple(item.value for item in ProcessScenario),
+        default=ProcessScenario.REFERENCE.value,
+    )
     args = parser.parse_args()
 
     if not args.csv.is_file() or args.csv.stat().st_size < 1_000:
@@ -88,6 +186,10 @@ def main() -> None:
         )
 
     config = ReplayConfig(boundary=ArrivalBoundary())
+    if args.mode == "watcher-eval":
+        run_watcher_evaluation(args, config)
+        return
+
     params = ConnectionParams()
 
     signals = arrival_signals(args.csv, config, args.limit)
