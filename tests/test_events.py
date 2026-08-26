@@ -12,6 +12,7 @@ from latch.events import (
     ReasonCode,
     RiskEvent,
     RiskSeverity,
+    TimingResolution,
     WatcherConfidence,
 )
 from latch.models import SourceKind, Terminal, TerminalResolution
@@ -26,6 +27,26 @@ AGREED = {
     "confidence": "MEDIUM",
     "reason_codes": ["INBOUND_ETA_SLIP", "INTER_TERMINAL_TRANSFER_TIME"],
 }
+
+CAUSAL_DETECTED_AT = "2026-08-25T12:00:00+00:00"
+CAUSAL_TIMING = {
+    "inbound_reference_arrival": "2026-08-25T17:00:00+00:00",
+    "inbound_predicted_arrival": "2026-08-25T19:00:00+00:00",
+    "outbound_reference_arrival": "2026-08-26T02:00:00+00:00",
+    "outbound_predicted_arrival": "2026-08-26T03:00:00+00:00",
+}
+
+
+def causal_payload(**overrides):
+    return (
+        AGREED
+        | {
+            "timing_resolution": "derived_causal_arrival",
+            "detected_at": CAUSAL_DETECTED_AT,
+        }
+        | CAUSAL_TIMING
+        | overrides
+    )
 
 
 def test_parses_the_agreed_format_exactly_as_written():
@@ -42,6 +63,20 @@ def test_parses_the_agreed_format_exactly_as_written():
 def test_round_trips_through_json():
     event = RiskEvent.from_dict(AGREED)
     assert RiskEvent.from_dict(json.loads(json.dumps(event.to_dict()))) == event
+
+
+def test_old_payload_without_timing_resolution_decodes_explicitly_as_legacy():
+    event = RiskEvent.from_dict(AGREED)
+
+    assert event.timing_resolution is TimingResolution.LEGACY_SLACK_FALLBACK
+
+
+def test_to_dict_always_emits_timing_resolution():
+    legacy = RiskEvent.from_dict(AGREED)
+    causal = RiskEvent.from_dict(causal_payload())
+
+    assert legacy.to_dict()["timing_resolution"] == "legacy_slack_fallback"
+    assert causal.to_dict()["timing_resolution"] == "derived_causal_arrival"
 
 
 def test_unknown_reason_code_fails_loudly():
@@ -155,7 +190,7 @@ def test_optional_enrichment_flows_through_when_a_starts_sending_it():
     assert risk.crosses_terminals
 
 
-def test_pr4_enrichment_round_trip_is_lossless_and_maps_real_causal_times():
+def test_pr4_enrichment_round_trip_maps_supplied_derived_causal_times():
     assessed_at = datetime(2026, 8, 25, 12, tzinfo=UTC)
     inbound_reference = assessed_at + timedelta(hours=5)
     inbound_prediction = inbound_reference + timedelta(hours=2)
@@ -169,6 +204,7 @@ def test_pr4_enrichment_round_trip_is_lossless_and_maps_real_causal_times():
         avoidable_by_terminal_prevention=True,
         affected_boxes=24,
         watcher_confidence=WatcherConfidence.MEDIUM,
+        timing_resolution=TimingResolution.DERIVED_CAUSAL_ARRIVAL,
         reason_codes=(
             ReasonCode.INBOUND_ETA_SLIP,
             ReasonCode.INTER_TERMINAL_TRANSFER_TIME,
@@ -206,22 +242,61 @@ def test_pr4_enrichment_round_trip_is_lossless_and_maps_real_causal_times():
     assert "not a PSA operating rule" in restored.assumptions.transfer_scenario
 
 
+@pytest.mark.parametrize("supplied_count", range(4))
+def test_causal_provenance_rejects_zero_to_three_timing_fields(supplied_count):
+    partial = dict(list(CAUSAL_TIMING.items())[:supplied_count])
+
+    with pytest.raises(ValueError, match="requires all four arrivals"):
+        RiskEvent.from_dict(
+            AGREED
+            | {
+                "timing_resolution": "derived_causal_arrival",
+                "detected_at": CAUSAL_DETECTED_AT,
+            }
+            | partial
+        )
+
+
+@pytest.mark.parametrize("field_name", ["detected_at", *CAUSAL_TIMING])
+def test_causal_provenance_rejects_naive_datetimes(field_name):
+    payload = causal_payload()
+    payload[field_name] = payload[field_name].replace("+00:00", "")
+
+    with pytest.raises(ValueError, match=rf"{field_name} must be timezone-aware"):
+        RiskEvent.from_dict(payload)
+
+
+def test_causal_provenance_rejects_missing_detected_at():
+    payload = causal_payload()
+    del payload["detected_at"]
+
+    with pytest.raises(ValueError, match="requires detected_at"):
+        RiskEvent.from_dict(payload)
+
+
+@pytest.mark.parametrize("field_name", CAUSAL_TIMING)
+def test_legacy_provenance_rejects_supplied_causal_timing(field_name):
+    with pytest.raises(ValueError, match="must not include causal vessel timing"):
+        RiskEvent.from_dict(
+            AGREED
+            | {
+                "timing_resolution": "legacy_slack_fallback",
+                field_name: CAUSAL_TIMING[field_name],
+            }
+        )
+
+
 def test_legacy_event_without_causal_times_keeps_adapter_fallback():
     event = RiskEvent.from_dict(AGREED | {"detected_at": "2026-08-25T12:00:00+00:00"})
     risk = event.to_connection_risk()
+    expected_detected = datetime(2026, 8, 25, 12, tzinfo=UTC)
+
+    assert event.timing_resolution is TimingResolution.LEGACY_SLACK_FALLBACK
     assert event.inbound_reference_arrival is None
-    assert risk.inbound.scheduled == event.detected_at
-    assert risk.inbound.estimated == event.detected_at + timedelta(
-        hours=event.slack_deficit_hours
-    )
-
-
-def test_partial_causal_timing_is_rejected_instead_of_fabricated():
-    event = RiskEvent.from_dict(
-        AGREED | {"inbound_reference_arrival": "2026-08-25T12:00:00+00:00"}
-    )
-    with pytest.raises(ValueError, match="all four arrivals"):
-        event.to_connection_risk()
+    assert risk.inbound.scheduled == expected_detected
+    assert risk.inbound.estimated == expected_detected + timedelta(hours=1.8)
+    assert risk.outbound.scheduled == expected_detected + timedelta(hours=2.4)
+    assert risk.outbound.estimated == expected_detected + timedelta(hours=2.4)
 
 
 def test_the_four_mock_cases_are_genuinely_different():

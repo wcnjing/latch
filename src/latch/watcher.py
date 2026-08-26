@@ -34,6 +34,7 @@ from latch.events import (
     ReasonCode,
     RiskEvent,
     RiskSeverity,
+    TimingResolution,
     WatcherConfidence,
 )
 from latch.models import TerminalResolution
@@ -188,6 +189,7 @@ def to_risk_event(
         avoidable_by_terminal_prevention=connection.requires_transfer,
         affected_boxes=connection.boxes,
         watcher_confidence=_confidence(signal),
+        timing_resolution=TimingResolution.LEGACY_SLACK_FALLBACK,
         reason_codes=_reason_codes(breakdown, connection),
         detected_at=signal.observed_at,
         ucid=f"UCID-SYNTH-{connection.connection_id.removeprefix('conn_')}",
@@ -732,6 +734,7 @@ def risk_event_from_assessment(
         ),
         affected_boxes=assessment.box_count,
         watcher_confidence=_assessment_confidence(assessment),
+        timing_resolution=TimingResolution.DERIVED_CAUSAL_ARRIVAL,
         reason_codes=assessment.reason_codes,
         detected_at=assessment.assessed_at,
         ucid=assessment.ucid,

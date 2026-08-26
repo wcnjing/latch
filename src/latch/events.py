@@ -62,6 +62,21 @@ class WatcherConfidence(StrEnum):
     HIGH = "HIGH"
 
 
+class TimingResolution(StrEnum):
+    """How the vessel arrival values on a risk event were obtained.
+
+    ``DERIVED_CAUSAL_ARRIVAL`` means all four arrivals came from causal
+    predictions derived from real AIS observations.  It does not mean the
+    values are official schedules or observed berth arrivals.
+
+    ``LEGACY_SLACK_FALLBACK`` means the event carries no causal arrivals and
+    the adapter reconstructs display-only vessel times from the event's slack.
+    """
+
+    DERIVED_CAUSAL_ARRIVAL = "derived_causal_arrival"
+    LEGACY_SLACK_FALLBACK = "legacy_slack_fallback"
+
+
 class ConnectionType(StrEnum):
     """Whether the cargo has to cross terminals. The one structural fact the
     agent reasons about, and it is assumed rather than observed."""
@@ -220,6 +235,7 @@ class RiskEvent:
     avoidable_by_terminal_prevention: bool
     affected_boxes: int
     watcher_confidence: WatcherConfidence
+    timing_resolution: TimingResolution
     reason_codes: tuple[ReasonCode, ...] = ()
 
     # Optional enrichment. Absent in the mock feed; expected once A has the
@@ -242,6 +258,44 @@ class RiskEvent:
     inbound_predicted_arrival: datetime | None = None
     outbound_reference_arrival: datetime | None = None
     outbound_predicted_arrival: datetime | None = None
+
+    def __post_init__(self) -> None:
+        timing = {
+            "inbound_reference_arrival": self.inbound_reference_arrival,
+            "inbound_predicted_arrival": self.inbound_predicted_arrival,
+            "outbound_reference_arrival": self.outbound_reference_arrival,
+            "outbound_predicted_arrival": self.outbound_predicted_arrival,
+        }
+        supplied = tuple(name for name, value in timing.items() if value is not None)
+
+        if self.timing_resolution is TimingResolution.DERIVED_CAUSAL_ARRIVAL:
+            missing = tuple(name for name, value in timing.items() if value is None)
+            if missing:
+                raise ValueError(
+                    "derived causal vessel timing requires all four arrivals; "
+                    f"missing {', '.join(missing)}"
+                )
+            if self.detected_at is None:
+                raise ValueError(
+                    "derived causal vessel timing requires detected_at"
+                )
+            for name, value in (("detected_at", self.detected_at), *timing.items()):
+                # Keep the explicit type guard so malformed direct construction
+                # fails here rather than inside the agent adapter.
+                if (
+                    not isinstance(value, datetime)
+                    or value.tzinfo is None
+                    or value.utcoffset() is None
+                ):
+                    raise ValueError(f"{name} must be timezone-aware")
+        elif self.timing_resolution is TimingResolution.LEGACY_SLACK_FALLBACK:
+            if supplied:
+                raise ValueError(
+                    "legacy slack fallback must not include causal vessel timing; "
+                    f"supplied {', '.join(supplied)}"
+                )
+        else:
+            raise TypeError("timing_resolution must be a TimingResolution")
 
     # --- derived signals ----------------------------------------------------
 
@@ -329,6 +383,12 @@ class RiskEvent:
             ),
             affected_boxes=int(payload["affected_boxes"]),
             watcher_confidence=WatcherConfidence(payload["confidence"]),
+            timing_resolution=TimingResolution(
+                payload.get(
+                    "timing_resolution",
+                    TimingResolution.LEGACY_SLACK_FALLBACK.value,
+                )
+            ),
             reason_codes=tuple(ReasonCode(c) for c in payload.get("reason_codes", ())),
             detected_at=datetime.fromisoformat(detected) if detected else None,
             ucid=payload.get("ucid"),
@@ -364,6 +424,7 @@ class RiskEvent:
             "avoidable_by_terminal_prevention": self.avoidable_by_terminal_prevention,
             "affected_boxes": self.affected_boxes,
             "confidence": self.watcher_confidence.value,
+            "timing_resolution": self.timing_resolution.value,
             "reason_codes": [c.value for c in self.reason_codes],
         }
         if self.detected_at is not None:
@@ -405,27 +466,11 @@ class RiskEvent:
         total_min = max(self.no_itt_slack_hours, 0.0) * 60.0
         remaining_min = self.current_plan_slack_hours * 60.0
 
-        timing_fields = (
-            self.inbound_reference_arrival,
-            self.inbound_predicted_arrival,
-            self.outbound_reference_arrival,
-            self.outbound_predicted_arrival,
-        )
-        if any(value is not None for value in timing_fields) and not all(
-            value is not None for value in timing_fields
-        ):
-            raise ValueError(
-                "causal vessel timing enrichment must provide all four arrivals"
-            )
-        if all(value is not None for value in timing_fields):
+        if self.timing_resolution is TimingResolution.DERIVED_CAUSAL_ARRIVAL:
             inbound_scheduled = self.inbound_reference_arrival
             inbound_estimated = self.inbound_predicted_arrival
             outbound_scheduled = self.outbound_reference_arrival
             outbound_estimated = self.outbound_predicted_arrival
-            assert inbound_scheduled is not None
-            assert inbound_estimated is not None
-            assert outbound_scheduled is not None
-            assert outbound_estimated is not None
         else:
             # Backwards-compatible behavior for legacy/demo RiskEvents that did
             # not carry PR #2 causal timing metadata.
