@@ -30,7 +30,13 @@ function VesselChip({
         <span>{role}</span>
         <strong title={leg.name}>{leg.name}</strong>
         <small className={late ? 'text-risk-500' : ''}>
-          Expected {hhmm(leg.estimated)}{late ? ` · ${leg.deviationMin}m late` : ''}
+          {leg.timingResolution === 'derived_causal_arrival'
+            ? 'Estimated arrival'
+            : 'Reconstructed time'}{' '}
+          {hhmm(leg.arrivalTime)}{late ? ` · ${leg.deviationMin}m later than reference` : ''}
+        </small>
+        <small className="placement-timing-provenance">
+          {leg.timingProvenanceLabel}
         </small>
       </div>
       {movement && <span className={`placement-movement placement-movement-${movement}`}>{movement === 'stay' ? 'Stays' : 'Move here'}</span>}

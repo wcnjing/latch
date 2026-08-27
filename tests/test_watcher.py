@@ -7,7 +7,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from latch.connections import ConnectionParams, connection_for
-from latch.events import ReasonCode, RiskSeverity, WatcherConfidence
+from latch.events import (
+    ReasonCode,
+    RiskSeverity,
+    TimingResolution,
+    WatcherConfidence,
+)
 from latch.models import TerminalResolution
 from latch.replay import DataQuality, DerivedArrivalEvent, PredictionStatus
 from latch.synthetic import (
@@ -133,6 +138,7 @@ def test_terminals_are_declared_simulated():
     """They came from the synthetic layer, and that lowers confidence
     downstream. Enforced by the pipeline rather than asserted on a slide."""
     event = to_risk_event(FakeSignal(), conn())
+    assert event.timing_resolution is TimingResolution.LEGACY_SLACK_FALLBACK
     assert event.terminal_resolution is TerminalResolution.SIMULATED
     assert event.to_connection_risk().inbound.terminal_resolution is (
         TerminalResolution.SIMULATED
@@ -607,6 +613,7 @@ def test_assessment_is_deterministic_immutable_and_preserves_pr3_ucid():
     assert first.ucid == connection.identity.ucid
     assert event is not None and event.ucid == connection.identity.ucid
     assert event.connection_id == connection.identity.ucid
+    assert event.timing_resolution is TimingResolution.DERIVED_CAUSAL_ARRIVAL
     assert event.assumptions.any_synthetic
     assert "not a PSA operating rule" in event.assumptions.transfer_scenario
 

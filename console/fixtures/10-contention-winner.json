@@ -7,8 +7,8 @@
     "authored": false,
     "model_responses": "scripted",
     "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
-    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
-    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "data_basis": "AIS-replay scenario + legacy display timing reconstructed from event slack + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values use a frozen fixture record clock for deterministic regeneration. They are not scenario time. Order by `seq`; duration is `latency_ms`.",
     "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
   },
   "event": {
@@ -19,6 +19,7 @@
     "avoidable_by_terminal_prevention": true,
     "affected_boxes": 38,
     "confidence": "HIGH",
+    "timing_resolution": "legacy_slack_fallback",
     "reason_codes": [
       "INBOUND_ETA_SLIP",
       "INTER_TERMINAL_TRANSFER_TIME"
@@ -30,7 +31,15 @@
     "terminal_resolution": "simulated",
     "inbound_vessel": "SYNTHETIC EVERGREEN",
     "outbound_vessel": "SYNTHETIC FEEDER X",
-    "source": "ais_replay+synthetic_connection"
+    "source": "ais_replay+synthetic_connection",
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
   },
   "derived": {
     "is_actionable": true,
@@ -103,7 +112,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.664442+00:00",
+        "at": "2026-08-24T06:20:00.000176+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 38 boxes, -1.2h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +125,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.664444+00:00",
+        "at": "2026-08-24T06:20:00.000177+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +139,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-24T06:20:28.664452+00:00",
+        "at": "2026-08-24T06:20:00.000178+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +149,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.664452+00:00",
+        "at": "2026-08-24T06:20:00.000179+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.664453+00:00",
+        "at": "2026-08-24T06:20:00.000180+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +164,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.664454+00:00",
+        "at": "2026-08-24T06:20:00.000181+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +172,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.664510+00:00",
+        "at": "2026-08-24T06:20:00.000182+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -172,7 +181,7 @@
       {
         "seq": 8,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.664511+00:00",
+        "at": "2026-08-24T06:20:00.000183+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -181,7 +190,7 @@
       {
         "seq": 9,
         "type": "model_call",
-        "at": "2026-08-24T06:20:28.664512+00:00",
+        "at": "2026-08-24T06:20:00.000184+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 612,
@@ -191,7 +200,7 @@
       {
         "seq": 10,
         "type": "confidence",
-        "at": "2026-08-24T06:20:28.664516+00:00",
+        "at": "2026-08-24T06:20:00.000185+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -209,7 +218,7 @@
       {
         "seq": 11,
         "type": "decision",
-        "at": "2026-08-24T06:20:28.664518+00:00",
+        "at": "2026-08-24T06:20:00.000186+00:00",
         "rung": "rung_1_inform",
         "chosen": false,
         "confidence": 1.0,
@@ -220,7 +229,7 @@
       {
         "seq": 12,
         "type": "options",
-        "at": "2026-08-24T06:20:28.664521+00:00",
+        "at": "2026-08-24T06:20:00.000187+00:00",
         "candidates": [
           {
             "option_id": "SG-CONN-4562-r3-tuapas_1120",
@@ -267,7 +276,7 @@
       {
         "seq": 13,
         "type": "decision",
-        "at": "2026-08-24T06:20:28.664522+00:00",
+        "at": "2026-08-24T06:20:00.000188+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 1.0,
@@ -278,7 +287,7 @@
       {
         "seq": 14,
         "type": "lock",
-        "at": "2026-08-24T06:20:28.664525+00:00",
+        "at": "2026-08-24T06:20:00.000189+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 152.0,
@@ -288,7 +297,7 @@
       {
         "seq": 15,
         "type": "gate",
-        "at": "2026-08-24T06:20:28.664528+00:00",
+        "at": "2026-08-24T06:20:00.000190+00:00",
         "rung": "rung_3_move",
         "required_role": "auto",
         "escalated": false,
@@ -299,7 +308,7 @@
       {
         "seq": 16,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.664529+00:00",
+        "at": "2026-08-24T06:20:00.000191+00:00",
         "from_state": "deliberating",
         "to_state": "executing",
         "reason": "auto-approved under policy"
@@ -307,7 +316,7 @@
       {
         "seq": 17,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.664531+00:00",
+        "at": "2026-08-24T06:20:00.000192+00:00",
         "tool": "book_itt_leg",
         "status": "ok",
         "latency_ms": 850
@@ -315,7 +324,7 @@
       {
         "seq": 18,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.664533+00:00",
+        "at": "2026-08-24T06:20:00.000193+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "connection_held"

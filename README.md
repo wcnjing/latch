@@ -278,10 +278,12 @@ causal updates without replacing the legacy runtime/demo path based on
 `latch.connections`. Existing historical-run, demo, console, and deck figures
 remain legacy outputs, not PR #4 historical experiment results.
 
-Candidate-pair enumeration and SHA-256 ranking are currently quadratic in the
-candidate count for each quota cell. Historical CSV generation remains
-intentionally disabled; this scalability item must be addressed or explicitly
-accepted before enabling full historical generation.
+Candidate-pair enumeration and SHA-256 ranking remain quadratic in the
+candidate count for each quota cell. Generic unbounded historical CSV
+generation remains disabled. The Phase 2 Watcher evaluation instead declares
+a deterministic bounded source population and separate historical quota
+configuration; it does not present the tiny contract fixture or a silent
+sample as the full historical graph.
 
 **TEST-ONLY SYNTHETIC FIXTURE VALUES. NOT PSA OPERATIONAL ESTIMATES OR
 PREVALENCE.**
@@ -331,6 +333,216 @@ PR #3 reference-window timestamp, or final outcome. Historical `call_id` is
 used only as an opaque join key; its membership was retrospectively segmented,
 so this benchmark is not represented as a fully live call-discovery system.
 Historical performance labels and metrics remain out of scope for PR #4.
+
+## PR #5 Phase 2 causal historical Watcher evaluation
+
+`latch.historical_eval` composes reset-confirmed PR #2 calls, the PR #3
+synthetic generator, and `assess_connection()` without changing the legacy
+historical runner. The new entry point is explicit:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval
+```
+
+The default bounded benchmark takes the first 256 accepted calls after sorting
+by their first causal update and requests eight unique connections in each of
+four declared topology/mode quota cells. Both bounds are CLI configuration.
+This is a scalability decision around PR #3's current quadratic candidate-pair
+enumeration, not an estimate of connection prevalence.
+
+Updates replay in `(observed_at, source_row_number, call_id)` order. A
+synthetic connection activates only after the later of its two candidate
+observation cursors, so a same-timestamp candidate on a later source row is
+not exposed early. Once active, the Watcher receives only the inbound and
+outbound chronological prefixes accumulated so far. Legs join through
+`assignment.inbound_source_call_id` and
+`assignment.outbound_source_call_id`; vessel ID is lineage and a self-pair
+guard, not the primary join.
+
+The output records Watcher status, severity, slack, selected derived causal
+arrival predictions, ages, reason codes, and the embedded derived
+reference-delay baseline. Final `DerivedArrivalEvent` values are retained in a
+separate evaluation-only population view and never enter `assess_connection()`.
+No retrospective outcomes, accuracy metrics, agent runs, case-registry claims,
+or legacy trace metrics are produced in this phase. The graph remains a
+retrospectively constructed benchmark; causal activation does not make it a
+true live call-discovery benchmark.
+
+## PR #5 Phase 3 retrospective synthetic connection benchmark
+
+Phase 3 adds a post-replay evaluation layer without changing the Phase 2
+replay. `RetrospectiveConnectionOutcome` is frozen and structurally separate
+from `CausalArrivalUpdate`, `ConnectionRiskAssessment`, `RiskEvent`, and the
+causal replay state. It is created only after replay completes from the final
+PR #2 derived crossings and the selected PR #3 process projection:
+
+```text
+retrospective_inbound_ready = final_inbound_derived_crossing
+                               + cargo_ready_offset
+                               + transfer_duration
+retrospective_outbound_cutoff = final_outbound_derived_crossing
+                                - cargo_cutoff_lead
+retrospective_slack = retrospective_outbound_cutoff
+                      - retrospective_inbound_ready
+```
+
+`retrospective_slack <= 0` is `INFEASIBLE`; positive slack is `FEASIBLE`.
+This means **connection infeasible under this synthetic process scenario**.
+It is not an observed missed PSA connection, actual cargo outcome, actual UCID
+outcome, or real PSA ground truth. The separate no-ITT counterfactual is:
+
+```text
+retrospective_no_itt_slack = final_outbound_derived_crossing
+                             - cargo_cutoff_lead
+                             - (final_inbound_derived_crossing
+                                + cargo_ready_offset)
+```
+
+An infeasible transferred scenario with positive no-ITT slack is labelled only
+as a **synthetic terminal-prevention opportunity**, never as a connection
+actually saved.
+
+Scoring is connection-level, not assessment-row-level. For each UCID and each
+default horizon T−6h, T−3h, and T−1h, evaluation time is the retrospective
+synthetic cut-off minus the horizon. The scorer selects the latest causal
+assessment with `assessed_at <= evaluation_time`; it never looks forward. No
+such row means unavailable, not SAFE. The horizon list is configurable with
+`--evaluation-horizons-hours`, while those three values are frozen defaults.
+
+The primary Watcher alert is `WATCH` or `AT_RISK`; `SAFE` is negative. With
+the default experimental configuration, `AT_RISK` means causal scenario slack
+at or below zero, `WATCH` means positive slack at or below the two-hour warning
+margin, and `SAFE` means more than two hours. The reference-delay baseline is
+the already embedded PR #4 result from the exact same selected assessment and
+inbound prediction; its default threshold is a derived inbound delay of at
+least 15 minutes. It is not the calibrated baseline in `eval_detection.py`.
+
+Every horizon retains a five-way connection-level result (TP, FP, TN, FN,
+unavailable). The end-to-end view treats unavailable as no alert, including as
+FN for an infeasible scenario, and states that convention explicitly. The
+common-support view scores both detectors only where both are available. Since
+the baseline is embedded in the same assessment, supports coincided in this
+run. Recall, precision, false-alarm rate, specificity, and F1 are `null` when
+their denominators are zero; accuracy is not a headline metric.
+
+### Default bounded benchmark result
+
+The following figures are from the **retrospective synthetic connection
+benchmark**, not production performance. The deterministic input was 1,382
+accepted PR #2 calls, bounded to the first 256; 237 produced first-available
+PR #3 candidates. Four quota cells generated 32 connections: 16 same-terminal
+and 16 inter-terminal, with 16 `none`, 8 `road`, and 8 `sea` transfer modes.
+All 32 had valid outcomes and none was excluded from scoring. Under the
+REFERENCE scenario, 23 were feasible and 9 infeasible synthetic scenarios.
+The replay produced 1,202 causal assessments across all 32 activated UCIDs.
+
+Availability is fixed-horizon coverage, rather than Phase 2's
+activation-conditioned event-triggered unavailable fraction:
+
+| Horizon | Available | Unavailable | Coverage | Reason |
+|---|---:|---:|---:|---|
+| T−6h | 12 | 20 | 37.5% | no assessment at/before horizon |
+| T−3h | 18 | 14 | 56.2% | no assessment at/before horizon |
+| T−1h | 24 | 8 | 75.0% | no assessment at/before horizon |
+
+REFERENCE available-support confusion and rates are self-contained below.
+`P` and `N` are the actual-positive and actual-negative rate denominators;
+unavailable is excluded from these rates.
+
+| Horizon | Detector | TP | FP | TN | FN | Unavailable | P | N | Recall | Precision | FAR |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| T−6h | Watcher | 2 | 0 | 10 | 0 | 20 | 2 | 10 | 2/2 = 100.0% | 2/2 = 100.0% | 0/10 = 0.0% |
+| T−6h | reference-delay | 1 | 6 | 4 | 1 | 20 | 2 | 10 | 1/2 = 50.0% | 1/7 = 14.3% | 6/10 = 60.0% |
+| T−3h | Watcher | 2 | 0 | 14 | 2 | 14 | 4 | 14 | 2/4 = 50.0% | 2/2 = 100.0% | 0/14 = 0.0% |
+| T−3h | reference-delay | 4 | 10 | 4 | 0 | 14 | 4 | 14 | 4/4 = 100.0% | 4/14 = 28.6% | 10/14 = 71.4% |
+| T−1h | Watcher | 3 | 0 | 18 | 3 | 8 | 6 | 18 | 3/6 = 50.0% | 3/3 = 100.0% | 0/18 = 0.0% |
+| T−1h | reference-delay | 6 | 11 | 7 | 0 | 8 | 6 | 18 | 6/6 = 100.0% | 6/17 = 35.3% | 11/18 = 61.1% |
+
+End-to-end effective confusion treats unavailable as no alert: unavailable
+INFEASIBLE becomes effective FN and unavailable FEASIBLE becomes effective TN.
+These rates therefore correspond directly to the four displayed counts.
+
+| Horizon | Detector | TP | FP | TN | FN | P | N | Recall | Precision | FAR |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| T−6h | Watcher | 2 | 0 | 23 | 7 | 9 | 23 | 2/9 = 22.2% | 2/2 = 100.0% | 0/23 = 0.0% |
+| T−6h | reference-delay | 1 | 6 | 17 | 8 | 9 | 23 | 1/9 = 11.1% | 1/7 = 14.3% | 6/23 = 26.1% |
+| T−3h | Watcher | 2 | 0 | 23 | 7 | 9 | 23 | 2/9 = 22.2% | 2/2 = 100.0% | 0/23 = 0.0% |
+| T−3h | reference-delay | 4 | 10 | 13 | 5 | 9 | 23 | 4/9 = 44.4% | 4/14 = 28.6% | 10/23 = 43.5% |
+| T−1h | Watcher | 3 | 0 | 23 | 6 | 9 | 23 | 3/9 = 33.3% | 3/3 = 100.0% | 0/23 = 0.0% |
+| T−1h | reference-delay | 6 | 11 | 12 | 3 | 9 | 23 | 6/9 = 66.7% | 6/17 = 35.3% | 11/23 = 47.8% |
+
+Common support happened to equal detector-available support in this run. Its
+T−6h recall denominator is only 2 infeasible connections (12 total common
+cases), so the Watcher's 2/2 = 100.0% recall must not be read without that
+small denominator.
+
+**On the bounded retrospective synthetic benchmark, the connection-aware
+Watcher was substantially more selective than the inbound reference-delay
+baseline, producing fewer false alerts, while the baseline retained higher
+sensitivity at later horizons.** This is a precision/false-alert versus recall
+trade-off, not universal detector superiority. The Watcher produced no
+false-positive synthetic connections at the three fixed horizons; the baseline
+had higher common-support recall at T−3h and T−1h but many more false positives.
+The baseline median first-alert lead time was also longer in this run. These
+results come from 32 synthetic connections and are not production performance.
+
+Paired disagreements on common support were:
+
+| Horizon | Label | Both alert | Watcher only | Baseline only | Neither |
+|---|---|---:|---:|---:|---:|
+| T−6h | INFEASIBLE | 1 | 1 | 0 | 0 |
+| T−6h | FEASIBLE | 0 | 0 | 6 | 4 |
+| T−3h | INFEASIBLE | 2 | 0 | 2 | 0 |
+| T−3h | FEASIBLE | 0 | 0 | 10 | 4 |
+| T−1h | INFEASIBLE | 3 | 0 | 3 | 0 |
+| T−1h | FEASIBLE | 0 | 0 | 11 | 7 |
+
+Before the retrospective synthetic cut-off, Watcher first alerted on 6/9
+infeasible scenarios (median 1.76h lead, p25 0.56h, p75 10.06h); the baseline
+alerted on 7/9 (median 3.66h, p25 2.24h, p75 4.62h). This is synthetic decision
+time, not proof of operational rescue. Watcher churn had median 0 transitions,
+p90 0.9, 28/32 (87.5%) connections with zero transitions, and none above the
+descriptive `>4` threshold. There were 0/9 synthetic terminal-prevention
+opportunities.
+
+The stable PR #3 LOW/REFERENCE/CONSERVATIVE abstraction permits sensitivity
+on exactly the same UCIDs and source population. LOW produced 25 feasible/7
+infeasible scenarios, REFERENCE 23/9, and CONSERVATIVE 23/9. Fixed-horizon
+availability was respectively 12/19/28, 12/18/24, and 11/13/19 at
+T−6h/T−3h/T−1h. Separate full scorecards are written in the JSON report; no
+connection population is regenerated between scenarios.
+
+Synthetic pairing-seed sensitivity is available only as a secondary CLI
+diagnostic. It reuses the exact bounded call population and does not alter the
+frozen primary seed, report, or causal semantics:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval \
+  --seed-sensitivity-seeds sensitivity-a sensitivity-b sensitivity-c
+```
+
+With the current data, those three illustrative seeds produced 1–3 Watcher
+false positives per fixed horizon instead of the frozen primary seed's zero.
+That is enough to treat the primary zero-false-positive result as pairing-seed
+sensitive; three alternatives are a robustness prompt, not a replacement
+benchmark or evidence of production stability.
+
+Run the scorecard and optionally write its deterministic, timestamp-free,
+versioned JSON manifest with:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval \
+  --output historical-watcher-report.json
+```
+
+The JSON includes configuration and limits, seed and quota definitions,
+Watcher thresholds, all process assumptions and horizons, composition,
+availability, available-support/end-to-end-effective/common-support metrics,
+paired comparisons,
+lead-time and churn statistics, terminal-prevention opportunities, scenario
+sensitivity, digests, and explicit provenance/limitations. It does not alter
+legacy `run_historical.py` figures, `eval_eta.py`, `eval_detection.py`, or
+`TraceStore` service-rate evidence.
 
 ### Git LFS
 
@@ -474,6 +686,7 @@ Run the whole chain:
 
 ```bash
 uv run python scripts/run_historical.py --limit 20000   # A's output -> agent decisions
+uv run python scripts/run_historical.py --mode watcher-eval  # PR #2 + #3 + #4 diagnostics
 uv run python scripts/demo.py --from-ais                # one real vessel, narrated
 ```
 

@@ -17,16 +17,36 @@ So the *trigger* is real and the *stakes* are invented. A number produced here
 measures whether the agent behaves sensibly on realistic vessel timing — not
 how many containers PSA would have saved.
 
-Run:  uv run python scripts/run_historical.py --limit 50000
+Legacy run:  uv run python scripts/run_historical.py --limit 50000
+
+Causal Watcher retrospective synthetic connection benchmark:
+  uv run python scripts/run_historical.py --mode watcher-eval
 """
 
 import argparse
+import sys
 from collections import Counter
+from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 
 from latch.cases import CaseRegistry
 from latch.connections import ConnectionParams
 from latch.events import RiskSeverity
+from latch.historical_eval import (
+    DEFAULT_CONNECTIONS_PER_QUOTA,
+    DEFAULT_EVALUATION_HORIZONS,
+    DEFAULT_SOURCE_CALL_LIMIT,
+    MAX_SOURCE_CALL_LIMIT,
+    HistoricalPopulationConfig,
+    build_historical_benchmark_report,
+    evaluate_historical_csv,
+    file_sha256,
+    historical_synthetic_config,
+    replay_watcher_assessments,
+    scenario_evaluation_report,
+    write_historical_benchmark_report,
+)
 from latch.llm import FakeModel, OllamaModel
 from latch.replay import (
     ArrivalBoundary,
@@ -35,13 +55,15 @@ from latch.replay import (
 )
 from latch.runner import AutoApprove, CustomerSilent, handle
 from latch.trace import TraceStore
-from latch.watcher import events_from_signals
+from latch.watcher import WatcherConfig, events_from_signals
+from latch.synthetic import ProcessScenario, generate_synthetic_benchmark
 
 DEFAULT_CSV = (
     Path(__file__).resolve().parent.parent
     / "Data Inspection"
     / "Singapore_anonymized.csv"
 )
+DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT = 50_000
 
 
 def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
@@ -66,11 +88,340 @@ def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
         yield update
 
 
-def main() -> None:
+def _percentage(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.1%}"
+
+
+def _hours(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f}h"
+
+
+def _fraction(numerator: int, denominator: int, rate: float | None) -> str:
+    return f"{numerator}/{denominator}={_percentage(rate)}"
+
+
+def _metric_lines(label, metrics) -> tuple[str, str, str]:
+    available = metrics.available_support
+    available_counts = available.counts
+    available_denominators = available.rate_denominators
+    effective = metrics.end_to_end_effective
+    effective_counts = effective.counts
+    effective_denominators = effective.rate_denominators
+    common = metrics.common_support
+    common_counts = common.counts
+    common_denominators = common.rate_denominators
+    return (
+        (
+            f"  {label:24} available-support  "
+            f"TP {available_counts.tp:2} FP {available_counts.fp:2} "
+            f"TN {available_counts.tn:2} FN {available_counts.fn:2} "
+            f"unavailable {available_counts.unavailable:2}; "
+            f"support={available.available_support}/{available.total_connections} "
+            f"(positive={available.actual_positive_support}, "
+            f"negative={available.actual_negative_support}); "
+            "recall "
+            f"{_fraction(available_counts.tp, available_denominators.recall_actual_positive, available.rates.recall)} "
+            "precision "
+            f"{_fraction(available_counts.tp, available_denominators.precision_alert_positive, available.rates.precision)} "
+            "FAR "
+            f"{_fraction(available_counts.fp, available_denominators.false_alarm_actual_negative, available.rates.false_alarm_rate)}"
+        ),
+        (
+            f"  {'':24} end-to-end effective "
+            f"TP {effective_counts.tp:2} FP {effective_counts.fp:2} "
+            f"TN {effective_counts.tn:2} FN {effective_counts.fn:2}; "
+            f"support={effective.support} "
+            f"(positive={effective.actual_positive_support}, "
+            f"negative={effective.actual_negative_support}); "
+            "recall "
+            f"{_fraction(effective_counts.tp, effective_denominators.recall_actual_positive, effective.rates.recall)} "
+            "precision "
+            f"{_fraction(effective_counts.tp, effective_denominators.precision_alert_positive, effective.rates.precision)} "
+            "FAR "
+            f"{_fraction(effective_counts.fp, effective_denominators.false_alarm_actual_negative, effective.rates.false_alarm_rate)}; "
+            f"imputed no-alert: infeasible→FN={effective.unavailable_infeasible_as_fn}, "
+            f"feasible→TN={effective.unavailable_feasible_as_tn}"
+        ),
+        (
+            f"  {'':24} common support       "
+            f"n={common.support} (positive={common.actual_positive_support}, "
+            f"negative={common.actual_negative_support}); "
+            "recall "
+            f"{_fraction(common_counts.tp, common_denominators.recall_actual_positive, common.rates.recall)} "
+            "precision "
+            f"{_fraction(common_counts.tp, common_denominators.precision_alert_positive, common.rates.precision)}"
+        ),
+    )
+
+
+def _seed_horizon_summary(horizon) -> str:
+    watcher = horizon.watcher.available_support
+    baseline = horizon.reference_delay_baseline.available_support
+    watcher_recall = _fraction(
+        watcher.counts.tp,
+        watcher.actual_positive_support,
+        watcher.rates.recall,
+    )
+    baseline_recall = _fraction(
+        baseline.counts.tp,
+        baseline.actual_positive_support,
+        baseline.rates.recall,
+    )
+    return (
+        f"{horizon.horizon}:W-FP={watcher.counts.fp},"
+        f"W-recall={watcher_recall},"
+        f"B-FP={baseline.counts.fp},"
+        f"B-recall={baseline_recall}"
+    )
+
+
+def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
+    """Score causal Watcher assessments without invoking the agent."""
+
+    dataset_digest = file_sha256(args.csv)
+    population_config = HistoricalPopulationConfig(
+        source_call_limit=args.benchmark_call_limit
+    )
+    synthetic_config = historical_synthetic_config(
+        dataset_sha256=dataset_digest,
+        connections_per_quota=args.connections_per_quota,
+    )
+    watcher_config = WatcherConfig(
+        warning_margin=timedelta(hours=args.watcher_warning_hours),
+        reference_delay_threshold=timedelta(
+            minutes=args.baseline_delay_minutes
+        ),
+        process_scenario=ProcessScenario(args.process_scenario),
+    )
+    result = evaluate_historical_csv(
+        args.csv,
+        replay_config=replay_config,
+        population_config=population_config,
+        synthetic_config=synthetic_config,
+        watcher_config=watcher_config,
+    )
+    scenario_results = []
+    for scenario in ProcessScenario:
+        if scenario is watcher_config.process_scenario:
+            scenario_results.append(result)
+        else:
+            scenario_results.append(
+                replay_watcher_assessments(
+                    result.population,
+                    result.benchmark,
+                    replace(watcher_config, process_scenario=scenario),
+                )
+            )
+    horizons = tuple(
+        timedelta(hours=value) for value in args.evaluation_horizons_hours
+    )
+    report = build_historical_benchmark_report(
+        scenario_results,
+        synthetic_config=synthetic_config,
+        watcher_config=watcher_config,
+        horizons=horizons,
+    )
+    if args.output is not None:
+        write_historical_benchmark_report(report, args.output)
+
+    selected = next(
+        item
+        for item in report.scenarios
+        if item.process_scenario == watcher_config.process_scenario.value
+    )
+    composition = selected.composition
+    counts = result.diagnostics
+
+    print("retrospective synthetic connection benchmark")
+    print("\nBenchmark composition")
+    print(f"  selected scenario       {selected.process_scenario}")
+    print(f"  process assumption      {selected.process_assumption_id}")
+    print(f"  accepted PR #2 calls    {composition.accepted_pr2_calls:7,}")
+    print(
+        f"  bounded replay calls    {composition.bounded_replay_calls:7,}  "
+        "(retrospectively constructed benchmark)"
+    )
+    print(f"  PR #3 candidates        {composition.pr3_candidate_calls:7,}")
+    print(f"  synthetic connections   {composition.synthetic_connections:7,}")
+    print(
+        f"  valid outcomes          "
+        f"{composition.connections_with_valid_retrospective_outcome:7,}"
+    )
+    print(
+        f"  feasible/infeasible     {composition.feasible_synthetic_scenarios:3}/"
+        f"{composition.infeasible_synthetic_scenarios:<3} synthetic scenarios"
+    )
+    print(
+        f"  same/inter-terminal     {composition.same_terminal_connections:3}/"
+        f"{composition.inter_terminal_connections:<3}"
+    )
+    print(
+        "  transfer modes          "
+        + ", ".join(f"{name}={count}" for name, count in composition.transfer_mode_breakdown)
+    )
+    print(
+        f"  causal assessments      {counts.assessment_count:7,}  "
+        f"activated UCIDs={counts.causally_activated_connection_count}"
+    )
+    severity = dict(counts.severity_distribution)
+    print(
+        "  Phase 2 diagnostics     "
+        f"event-triggered unavailable={counts.unavailable_assessment_count}; "
+        + ", ".join(
+            f"{state}={severity.get(state, 0)}"
+            for state in ("SAFE", "WATCH", "AT_RISK")
+        )
+        + f"; baseline alerts={counts.baseline_alert_count}"
+    )
+
+    print("\nAvailability")
+    for horizon in selected.horizons:
+        coverage = horizon.availability
+        reason = ", ".join(
+            f"{name}={count}" for name, count in coverage.unavailable_reasons
+        ) or "none"
+        print(
+            f"  {horizon.horizon:5} {coverage.assessment_available:2}/"
+            f"{coverage.total_benchmark_connections:<2} "
+            f"({_percentage(coverage.availability_percentage)}) available; "
+            f"unavailable={coverage.assessment_unavailable} ({reason})"
+        )
+
+    print("\nWatcher vs reference-delay baseline")
+    print(
+        "  Primary Watcher alert is WATCH or AT_RISK. Every rate below is "
+        "shown with its own confusion support and denominator."
+    )
+    print(
+        "  Available-support excludes unavailable from rates. End-to-end "
+        "effective treats unavailable as no alert. Common support requires "
+        "both detectors."
+    )
+    for horizon in selected.horizons:
+        print(f"  {horizon.horizon}")
+        for line in _metric_lines("Watcher", horizon.watcher):
+            print(line)
+        for line in _metric_lines(
+            "reference-delay", horizon.reference_delay_baseline
+        ):
+            print(line)
+        infeasible = horizon.paired_comparison.retrospectively_infeasible
+        feasible = horizon.paired_comparison.retrospectively_feasible
+        print(
+            "    paired infeasible: "
+            f"both={infeasible.both_alert} watcher-only={infeasible.watcher_only} "
+            f"baseline-only={infeasible.baseline_only} neither={infeasible.neither}; "
+            "feasible: "
+            f"both={feasible.both_alert} watcher-only={feasible.watcher_only} "
+            f"baseline-only={feasible.baseline_only} neither={feasible.neither}"
+        )
+
+    lead = selected.first_alert_lead_time
+    print("\nFirst-alert lead time")
+    for label, statistics in (
+        ("Watcher", lead.watcher),
+        ("reference-delay", lead.reference_delay_baseline),
+    ):
+        print(
+            f"  {label:16} caught={statistics.caught_infeasible_connections} "
+            f"missed={statistics.missed_infeasible_connections} "
+            f"median={_hours(statistics.median_lead_time_h)} "
+            f"p25={_hours(statistics.p25_lead_time_h)} "
+            f"p75={_hours(statistics.p75_lead_time_h)}"
+        )
+    churn = selected.watcher_alert_churn
+    print(
+        f"  Watcher churn    median={churn.median_transitions_per_connection} "
+        f"p90={churn.p90_transitions_per_connection} "
+        f"zero={churn.zero_transition_connections}/{churn.connections} "
+        f">{churn.diagnostic_threshold}={churn.above_threshold_connections}"
+    )
+    opportunity = selected.terminal_prevention_opportunity
+    print(
+        "  terminal-prevention opportunity "
+        f"{opportunity.infeasible_with_transfer_feasible_without_transfer}/"
+        f"{composition.infeasible_synthetic_scenarios} "
+        f"({_percentage(opportunity.share_of_infeasible_scenarios)}); synthetic only"
+    )
+
+    print("\nScenario limitations")
+    print(
+        "  LOW, REFERENCE, and CONSERVATIVE use the same UCIDs/population; "
+        "separate scenario scorecards are in JSON."
+    )
+    for limitation in report.limitations[:4]:
+        print(f"  - {limitation}")
+    if args.output is not None:
+        print(f"\nDeterministic JSON written to {args.output}")
+
+    if args.seed_sensitivity_seeds:
+        print("\nSecondary synthetic pairing-seed sensitivity diagnostic")
+        print(
+            "  Frozen primary report above is unchanged. Each row reuses the "
+            "same bounded call population and causal replay semantics."
+        )
+        population_updates = tuple(
+            update
+            for call in result.population.replay_calls
+            for update in call.updates
+        )
+        for seed in args.seed_sensitivity_seeds:
+            diagnostic_config = replace(synthetic_config, seed=seed)
+            diagnostic_benchmark = generate_synthetic_benchmark(
+                population_updates, diagnostic_config
+            )
+            diagnostic_result = replay_watcher_assessments(
+                result.population,
+                diagnostic_benchmark,
+                watcher_config,
+            )
+            diagnostic = scenario_evaluation_report(
+                diagnostic_result,
+                scenario=watcher_config.process_scenario,
+                horizons=horizons,
+            )
+            horizon_summary = ", ".join(
+                _seed_horizon_summary(item) for item in diagnostic.horizons
+            )
+            print(
+                f"  seed={seed!r} graph={diagnostic_benchmark.manifest.output_digest[:12]} "
+                f"feasible/infeasible="
+                f"{diagnostic.composition.feasible_synthetic_scenarios}/"
+                f"{diagnostic.composition.infeasible_synthetic_scenarios}; "
+                f"{horizon_summary}"
+            )
+
+
+def _benchmark_call_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if not 2 <= parsed <= MAX_SOURCE_CALL_LIMIT:
+        raise argparse.ArgumentTypeError(
+            f"must be between 2 and {MAX_SOURCE_CALL_LIMIT} inclusive; "
+            f"{MAX_SOURCE_CALL_LIMIT} is the explicit quadratic-generator safety bound"
+        )
+    return parsed
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
     parser.add_argument(
-        "--limit", type=int, default=50_000, help="arrival updates to read from A"
+        "--mode",
+        choices=("legacy", "watcher-eval"),
+        default="legacy",
+        help="legacy keeps the original inbound-only agent run semantics",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help=(
+            "legacy arrival-update read limit "
+            f"(default: {DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT})"
+        ),
     )
     parser.add_argument(
         "--max-agent-runs",
@@ -79,7 +430,73 @@ def main() -> None:
         help="cap agent invocations; the point is the mix, not the volume",
     )
     parser.add_argument("--model", choices=("fake", "local"), default="fake")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--benchmark-call-limit",
+        type=_benchmark_call_limit,
+        default=DEFAULT_SOURCE_CALL_LIMIT,
+        help=(
+            "accepted-call population bound for watcher-eval; "
+            f"default: {DEFAULT_SOURCE_CALL_LIMIT}, also the current maximum; "
+            "may lower the bounded population but cannot exceed the explicit "
+            "quadratic-generator safety cap"
+        ),
+    )
+    parser.add_argument(
+        "--connections-per-quota",
+        type=int,
+        default=DEFAULT_CONNECTIONS_PER_QUOTA,
+        help="connections in each of four declared historical quota cells",
+    )
+    parser.add_argument("--watcher-warning-hours", type=float, default=2.0)
+    parser.add_argument("--baseline-delay-minutes", type=float, default=15.0)
+    parser.add_argument(
+        "--process-scenario",
+        choices=tuple(item.value for item in ProcessScenario),
+        default=ProcessScenario.REFERENCE.value,
+    )
+    parser.add_argument(
+        "--evaluation-horizons-hours",
+        type=float,
+        nargs="+",
+        default=tuple(
+            item.total_seconds() / 3600 for item in DEFAULT_EVALUATION_HORIZONS
+        ),
+        metavar="HOURS",
+        help="fixed horizons before the retrospective synthetic cut-off",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="optional deterministic watcher-eval JSON report path",
+    )
+    parser.add_argument(
+        "--seed-sensitivity-seeds",
+        nargs="+",
+        default=(),
+        metavar="SEED",
+        help=(
+            "optional secondary diagnostic using alternative deterministic "
+            "pairing seeds; never replaces or mutates the frozen primary report"
+        ),
+    )
+    return parser
+
+
+def parse_cli_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = build_parser()
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if args.mode == "watcher-eval" and args.limit is not None:
+        parser.error(
+            "--limit applies to the legacy agent run only; watcher-eval reads "
+            "the full CSV and is bounded by --benchmark-call-limit"
+        )
+    if args.limit is None:
+        args.limit = DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT
+    return args
+
+
+def main() -> None:
+    args = parse_cli_args()
 
     if not args.csv.is_file() or args.csv.stat().st_size < 1_000:
         raise SystemExit(
@@ -88,6 +505,10 @@ def main() -> None:
         )
 
     config = ReplayConfig(boundary=ArrivalBoundary())
+    if args.mode == "watcher-eval":
+        run_watcher_evaluation(args, config)
+        return
+
     params = ConnectionParams()
 
     signals = arrival_signals(args.csv, config, args.limit)

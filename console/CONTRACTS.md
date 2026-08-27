@@ -116,52 +116,58 @@ approval affordance there would imply an authority the system does not claim.
 
 ---
 
-## 4. `RiskEvent.to_dict()` drops six fields that `from_dict()` reads
+## 4. `RiskEvent` enrichment now round-trips
 
-`events.py:264` writes 8 keys (+2 optional). `events.py:234` reads **six more**:
-`inbound_terminal`, `outbound_terminal`, `terminal_resolution`,
-`inbound_vessel`, `outbound_vessel`, `source`.
+PR #4 corrected the stale asymmetry recorded here. `RiskEvent.to_dict()` now
+writes terminal resolution, terminal and vessel names, source, the flattened
+assumption fields, and `timing_resolution`; `from_dict()` reads them back. A
+derived causal event also writes all four arrival values. A JSON round trip no
+longer drops enrichment or assumption provenance.
 
-The live Watcher (`watcher.py:154`) sets all six on the in-process object. They
-survive `from_dict` but not `to_dict`, so a round trip through JSON loses them.
-`to_dict` also never writes `assumptions`, which `from_dict` does not read
-either — the assumption block only travels in-process.
+`detected_at` and `ucid` remain optional. The four causal arrival keys are
+present as a complete set only when `timing_resolution` is
+`derived_causal_arrival`; partial sets are rejected.
 
-**Console impact.** Terminal names, vessel names and the synthetic/real
-provenance marker cannot be read from an event JSON file. They are recoverable
-from the trace `trigger` block (`trace.py:Trace.for_risk`) for terminals and
-`terminal_resolution`, but **vessel names are recoverable from neither**. See
-REQUEST TO A/B #5.
+**Console impact.** The event contract can now carry vessel names and timing
+provenance without the fixture harness patching in dropped fields. A trace-only
+live consumer still lacks vessel call detail; see REQUEST TO A/B #5.
 
 ---
 
-## 4a. `assumptions` survives neither direction, so `connection_type` is wrong on the wire
+## 4a. `assumptions` and `connection_type` now survive the wire
 
 Found while generating C's fixtures, not by reading — the first trace
 observation said `SAME_TERMINAL` for a Tuas to Pasir Panjang connection.
 
-`Assumptions` (`events.py:57`) defaults every flag to synthetic and
-`connection_type` to `SAME_TERMINAL`. `RiskEvent.to_dict()` never writes the
-block and `from_dict()` never reads it, so **every event reconstructed from
-JSON claims `SAME_TERMINAL` regardless of its terminals.**
-
-This is not only C's problem. `runner.handle()` writes the value into the
-first observation step of every trace:
+The original issue was real: JSON reconstruction could default an
+inter-terminal event to `SAME_TERMINAL`, and `runner.handle()` then wrote that
+incorrect value into the first observation step:
 
 ```python
 trace.observation(..., connection_type=assumptions.connection_type.value, ...)
 ```
 
-and `cli.py` builds its events with `RiskEvent.from_dict`. So B's own
-`uv run latch --events path/to.json` path writes a wrong `connection_type`
-into the audit trail for every inter-terminal connection it processes. The
-in-process path from `watcher.events_from_signals` is correct; only the JSON
-path is affected.
+PR #4 fixed both directions. `to_dict()` writes `Assumptions.as_dict()` flat;
+`from_dict()` reads the declared connection type/provenance and still derives
+a conservative value when an older payload is silent. The capture harness now
+uses that wire path directly and has no `replace(..., assumptions=...)`
+workaround.
 
-**Console impact.** C's capture harness reattaches the assumptions the live
-Watcher would have set (`replace(decoded, assumptions=...)`), mirroring
-`watcher.py:154`, so no fixture contradicts itself on screen. That is a
-workaround in C's generator, not a fix. See REQUEST TO A/B #7.
+## 4b. Exact vessel timing provenance
+
+`timing_resolution` has two values:
+
+- `derived_causal_arrival`: all four values are the selected PR #2 reference
+  and predicted arrivals derived causally from real AIS observations. They are
+  estimates, not official schedules, PSA schedules, actual arrivals, or
+  observed berth timings.
+- `legacy_slack_fallback`: all four causal fields are absent. B reconstructs
+  display-only vessel times from `detected_at` and the event slack. Those
+  timestamps are not observed vessel timings.
+
+The console maps these to **“Derived causal AIS estimate”** and
+**“Reconstructed legacy timing”** beside each vessel time. Existing captured
+fixtures lack the four causal values and therefore remain legacy fallback.
 
 ---
 
@@ -503,7 +509,7 @@ Asking for: a `superseded_by` / `supersedes` field on `Trace.as_dict()`'s
 `AdmissionDecision`, which is never serialised, so the console can show a case
 is superseded but not what replaced it.
 
-### REQUEST TO A/B #5 — vessel names and call timing on the wire
+### REQUEST TO A/B #5 — vessel names and call timing on the wire — **A LANDED**
 
 `ConnectionRiskWire` (`serde.py`) has full `VesselCallWire` records with
 `scheduled` / `estimated` for both legs. The trace does not — `trigger` has
@@ -516,9 +522,10 @@ Asking for: either `handle()` also emits the `risk_to_dict()` payload alongside
 the trace, or `Trace.trigger` gains `inbound_vessel`, `outbound_vessel`,
 `inbound_estimated`, `outbound_scheduled`.
 
-Also for A: `RiskEvent.to_dict()` should write the six enrichment keys its own
-`from_dict()` already reads (§4). That is a one-line-per-key change and makes
-the wire format round-trip.
+The A-side request landed in PR #4: `RiskEvent.to_dict()` now writes the six
+enrichment keys, assumptions, `timing_resolution`, and the four causal timing
+values when available. The remaining request is B-side support for a consumer
+that receives only traces rather than the event/risk bundle.
 
 ### REQUEST TO B #6 — reach `STALE`, or delete it
 
@@ -530,7 +537,7 @@ the console is not rendering a state that cannot occur.
 Low priority for the demo; high priority for not shipping a diagram that
 claims a behaviour we do not have.
 
-### REQUEST TO A/B #7 — carry `assumptions` on the wire
+### REQUEST TO A/B #7 — carry `assumptions` on the wire — **LANDED**
 
 `to_dict()` should write the assumption block and `from_dict()` should read it,
 the way the other enrichment keys should (§4). Until then every JSON-sourced
@@ -541,8 +548,9 @@ Cheapest correct fix if the block is not wanted on the wire: derive
 `connection_type` in `from_dict` from `inbound_terminal != outbound_terminal`
 rather than defaulting it.
 
-**Landed in `99a47b8`**, taking the derivation route. B derives all four
-provenance flags as well, defaulting to synthetic when the payload is silent,
+**Landed in `99a47b8`**, initially taking the derivation route. PR #4 completed
+the round trip by serialising the flattened assumption fields. B derives all
+four provenance flags as well, defaulting to synthetic when the payload is silent,
 and resolves the contradictory case — identical terminals alongside
 `avoidable_by_terminal_prevention` — toward `INTER_TERMINAL` deliberately.
 

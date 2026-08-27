@@ -33,6 +33,7 @@ from latch.events import (
     ReasonCode,
     RiskEvent,
     RiskSeverity,
+    TimingResolution,
     WatcherConfidence,
 )
 from latch.llm import FakeModel
@@ -91,6 +92,7 @@ def risk(
         avoidable_by_terminal_prevention=inbound is not outbound,
         affected_boxes=boxes,
         watcher_confidence=WatcherConfidence.HIGH,
+        timing_resolution=TimingResolution.LEGACY_SLACK_FALLBACK,
         reason_codes=(
             ReasonCode.INBOUND_ETA_SLIP,
             ReasonCode.INTER_TERMINAL_TRANSFER_TIME,
