@@ -35,6 +35,13 @@ from latch.models import (
 
 WIRE_VERSION = 1
 
+_CAUSAL_TIMING_FIELDS = (
+    "inbound_reference_arrival",
+    "inbound_predicted_arrival",
+    "outbound_reference_arrival",
+    "outbound_predicted_arrival",
+)
+
 
 def _optional_datetime(value: object) -> datetime | None:
     if value is None or value == "":
@@ -75,6 +82,30 @@ class TimingResolution(StrEnum):
 
     DERIVED_CAUSAL_ARRIVAL = "derived_causal_arrival"
     LEGACY_SLACK_FALLBACK = "legacy_slack_fallback"
+
+
+def _timing_resolution_from(payload: dict[str, Any]) -> TimingResolution:
+    """Parse explicit provenance or infer the pre-provenance wire format.
+
+    Main emitted causal events with all four arrival keys before
+    ``timing_resolution`` was added.  A payload without either enrichment is
+    the older slack-based format.  Anything between those two complete shapes
+    is malformed rather than a third compatibility format.
+    """
+    if "timing_resolution" in payload:
+        return TimingResolution(payload["timing_resolution"])
+
+    present = tuple(name for name in _CAUSAL_TIMING_FIELDS if name in payload)
+    if not present:
+        return TimingResolution.LEGACY_SLACK_FALLBACK
+    if len(present) == len(_CAUSAL_TIMING_FIELDS):
+        return TimingResolution.DERIVED_CAUSAL_ARRIVAL
+
+    missing = tuple(name for name in _CAUSAL_TIMING_FIELDS if name not in payload)
+    raise ValueError(
+        "missing timing_resolution with partial causal vessel timing; "
+        f"supplied {', '.join(present)}; missing {', '.join(missing)}"
+    )
 
 
 class ConnectionType(StrEnum):
@@ -383,12 +414,7 @@ class RiskEvent:
             ),
             affected_boxes=int(payload["affected_boxes"]),
             watcher_confidence=WatcherConfidence(payload["confidence"]),
-            timing_resolution=TimingResolution(
-                payload.get(
-                    "timing_resolution",
-                    TimingResolution.LEGACY_SLACK_FALLBACK.value,
-                )
-            ),
+            timing_resolution=_timing_resolution_from(payload),
             reason_codes=tuple(ReasonCode(c) for c in payload.get("reason_codes", ())),
             detected_at=datetime.fromisoformat(detected) if detected else None,
             ucid=payload.get("ucid"),

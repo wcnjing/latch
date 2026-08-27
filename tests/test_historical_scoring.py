@@ -17,6 +17,7 @@ from latch.historical_eval import (
     evaluate_fixed_horizon,
     first_alert_lead_times,
     historical_synthetic_config,
+    records_by_ucid,
     replay_watcher_assessments,
     select_assessment_at_horizon,
     watcher_alert,
@@ -289,6 +290,52 @@ def test_horizon_selection_is_deterministic_under_permutation():
     assert select_assessment_at_horizon(records, value, timedelta(hours=6)) == (
         select_assessment_at_horizon(reversed(records), value, timedelta(hours=6))
     )
+
+
+def test_indexed_horizon_selection_matches_iterable_semantics_and_tie_ordering():
+    template = template_record()
+    value = outcome("one", infeasible=True)
+    tie_time = NOW - timedelta(hours=6)
+    records = (
+        record(template, "other", tie_time, watcher=False, baseline=False, row=9),
+        record(template, "one", tie_time, watcher=False, baseline=False, row=2),
+        record(template, "one", NOW - timedelta(hours=7), watcher=False, baseline=False, row=1),
+        record(template, "one", tie_time, watcher=True, baseline=True, row=3),
+        record(template, "one", NOW - timedelta(hours=5), watcher=False, baseline=False, row=4),
+    )
+
+    indexed = records_by_ucid(reversed(records))
+
+    assert isinstance(indexed["one"], tuple)
+    assert [item.trigger_cursor.source_row_number for item in indexed["one"]] == [
+        1,
+        2,
+        3,
+        4,
+    ]
+    assert select_assessment_at_horizon(records, value, timedelta(hours=6)) == records[3]
+    assert select_assessment_at_horizon(indexed, value, timedelta(hours=6)) == records[3]
+
+
+def test_indexed_selection_preserves_conflict_detection():
+    template = template_record()
+    value = outcome("one", infeasible=True)
+    selected = record(
+        template,
+        "one",
+        NOW - timedelta(hours=6),
+        watcher=False,
+        baseline=False,
+        row=1,
+    )
+    conflicting = replace(selected, severity="WATCH")
+
+    with pytest.raises(ValueError, match="conflicting historical assessments"):
+        select_assessment_at_horizon(
+            records_by_ucid((selected, conflicting)),
+            value,
+            timedelta(hours=6),
+        )
 
 
 def test_connection_level_confusion_rates_and_unavailable():

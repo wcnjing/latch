@@ -21,6 +21,7 @@ import {
   toViewModel,
 } from '../src/adapters/toViewModel';
 import type { FixtureBundle } from '../src/adapters/types';
+import type { TimingResolution } from '../src/contracts/latch';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dir = join(here, '..', 'fixtures');
@@ -35,6 +36,20 @@ const fail = (msg: string) => {
   problems += 1;
   console.log(`  !! ${msg}`);
 };
+
+const timingResolutionError = (value: unknown): string | null =>
+  value === 'derived_causal_arrival' || value === 'legacy_slack_fallback'
+    ? null
+    : `timing_resolution must be derived_causal_arrival or legacy_slack_fallback; got ${String(value)}`;
+
+// Runtime JSON is not protected by the FixtureBundle compile-time type. Keep
+// these cases beside the guard so removing either accepted failure regresses
+// the smoke check itself.
+for (const invalid of [undefined, 'unknown_timing_resolution']) {
+  if (timingResolutionError(invalid) === null) {
+    fail(`timing_resolution runtime guard accepted ${String(invalid)}`);
+  }
+}
 
 for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
   const c = vm.confidence;
@@ -72,9 +87,25 @@ for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
   }
   for (const r of vm.reasons) if (!r.title) fail(`${vm.id}: unmapped reason code ${r.code}`);
   for (const t of vm.timeline) if (!t.title) fail(`${vm.id}: timeline step ${t.seq} has no title`);
-  for (const leg of [vm.inbound, vm.outbound]) {
-    if (leg.timingProvenanceLabel !== TIMING_RESOLUTION_LABEL[vm.raw.event.timing_resolution]) {
-      fail(`${vm.id}: vessel timing provenance does not match RiskEvent.timing_resolution`);
+  const rawTimingResolution = (vm.raw.event as { timing_resolution?: unknown }).timing_resolution;
+  const rawTimingError = timingResolutionError(rawTimingResolution);
+  if (rawTimingError !== null) {
+    fail(`${vm.id}: ${rawTimingError}`);
+  } else {
+    const timingResolution = rawTimingResolution as TimingResolution;
+    for (const [legName, leg] of [
+      ['inbound', vm.inbound],
+      ['outbound', vm.outbound],
+    ] as const) {
+      if (leg.timingResolution !== timingResolution) {
+        fail(`${vm.id}: ${legName} timingResolution does not match raw RiskEvent value`);
+      }
+      if (!leg.timingProvenanceLabel.trim()) {
+        fail(`${vm.id}: ${legName} timingProvenanceLabel is empty`);
+      }
+      if (leg.timingProvenanceLabel !== TIMING_RESOLUTION_LABEL[timingResolution]) {
+        fail(`${vm.id}: ${legName} vessel timing provenance label is incorrect`);
+      }
     }
   }
   const timingFields = [
@@ -84,14 +115,14 @@ for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
     vm.raw.event.outbound_predicted_arrival,
   ];
   if (
-    vm.raw.event.timing_resolution === 'legacy_slack_fallback' &&
+    rawTimingResolution === 'legacy_slack_fallback' &&
     timingFields.some((value) => value !== undefined)
   ) {
     fail(`${vm.id}: legacy timing fixture carries causal arrival fields`);
   }
   if (
-    vm.raw.event.timing_resolution === 'derived_causal_arrival' &&
-    timingFields.some((value) => value === undefined)
+    rawTimingResolution === 'derived_causal_arrival' &&
+    timingFields.some((value) => typeof value !== 'string' || value.length === 0)
   ) {
     fail(`${vm.id}: derived causal timing fixture is missing an arrival field`);
   }

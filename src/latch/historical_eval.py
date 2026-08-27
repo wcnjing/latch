@@ -437,6 +437,35 @@ class HistoricalAssessmentRecord:
     watcher_config_digest: str
 
 
+HistoricalRecordsByUcid = Mapping[str, tuple[HistoricalAssessmentRecord, ...]]
+
+
+def _assessment_selection_key(
+    record: HistoricalAssessmentRecord,
+) -> tuple[datetime, ReplayCursor, str]:
+    """Existing deterministic order for selecting historical assessments."""
+    return (
+        record.assessed_at,
+        record.trigger_cursor,
+        record.trigger_source_call_id,
+    )
+
+
+def records_by_ucid(
+    records: Iterable[HistoricalAssessmentRecord],
+) -> HistoricalRecordsByUcid:
+    """Group and deterministically order assessment records once per UCID."""
+    grouped: dict[str, list[HistoricalAssessmentRecord]] = {}
+    for record in records:
+        grouped.setdefault(record.ucid, []).append(record)
+    return MappingProxyType(
+        {
+            ucid: tuple(sorted(items, key=_assessment_selection_key))
+            for ucid, items in sorted(grouped.items())
+        }
+    )
+
+
 def _assessment_record(
     assessment: ConnectionRiskAssessment,
     *,
@@ -906,42 +935,27 @@ def normalize_horizons(
 
 
 def select_assessment_at_horizon(
-    records: Iterable[HistoricalAssessmentRecord],
+    records: Iterable[HistoricalAssessmentRecord] | HistoricalRecordsByUcid,
     outcome: RetrospectiveConnectionOutcome,
     horizon: timedelta,
 ) -> HistoricalAssessmentRecord | None:
     """Select the latest causal assessment at or before cut-off minus horizon."""
 
     evaluation_time = outcome.retrospective_outbound_cutoff - horizon
+    index = records if isinstance(records, Mapping) else records_by_ucid(records)
     eligible = [
         record
-        for record in records
-        if record.ucid == outcome.ucid and record.assessed_at <= evaluation_time
+        for record in index.get(outcome.ucid, ())
+        if record.assessed_at <= evaluation_time
     ]
     if not eligible:
         return None
-    eligible.sort(
-        key=lambda record: (
-            record.assessed_at,
-            record.trigger_cursor,
-            record.trigger_source_call_id,
-        )
-    )
     selected = eligible[-1]
-    selected_key = (
-        selected.assessed_at,
-        selected.trigger_cursor,
-        selected.trigger_source_call_id,
-    )
+    selected_key = _assessment_selection_key(selected)
     conflicts = [
         record
         for record in eligible
-        if (
-            record.assessed_at,
-            record.trigger_cursor,
-            record.trigger_source_call_id,
-        )
-        == selected_key
+        if _assessment_selection_key(record) == selected_key
         and record != selected
     ]
     if conflicts:
@@ -1230,22 +1244,20 @@ def _paired_counts(
 
 
 def evaluate_fixed_horizon(
-    records: Iterable[HistoricalAssessmentRecord],
+    records: Iterable[HistoricalAssessmentRecord] | HistoricalRecordsByUcid,
     outcomes: Iterable[RetrospectiveConnectionOutcome],
     horizon: timedelta,
 ) -> HorizonEvaluation:
     """Score one connection-level horizon without looking forward."""
 
-    materialized_records = tuple(records)
+    record_index = records if isinstance(records, Mapping) else records_by_ucid(records)
     materialized_outcomes = tuple(sorted(outcomes, key=lambda item: item.ucid))
     watcher_cases: list[tuple[bool, bool | None]] = []
     baseline_cases: list[tuple[bool, bool | None]] = []
     selected_records: list[HistoricalAssessmentRecord | None] = []
     reasons: Counter[str] = Counter()
     for outcome in materialized_outcomes:
-        selected = select_assessment_at_horizon(
-            materialized_records, outcome, horizon
-        )
+        selected = select_assessment_at_horizon(record_index, outcome, horizon)
         selected_records.append(selected)
         actual = outcome.feasibility is SyntheticScenarioFeasibility.INFEASIBLE
         watcher_value = watcher_alert(selected)
@@ -1354,7 +1366,7 @@ class FirstAlertLeadTimeReport:
 
 def _lead_statistics(
     outcomes: tuple[RetrospectiveConnectionOutcome, ...],
-    records: tuple[HistoricalAssessmentRecord, ...],
+    record_index: HistoricalRecordsByUcid,
     alert_selector,
 ) -> LeadTimeStatistics:
     infeasible = tuple(
@@ -1364,18 +1376,10 @@ def _lead_statistics(
     )
     leads: list[float] = []
     for outcome in infeasible:
-        eligible = sorted(
-            (
-                record
-                for record in records
-                if record.ucid == outcome.ucid
-                and record.assessed_at <= outcome.retrospective_outbound_cutoff
-            ),
-            key=lambda record: (
-                record.assessed_at,
-                record.trigger_cursor,
-                record.trigger_source_call_id,
-            ),
+        eligible = (
+            record
+            for record in record_index.get(outcome.ucid, ())
+            if record.assessed_at <= outcome.retrospective_outbound_cutoff
         )
         first = next(
             (record for record in eligible if alert_selector(record) is True),
@@ -1402,17 +1406,17 @@ def _lead_statistics(
 
 
 def first_alert_lead_times(
-    records: Iterable[HistoricalAssessmentRecord],
+    records: Iterable[HistoricalAssessmentRecord] | HistoricalRecordsByUcid,
     outcomes: Iterable[RetrospectiveConnectionOutcome],
 ) -> FirstAlertLeadTimeReport:
-    materialized_records = tuple(records)
+    record_index = records if isinstance(records, Mapping) else records_by_ucid(records)
     materialized_outcomes = tuple(outcomes)
     return FirstAlertLeadTimeReport(
         watcher=_lead_statistics(
-            materialized_outcomes, materialized_records, watcher_alert
+            materialized_outcomes, record_index, watcher_alert
         ),
         reference_delay_baseline=_lead_statistics(
-            materialized_outcomes, materialized_records, baseline_alert
+            materialized_outcomes, record_index, baseline_alert
         ),
     )
 
@@ -1430,7 +1434,7 @@ class AlertChurnStatistics:
 
 
 def alert_churn_statistics(
-    records: Iterable[HistoricalAssessmentRecord],
+    records: Iterable[HistoricalAssessmentRecord] | HistoricalRecordsByUcid,
     outcomes: Iterable[RetrospectiveConnectionOutcome],
     *,
     diagnostic_threshold: int = DEFAULT_CHURN_DIAGNOSTIC_THRESHOLD,
@@ -1439,24 +1443,16 @@ def alert_churn_statistics(
 
     if diagnostic_threshold < 0:
         raise ValueError("churn diagnostic threshold must not be negative")
-    materialized_records = tuple(records)
+    record_index = records if isinstance(records, Mapping) else records_by_ucid(records)
     materialized_outcomes = tuple(sorted(outcomes, key=lambda item: item.ucid))
     transitions: list[int] = []
     for outcome in materialized_outcomes:
-        ordered = sorted(
-            (
-                record
-                for record in materialized_records
-                if record.ucid == outcome.ucid
-                and record.assessed_at <= outcome.retrospective_outbound_cutoff
-                and record.status == AssessmentStatus.AVAILABLE.value
-                and record.severity is not None
-            ),
-            key=lambda record: (
-                record.assessed_at,
-                record.trigger_cursor,
-                record.trigger_source_call_id,
-            ),
+        ordered = (
+            record
+            for record in record_index.get(outcome.ucid, ())
+            if record.assessed_at <= outcome.retrospective_outbound_cutoff
+            and record.status == AssessmentStatus.AVAILABLE.value
+            and record.severity is not None
         )
         states = [record.severity for record in ordered]
         transitions.append(
@@ -1641,17 +1637,18 @@ def scenario_evaluation_report(
         item.synthetic_terminal_prevention_opportunity for item in outcomes
     )
     process_id = composition.process_assumption_id
+    record_index = records_by_ucid(result.records)
     return ScenarioEvaluationReport(
         process_scenario=scenario.value,
         process_assumption_id=process_id,
         composition=composition,
         horizons=tuple(
-            evaluate_fixed_horizon(result.records, outcomes, horizon)
+            evaluate_fixed_horizon(record_index, outcomes, horizon)
             for horizon in normalized_horizons
         ),
-        first_alert_lead_time=first_alert_lead_times(result.records, outcomes),
+        first_alert_lead_time=first_alert_lead_times(record_index, outcomes),
         watcher_alert_churn=alert_churn_statistics(
-            result.records,
+            record_index,
             outcomes,
             diagnostic_threshold=churn_diagnostic_threshold,
         ),

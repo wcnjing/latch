@@ -24,6 +24,7 @@ Causal Watcher retrospective synthetic connection benchmark:
 """
 
 import argparse
+import sys
 from collections import Counter
 from dataclasses import replace
 from datetime import timedelta
@@ -36,6 +37,7 @@ from latch.historical_eval import (
     DEFAULT_CONNECTIONS_PER_QUOTA,
     DEFAULT_EVALUATION_HORIZONS,
     DEFAULT_SOURCE_CALL_LIMIT,
+    MAX_SOURCE_CALL_LIMIT,
     HistoricalPopulationConfig,
     build_historical_benchmark_report,
     evaluate_historical_csv,
@@ -61,6 +63,7 @@ DEFAULT_CSV = (
     / "Data Inspection"
     / "Singapore_anonymized.csv"
 )
+DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT = 50_000
 
 
 def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
@@ -389,7 +392,20 @@ def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
             )
 
 
-def main() -> None:
+def _benchmark_call_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if not 2 <= parsed <= MAX_SOURCE_CALL_LIMIT:
+        raise argparse.ArgumentTypeError(
+            f"must be between 2 and {MAX_SOURCE_CALL_LIMIT} inclusive; "
+            f"{MAX_SOURCE_CALL_LIMIT} is the explicit quadratic-generator safety bound"
+        )
+    return parsed
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
     parser.add_argument(
@@ -399,7 +415,13 @@ def main() -> None:
         help="legacy keeps the original inbound-only agent run semantics",
     )
     parser.add_argument(
-        "--limit", type=int, default=50_000, help="arrival updates to read from A"
+        "--limit",
+        type=int,
+        default=None,
+        help=(
+            "legacy arrival-update read limit "
+            f"(default: {DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT})"
+        ),
     )
     parser.add_argument(
         "--max-agent-runs",
@@ -410,9 +432,14 @@ def main() -> None:
     parser.add_argument("--model", choices=("fake", "local"), default="fake")
     parser.add_argument(
         "--benchmark-call-limit",
-        type=int,
+        type=_benchmark_call_limit,
         default=DEFAULT_SOURCE_CALL_LIMIT,
-        help="explicit deterministic accepted-call bound for watcher-eval",
+        help=(
+            "accepted-call population bound for watcher-eval; "
+            f"default: {DEFAULT_SOURCE_CALL_LIMIT}, also the current maximum; "
+            "may lower the bounded population but cannot exceed the explicit "
+            "quadratic-generator safety cap"
+        ),
     )
     parser.add_argument(
         "--connections-per-quota",
@@ -452,7 +479,24 @@ def main() -> None:
             "pairing seeds; never replaces or mutates the frozen primary report"
         ),
     )
-    args = parser.parse_args()
+    return parser
+
+
+def parse_cli_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = build_parser()
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if args.mode == "watcher-eval" and args.limit is not None:
+        parser.error(
+            "--limit applies to the legacy agent run only; watcher-eval reads "
+            "the full CSV and is bounded by --benchmark-call-limit"
+        )
+    if args.limit is None:
+        args.limit = DEFAULT_LEGACY_ARRIVAL_UPDATE_LIMIT
+    return args
+
+
+def main() -> None:
+    args = parse_cli_args()
 
     if not args.csv.is_file() or args.csv.stat().st_size < 1_000:
         raise SystemExit(

@@ -71,6 +71,28 @@ def test_old_payload_without_timing_resolution_decodes_explicitly_as_legacy():
     assert event.timing_resolution is TimingResolution.LEGACY_SLACK_FALLBACK
 
 
+def test_old_causal_payload_without_timing_resolution_infers_causal_arrival():
+    payload = causal_payload()
+    del payload["timing_resolution"]
+
+    event = RiskEvent.from_dict(payload)
+
+    assert event.timing_resolution is TimingResolution.DERIVED_CAUSAL_ARRIVAL
+
+
+def test_old_payload_without_timing_resolution_rejects_partial_causal_timing():
+    with pytest.raises(ValueError, match="partial causal vessel timing"):
+        RiskEvent.from_dict(
+            AGREED
+            | {
+                "detected_at": CAUSAL_DETECTED_AT,
+                "inbound_reference_arrival": CAUSAL_TIMING[
+                    "inbound_reference_arrival"
+                ],
+            }
+        )
+
+
 def test_to_dict_always_emits_timing_resolution():
     legacy = RiskEvent.from_dict(AGREED)
     causal = RiskEvent.from_dict(causal_payload())
