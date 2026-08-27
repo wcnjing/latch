@@ -19,12 +19,13 @@ how many containers PSA would have saved.
 
 Legacy run:  uv run python scripts/run_historical.py --limit 50000
 
-Causal Watcher evaluation (diagnostic counts only):
+Causal Watcher retrospective synthetic connection benchmark:
   uv run python scripts/run_historical.py --mode watcher-eval
 """
 
 import argparse
 from collections import Counter
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -33,11 +34,15 @@ from latch.connections import ConnectionParams
 from latch.events import RiskSeverity
 from latch.historical_eval import (
     DEFAULT_CONNECTIONS_PER_QUOTA,
+    DEFAULT_EVALUATION_HORIZONS,
     DEFAULT_SOURCE_CALL_LIMIT,
     HistoricalPopulationConfig,
+    build_historical_benchmark_report,
     evaluate_historical_csv,
     file_sha256,
     historical_synthetic_config,
+    replay_watcher_assessments,
+    write_historical_benchmark_report,
 )
 from latch.llm import FakeModel, OllamaModel
 from latch.replay import (
@@ -79,8 +84,30 @@ def arrival_signals(csv_path: Path, config: ReplayConfig, limit: int | None):
         yield update
 
 
+def _percentage(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.1%}"
+
+
+def _hours(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f}h"
+
+
+def _metric_line(label, metrics) -> str:
+    counts = metrics.raw_connection_level
+    rates = metrics.end_to_end_support.rates
+    return (
+        f"  {label:24} "
+        f"TP {counts.tp:2} FP {counts.fp:2} TN {counts.tn:2} "
+        f"FN {counts.fn:2} unavailable {counts.unavailable:2}  "
+        f"end-to-end recall {_percentage(rates.recall):>6} "
+        f"precision {_percentage(rates.precision):>6} "
+        f"FAR {_percentage(rates.false_alarm_rate):>6} "
+        f"F1 {_percentage(rates.f1):>6}"
+    )
+
+
 def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
-    """Record causal Watcher assessments without invoking the agent."""
+    """Score causal Watcher assessments without invoking the agent."""
 
     dataset_digest = file_sha256(args.csv)
     population_config = HistoricalPopulationConfig(
@@ -104,39 +131,154 @@ def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
         synthetic_config=synthetic_config,
         watcher_config=watcher_config,
     )
-    counts = result.diagnostics
-    severity = dict(counts.severity_distribution)
-
-    print("causal historical Watcher evaluation (diagnostic counts only)")
-    print(
-        "benchmark scope         "
-        f"first {args.benchmark_call_limit:,} accepted calls by causal update order"
+    scenario_results = []
+    for scenario in ProcessScenario:
+        if scenario is watcher_config.process_scenario:
+            scenario_results.append(result)
+        else:
+            scenario_results.append(
+                replay_watcher_assessments(
+                    result.population,
+                    result.benchmark,
+                    replace(watcher_config, process_scenario=scenario),
+                )
+            )
+    horizons = tuple(
+        timedelta(hours=value) for value in args.evaluation_horizons_hours
     )
-    print(f"accepted PR #2 calls   {counts.accepted_call_count:7,}")
+    report = build_historical_benchmark_report(
+        scenario_results,
+        synthetic_config=synthetic_config,
+        watcher_config=watcher_config,
+        horizons=horizons,
+    )
+    if args.output is not None:
+        write_historical_benchmark_report(report, args.output)
+
+    selected = next(
+        item
+        for item in report.scenarios
+        if item.process_scenario == watcher_config.process_scenario.value
+    )
+    composition = selected.composition
+    counts = result.diagnostics
+
+    print("retrospective synthetic connection benchmark")
+    print("\nBenchmark composition")
+    print(f"  selected scenario       {selected.process_scenario}")
+    print(f"  process assumption      {selected.process_assumption_id}")
+    print(f"  accepted PR #2 calls    {composition.accepted_pr2_calls:7,}")
     print(
-        f"bounded replay calls   {counts.bounded_population_call_count:7,}  "
+        f"  bounded replay calls    {composition.bounded_replay_calls:7,}  "
         "(retrospectively constructed benchmark)"
     )
-    print(f"PR #3 candidates       {counts.source_candidate_count:7,}")
-    print(f"synthetic connections  {counts.generated_connection_count:7,}")
+    print(f"  PR #3 candidates        {composition.pr3_candidate_calls:7,}")
+    print(f"  synthetic connections   {composition.synthetic_connections:7,}")
     print(
-        f"causally activated     {counts.causally_activated_connection_count:7,}"
+        f"  valid outcomes          "
+        f"{composition.connections_with_valid_retrospective_outcome:7,}"
     )
-    print(f"Watcher assessments    {counts.assessment_count:7,}")
     print(
-        f"unavailable pair       {counts.unavailable_assessment_count:7,}  "
-        f"{counts.unavailable_assessment_fraction:6.1%}"
+        f"  feasible/infeasible     {composition.feasible_synthetic_scenarios:3}/"
+        f"{composition.infeasible_synthetic_scenarios:<3} synthetic scenarios"
     )
-    print("severity distribution")
-    for state in ("SAFE", "WATCH", "AT_RISK"):
-        print(f"  {state:8}            {severity.get(state, 0):7,}")
-    print(f"baseline alerts        {counts.baseline_alert_count:7,}")
     print(
-        "\nReal AIS observations supply derived causal arrival predictions. "
-        "Connections,\nterminals, and process assumptions are synthetic. "
-        "Causal activation does not\nturn this into a live call-discovery "
-        "benchmark, and these counts are not\nperformance claims."
+        f"  same/inter-terminal     {composition.same_terminal_connections:3}/"
+        f"{composition.inter_terminal_connections:<3}"
     )
+    print(
+        "  transfer modes          "
+        + ", ".join(f"{name}={count}" for name, count in composition.transfer_mode_breakdown)
+    )
+    print(
+        f"  causal assessments      {counts.assessment_count:7,}  "
+        f"activated UCIDs={counts.causally_activated_connection_count}"
+    )
+    severity = dict(counts.severity_distribution)
+    print(
+        "  Phase 2 diagnostics     "
+        f"event-triggered unavailable={counts.unavailable_assessment_count}; "
+        + ", ".join(
+            f"{state}={severity.get(state, 0)}"
+            for state in ("SAFE", "WATCH", "AT_RISK")
+        )
+        + f"; baseline alerts={counts.baseline_alert_count}"
+    )
+
+    print("\nAvailability")
+    for horizon in selected.horizons:
+        coverage = horizon.availability
+        reason = ", ".join(
+            f"{name}={count}" for name, count in coverage.unavailable_reasons
+        ) or "none"
+        print(
+            f"  {horizon.horizon:5} {coverage.assessment_available:2}/"
+            f"{coverage.total_benchmark_connections:<2} "
+            f"({_percentage(coverage.availability_percentage)}) available; "
+            f"unavailable={coverage.assessment_unavailable} ({reason})"
+        )
+
+    print("\nWatcher vs reference-delay baseline")
+    print(
+        "  Primary Watcher alert is WATCH or AT_RISK. Raw confusion counts "
+        "are connection-level."
+    )
+    print(
+        "  End-to-end rates shown below treat unavailable as no alert; common "
+        "support is retained in JSON."
+    )
+    for horizon in selected.horizons:
+        print(f"  {horizon.horizon}")
+        print(_metric_line("Watcher", horizon.watcher))
+        print(_metric_line("reference-delay", horizon.reference_delay_baseline))
+        infeasible = horizon.paired_comparison.retrospectively_infeasible
+        feasible = horizon.paired_comparison.retrospectively_feasible
+        print(
+            "    paired infeasible: "
+            f"both={infeasible.both_alert} watcher-only={infeasible.watcher_only} "
+            f"baseline-only={infeasible.baseline_only} neither={infeasible.neither}; "
+            "feasible: "
+            f"both={feasible.both_alert} watcher-only={feasible.watcher_only} "
+            f"baseline-only={feasible.baseline_only} neither={feasible.neither}"
+        )
+
+    lead = selected.first_alert_lead_time
+    print("\nFirst-alert lead time")
+    for label, statistics in (
+        ("Watcher", lead.watcher),
+        ("reference-delay", lead.reference_delay_baseline),
+    ):
+        print(
+            f"  {label:16} caught={statistics.caught_infeasible_connections} "
+            f"missed={statistics.missed_infeasible_connections} "
+            f"median={_hours(statistics.median_lead_time_h)} "
+            f"p25={_hours(statistics.p25_lead_time_h)} "
+            f"p75={_hours(statistics.p75_lead_time_h)}"
+        )
+    churn = selected.watcher_alert_churn
+    print(
+        f"  Watcher churn    median={churn.median_transitions_per_connection} "
+        f"p90={churn.p90_transitions_per_connection} "
+        f"zero={churn.zero_transition_connections}/{churn.connections} "
+        f">{churn.diagnostic_threshold}={churn.above_threshold_connections}"
+    )
+    opportunity = selected.terminal_prevention_opportunity
+    print(
+        "  terminal-prevention opportunity "
+        f"{opportunity.infeasible_with_transfer_feasible_without_transfer}/"
+        f"{composition.infeasible_synthetic_scenarios} "
+        f"({_percentage(opportunity.share_of_infeasible_scenarios)}); synthetic only"
+    )
+
+    print("\nScenario limitations")
+    print(
+        "  LOW, REFERENCE, and CONSERVATIVE use the same UCIDs/population; "
+        "separate scenario scorecards are in JSON."
+    )
+    for limitation in report.limitations[:4]:
+        print(f"  - {limitation}")
+    if args.output is not None:
+        print(f"\nDeterministic JSON written to {args.output}")
 
 
 def main() -> None:
@@ -176,6 +318,21 @@ def main() -> None:
         "--process-scenario",
         choices=tuple(item.value for item in ProcessScenario),
         default=ProcessScenario.REFERENCE.value,
+    )
+    parser.add_argument(
+        "--evaluation-horizons-hours",
+        type=float,
+        nargs="+",
+        default=tuple(
+            item.total_seconds() / 3600 for item in DEFAULT_EVALUATION_HORIZONS
+        ),
+        metavar="HOURS",
+        help="fixed horizons before the retrospective synthetic cut-off",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="optional deterministic watcher-eval JSON report path",
     )
     args = parser.parse_args()
 

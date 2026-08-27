@@ -959,3 +959,208 @@ state or passed into the Watcher. Phase 2 intentionally stops at assessment
 records and diagnostic counts: it constructs no retrospective feasibility
 outcome, invokes no agent or case registry, and writes no legacy `TraceStore`
 metric or historical figure.
+
+## Stage 7: PR #5 Phase 3 retrospective synthetic scenario evaluation
+
+Phase 3 preserves the Stage 6 causal replay exactly. Only after that replay is
+complete, a frozen `RetrospectiveConnectionOutcome` joins each fixed PR #3
+UCID to its inbound and outbound final PR #2 derived geofence crossings. This
+outcome type is structurally separate from `CausalArrivalUpdate`,
+`ConnectionRiskAssessment`, `RiskEvent`, and live replay state, and no outcome
+field is accepted by `assess_connection()`.
+
+For one selected PR #3 process scenario, the exact evaluation arithmetic is:
+
+```text
+retrospective_inbound_ready = final inbound derived crossing
+                              + cargo-ready offset
+                              + selected transfer duration
+retrospective_outbound_cutoff = final outbound derived crossing
+                                - cargo cut-off lead
+retrospective_slack = retrospective_outbound_cutoff
+                      - retrospective_inbound_ready
+```
+
+Slack at or below zero is `INFEASIBLE`; positive slack is `FEASIBLE`. The only
+legitimate interpretation is **connection infeasible under this synthetic
+process scenario**. The label is not an observed missed PSA connection, actual
+cargo result, actual UCID result, or PSA ground truth.
+
+The evaluation also retains, without merging it into the primary label:
+
+```text
+retrospective_no_itt_slack = final outbound derived crossing
+                             - cargo cut-off lead
+                             - (final inbound derived crossing
+                                + cargo-ready offset)
+```
+
+An infeasible transferred scenario with positive no-ITT slack is described
+only as a **synthetic terminal-prevention opportunity**. It is not described
+as a connection actually saved.
+
+### Fixed-horizon and detector methodology
+
+The assessment-row population is not the scoring denominator. For each UCID
+and T−6h, T−3h, and T−1h:
+
+```text
+evaluation_time = retrospective_outbound_cutoff - horizon
+selected = latest causal assessment whose assessed_at <= evaluation_time
+```
+
+An assessment after the horizon is never selected, and the scorer never looks
+forward for a nearest row. No assessment at or before the horizon is
+unavailable, not silently SAFE. The horizon set is configurable, with these
+three values frozen as benchmark defaults.
+
+The primary Watcher detector treats `WATCH` and `AT_RISK` as alert-positive and
+`SAFE` as negative. Under the default experimental settings, causal scenario
+slack `<= 0` is `AT_RISK`, positive slack `<= 2h` is `WATCH`, and larger slack
+is `SAFE`. The baseline alert is copied from the same selected assessment,
+using the same selected inbound causal prediction. It is positive when the
+inbound predicted arrival is at least 15 minutes later than its first
+available derived PR #2 reference arrival. This is the PR #4 derived
+reference-delay baseline, not the separately calibrated detector in
+`eval_detection.py`.
+
+The raw connection-level matrix has TP, FP, TN, FN, and unavailable as
+separate categories. Rates with zero denominators are `null`. The end-to-end
+view explicitly imputes unavailable as no alert, making an unavailable
+infeasible case an FN. The common-support view includes a UCID/horizon only
+when both detectors are available. The baseline is embedded in the same row,
+so common and detector-available supports coincided in this run. Accuracy is
+not used as the headline metric.
+
+### Default bounded benchmark composition
+
+This run is labelled the **retrospective synthetic connection benchmark**.
+It used the deterministic seed and current four historical quota cells, the
+first 256 accepted calls under the existing safety cap, the two-hour Watcher
+warning margin, the 15-minute reference-delay threshold, and the dataset SHA-256
+`a46b6f6f68e5d7f2cc87b3eaa0fe2cc74373cf8e9788b2a3156c4f4644bfad7e`.
+
+| Composition item | Result |
+|---|---:|
+| Accepted/reset-confirmed PR #2 calls before bounding | 1,382 |
+| Bounded replay calls | 256 |
+| First-available PR #3 candidate calls | 237 |
+| Synthetic connections | 32 |
+| Valid retrospective outcomes | 32 |
+| Scoring exclusions | 0 |
+| REFERENCE feasible/infeasible scenarios | 23 / 9 |
+| Same-terminal/inter-terminal | 16 / 16 |
+| Transfer modes | 16 none / 8 road / 8 sea |
+| Causal assessment rows | 1,202 |
+| Causally activated UCIDs | 32 |
+
+These counts describe benchmark composition, not PSA connection prevalence.
+The 32 connections comprise eight in each declared quota cell: Tuas→Tuas
+none/small, Pasir Panjang→Pasir Panjang none/medium, Tuas→Pasir Panjang
+road/medium, and Pasir Panjang→Tuas sea/large.
+
+### REFERENCE availability and performance
+
+Fixed-horizon coverage differs sharply from Phase 2's event-triggered replay,
+where every assessment happened only after graph activation and the smoke
+sample had no unavailable assessment pairs:
+
+| Horizon | Available | Unavailable | Availability | Exposed reason |
+|---|---:|---:|---:|---|
+| T−6h | 12 | 20 | 37.5% | no assessment at/before horizon |
+| T−3h | 18 | 14 | 56.2% | no assessment at/before horizon |
+| T−1h | 24 | 8 | 75.0% | no assessment at/before horizon |
+
+Raw connection-level confusion counts are shown beside end-to-end rates. In
+the rate columns, unavailable is explicitly treated as no alert:
+
+| Horizon | Detector | TP | FP | TN | FN | Unavailable | Recall | Precision | FAR | Specificity | F1 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| T−6h | Watcher | 2 | 0 | 10 | 0 | 20 | 22.2% | 100.0% | 0.0% | 100.0% | 36.4% |
+| T−6h | reference-delay | 1 | 6 | 4 | 1 | 20 | 11.1% | 14.3% | 26.1% | 73.9% | 12.5% |
+| T−3h | Watcher | 2 | 0 | 14 | 2 | 14 | 22.2% | 100.0% | 0.0% | 100.0% | 36.4% |
+| T−3h | reference-delay | 4 | 10 | 4 | 0 | 14 | 44.4% | 28.6% | 43.5% | 56.5% | 34.8% |
+| T−1h | Watcher | 3 | 0 | 18 | 3 | 8 | 33.3% | 100.0% | 0.0% | 100.0% | 50.0% |
+| T−1h | reference-delay | 6 | 11 | 7 | 0 | 8 | 66.7% | 35.3% | 47.8% | 52.2% | 46.2% |
+
+On common support, Watcher recall at T−6h/T−3h/T−1h was 100.0%/50.0%/50.0%,
+precision was 100.0% at each horizon, FAR was 0.0%, specificity was 100.0%,
+and F1 was 100.0%/66.7%/66.7%. The baseline had recall
+50.0%/100.0%/100.0%, precision 14.3%/28.6%/35.3%, FAR
+60.0%/71.4%/61.1%, specificity 40.0%/28.6%/38.9%, and F1
+22.2%/44.4%/52.2%. These small conditional supports must be read alongside
+availability, not as standalone production estimates.
+
+The paired common-support disagreements were:
+
+| Horizon | Retrospective label | Both | Watcher only | Baseline only | Neither |
+|---|---|---:|---:|---:|---:|
+| T−6h | INFEASIBLE | 1 | 1 | 0 | 0 |
+| T−6h | FEASIBLE | 0 | 0 | 6 | 4 |
+| T−3h | INFEASIBLE | 2 | 0 | 2 | 0 |
+| T−3h | FEASIBLE | 0 | 0 | 10 | 4 |
+| T−1h | INFEASIBLE | 3 | 0 | 3 | 0 |
+| T−1h | FEASIBLE | 0 | 0 | 11 | 7 |
+
+These paired counts show that the connection-aware Watcher produced far fewer
+alerts on retrospectively feasible scenarios in this bounded synthetic
+population, while the baseline caught additional infeasible scenarios at the
+later horizons. They do not establish real operational superiority.
+
+### Lead time, churn, and no-ITT result
+
+For each retrospectively infeasible scenario, first-alert search is restricted
+to causal assessments no later than its synthetic cut-off. Repeated later
+alerts do not replace the first one, and Watcher and baseline are searched
+independently.
+
+| Detector | Caught | Missed | Median lead | p25 | p75 | Min | Max |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Watcher | 6 | 3 | 1.76h | 0.56h | 10.06h | 0.02h | 25.95h |
+| reference-delay | 7 | 2 | 3.66h | 2.24h | 4.62h | 0.02h | 25.95h |
+
+Lead time is synthetic decision time before a synthetic cut-off; it does not
+prove that a scenario could have been operationally rescued. Before each
+cut-off, Watcher severity churn had median 0 transitions per connection, p90
+0.9, 28/32 (87.5%) with zero transitions, and 0/32 above the descriptive
+`>4` diagnostic threshold. This threshold is not a PSA alert-fatigue target.
+The REFERENCE result contained 0/9 synthetic terminal-prevention opportunities.
+
+### Scenario sensitivity and reproducibility
+
+PR #3 already carries LOW, REFERENCE, and CONSERVATIVE projections on every
+UCID, so the benchmark scores all three on the exact same 32 connections and
+source population. It does not fabricate assumptions or regenerate the graph:
+
+| Scenario | Feasible / infeasible | Availability T−6/T−3/T−1 | Watcher caught | Watcher median lead | Baseline caught | Baseline median lead | Churn median / p90 | No-ITT opportunities |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| LOW | 25 / 7 | 12 / 19 / 28 | 5/7 | 1.76h | 7/7 | 4.66h | 0 / 1.0 | 0/7 |
+| REFERENCE | 23 / 9 | 12 / 18 / 24 | 6/9 | 1.76h | 7/9 | 3.66h | 0 / 0.9 | 0/9 |
+| CONSERVATIVE | 23 / 9 | 11 / 13 / 19 | 4/9 | 7.65h | 6/9 | 3.05h | 0 / 0.9 | 0/9 |
+
+The versioned `historical-watcher-report-v1` JSON structure contains the
+population limit/version/digest, dataset and graph digests, deterministic
+synthetic seed, quota definitions, Watcher and baseline thresholds, exact
+process assumptions, horizon definitions, each scenario's composition and
+exclusions, availability, raw/end-to-end/common-support metrics, paired
+comparisons, lead-time, churn, terminal-prevention opportunity result, and
+explicit provenance and limitations. Keys and ordered collections are stable;
+no run timestamp is added. Two identical bounded runs produce identical
+payloads.
+
+The console prints the selected scenario scorecard. Optional deterministic
+JSON output is enabled with:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval \
+  --output historical-watcher-report.json
+```
+
+The provenance boundary remains: AIS observations are real; causal ETA values
+and final geofence crossings are derived; UCIDs, assignments, terminal modes,
+cut-offs, cargo offsets, transfers, and scenario outcomes are synthetic. The
+benchmark is bounded, retrospectively call-segmented, activation-conditioned,
+small, and not a prevalence sample. It feeds no alerts to the agent or
+`CaseRegistry`, makes no container-saved or missed-connection-prevented claim,
+and does not overwrite legacy historical-run, `eval_eta.py`,
+`eval_detection.py`, or `TraceStore` evidence.
