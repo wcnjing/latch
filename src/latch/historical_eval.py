@@ -66,7 +66,7 @@ DEFAULT_SOURCE_CALL_LIMIT = 256
 MAX_SOURCE_CALL_LIMIT = 256
 DEFAULT_CONNECTIONS_PER_QUOTA = 8
 RETROSPECTIVE_OUTCOME_VERSION = "retrospective-synthetic-outcome-v1"
-HISTORICAL_REPORT_VERSION = "historical-watcher-report-v1"
+HISTORICAL_REPORT_VERSION = "historical-watcher-report-v2"
 DEFAULT_EVALUATION_HORIZONS = (
     timedelta(hours=6),
     timedelta(hours=3),
@@ -1001,6 +1001,17 @@ class BinaryRates:
     f1: float | None
 
 
+@dataclass(frozen=True, slots=True)
+class BinaryRateDenominators:
+    """The exact denominator behind every reported binary rate."""
+
+    recall_actual_positive: int
+    precision_alert_positive: int
+    false_alarm_actual_negative: int
+    specificity_actual_negative: int
+    f1: int
+
+
 def _safe_ratio(numerator: int, denominator: int) -> float | None:
     return numerator / denominator if denominator else None
 
@@ -1023,16 +1034,44 @@ def binary_rates(counts: BinaryCounts) -> BinaryRates:
 @dataclass(frozen=True, slots=True)
 class ScoredBinaryView:
     support: int
+    actual_positive_support: int
+    actual_negative_support: int
     counts: BinaryCounts
+    rate_denominators: BinaryRateDenominators
     rates: BinaryRates
-    unavailable_imputed_as_no_alert: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class AvailableSupportView:
+    """Detector metrics where a detector result actually exists."""
+
+    available_support: int
+    total_connections: int
+    actual_positive_support: int
+    actual_negative_support: int
+    counts: DetectorConfusionMatrix
+    rate_denominators: BinaryRateDenominators
+    rates: BinaryRates
+
+
+@dataclass(frozen=True, slots=True)
+class EndToEndEffectiveView:
+    """Effective metrics after treating detector unavailability as no alert."""
+
+    support: int
+    actual_positive_support: int
+    actual_negative_support: int
+    counts: BinaryCounts
+    unavailable_infeasible_as_fn: int
+    unavailable_feasible_as_tn: int
+    rate_denominators: BinaryRateDenominators
+    rates: BinaryRates
 
 
 @dataclass(frozen=True, slots=True)
 class DetectorHorizonMetrics:
-    raw_connection_level: DetectorConfusionMatrix
-    available_support: ScoredBinaryView
-    end_to_end_support: ScoredBinaryView
+    available_support: AvailableSupportView
+    end_to_end_effective: EndToEndEffectiveView
     common_support: ScoredBinaryView
 
 
@@ -1098,21 +1137,39 @@ def _binary(counts: DetectorConfusionMatrix) -> BinaryCounts:
 
 def _end_to_end_counts(
     cases: Iterable[tuple[bool, bool | None]],
-) -> tuple[BinaryCounts, int]:
+) -> tuple[BinaryCounts, int, int]:
     materialized = tuple(cases)
     counts = _counts_for(
         (actual, False if alert is None else alert)
         for actual, alert in materialized
     )
-    return _binary(counts), sum(alert is None for _, alert in materialized)
+    unavailable_infeasible = sum(
+        actual and alert is None for actual, alert in materialized
+    )
+    unavailable_feasible = sum(
+        not actual and alert is None for actual, alert in materialized
+    )
+    return _binary(counts), unavailable_infeasible, unavailable_feasible
 
 
-def _view(counts: BinaryCounts, *, imputed: int = 0) -> ScoredBinaryView:
+def _rate_denominators(counts: BinaryCounts) -> BinaryRateDenominators:
+    return BinaryRateDenominators(
+        recall_actual_positive=counts.tp + counts.fn,
+        precision_alert_positive=counts.tp + counts.fp,
+        false_alarm_actual_negative=counts.fp + counts.tn,
+        specificity_actual_negative=counts.tn + counts.fp,
+        f1=2 * counts.tp + counts.fp + counts.fn,
+    )
+
+
+def _view(counts: BinaryCounts) -> ScoredBinaryView:
     return ScoredBinaryView(
         support=counts.support,
+        actual_positive_support=counts.tp + counts.fn,
+        actual_negative_support=counts.fp + counts.tn,
         counts=counts,
+        rate_denominators=_rate_denominators(counts),
         rates=binary_rates(counts),
-        unavailable_imputed_as_no_alert=imputed,
     )
 
 
@@ -1121,14 +1178,33 @@ def _detector_metrics(
     common_indices: frozenset[int],
 ) -> DetectorHorizonMetrics:
     raw = _counts_for(cases)
-    end_counts, imputed = _end_to_end_counts(cases)
+    available_counts = _binary(raw)
+    end_counts, unavailable_infeasible, unavailable_feasible = (
+        _end_to_end_counts(cases)
+    )
     common = _counts_for(
         cases[index] for index in sorted(common_indices)
     )
     return DetectorHorizonMetrics(
-        raw_connection_level=raw,
-        available_support=_view(_binary(raw)),
-        end_to_end_support=_view(end_counts, imputed=imputed),
+        available_support=AvailableSupportView(
+            available_support=raw.available_support,
+            total_connections=raw.available_support + raw.unavailable,
+            actual_positive_support=available_counts.tp + available_counts.fn,
+            actual_negative_support=available_counts.fp + available_counts.tn,
+            counts=raw,
+            rate_denominators=_rate_denominators(available_counts),
+            rates=binary_rates(available_counts),
+        ),
+        end_to_end_effective=EndToEndEffectiveView(
+            support=end_counts.support,
+            actual_positive_support=end_counts.tp + end_counts.fn,
+            actual_negative_support=end_counts.fp + end_counts.tn,
+            counts=end_counts,
+            unavailable_infeasible_as_fn=unavailable_infeasible,
+            unavailable_feasible_as_tn=unavailable_feasible,
+            rate_denominators=_rate_denominators(end_counts),
+            rates=binary_rates(end_counts),
+        ),
         common_support=_view(_binary(common)),
     )
 
@@ -1695,7 +1771,7 @@ def build_historical_benchmark_report(
         limitations=(
             "Feasibility means connection infeasible under a synthetic process scenario; it is not an observed missed PSA connection or actual cargo/UCID outcome.",
             "The bounded population is conditioned on retrospectively segmented reset-confirmed calls and is not a live discovery or prevalence sample.",
-            "End-to-end support imputes unavailable detector results as no alert; common support excludes cases where either detector is unavailable.",
+            "Available-support rates exclude unavailable detector results. End-to-end effective confusion treats unavailable INFEASIBLE as FN and unavailable FEASIBLE as TN; common support excludes cases where either detector is unavailable.",
             "Lead time is synthetic decision time before the scenario cut-off and does not prove operational rescue.",
             "Churn is descriptive operational-stability evidence; the diagnostic threshold is not a PSA alert-fatigue target.",
             "The reference-delay baseline is the PR #4 embedded derived baseline, not eval_detection.py's calibrated detector.",

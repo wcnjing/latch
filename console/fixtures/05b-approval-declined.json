@@ -7,8 +7,8 @@
     "authored": false,
     "model_responses": "scripted",
     "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
-    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
-    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "data_basis": "AIS-replay scenario + legacy display timing reconstructed from event slack + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values use a frozen fixture record clock for deterministic regeneration. They are not scenario time. Order by `seq`; duration is `latency_ms`.",
     "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
   },
   "event": {
@@ -19,6 +19,7 @@
     "avoidable_by_terminal_prevention": true,
     "affected_boxes": 34,
     "confidence": "HIGH",
+    "timing_resolution": "legacy_slack_fallback",
     "reason_codes": [
       "INBOUND_ETA_SLIP",
       "INTER_TERMINAL_TRANSFER_TIME"
@@ -30,7 +31,15 @@
     "terminal_resolution": "simulated",
     "inbound_vessel": "SYNTHETIC HAPAG",
     "outbound_vessel": "SYNTHETIC FEEDER V",
-    "source": "ais_replay+synthetic_connection"
+    "source": "ais_replay+synthetic_connection",
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
   },
   "derived": {
     "is_actionable": true,
@@ -103,7 +112,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662706+00:00",
+        "at": "2026-08-24T06:20:00.000087+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 34 boxes, -0.5h remaining margin (+6.0h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -116,7 +125,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662708+00:00",
+        "at": "2026-08-24T06:20:00.000088+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -130,7 +139,7 @@
       {
         "seq": 3,
         "type": "model_call",
-        "at": "2026-08-24T06:20:28.662717+00:00",
+        "at": "2026-08-24T06:20:00.000089+00:00",
         "model": "claude-haiku-4-5",
         "purpose": "triage",
         "input_tokens": 273,
@@ -140,14 +149,14 @@
       {
         "seq": 4,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662718+00:00",
+        "at": "2026-08-24T06:20:00.000090+00:00",
         "summary": "Already past the window; options exist and differ, so there is a real decision to make.",
         "triage_route": "model_kept"
       },
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662719+00:00",
+        "at": "2026-08-24T06:20:00.000091+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "model_kept"
@@ -155,7 +164,7 @@
       {
         "seq": 6,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662719+00:00",
+        "at": "2026-08-24T06:20:00.000092+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -163,7 +172,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662771+00:00",
+        "at": "2026-08-24T06:20:00.000093+00:00",
         "tool": "query_itt_slot",
         "status": "cached_fallback",
         "latency_ms": 10000,
@@ -172,7 +181,7 @@
       {
         "seq": 8,
         "type": "error",
-        "at": "2026-08-24T06:20:28.662773+00:00",
+        "at": "2026-08-24T06:20:00.000094+00:00",
         "tool": "query_itt_slot",
         "error_class": "timeout",
         "retries": 1,
@@ -181,7 +190,7 @@
       {
         "seq": 9,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662774+00:00",
+        "at": "2026-08-24T06:20:00.000095+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -190,7 +199,7 @@
       {
         "seq": 10,
         "type": "model_call",
-        "at": "2026-08-24T06:20:28.662775+00:00",
+        "at": "2026-08-24T06:20:00.000096+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 612,
@@ -200,7 +209,7 @@
       {
         "seq": 11,
         "type": "confidence",
-        "at": "2026-08-24T06:20:28.662780+00:00",
+        "at": "2026-08-24T06:20:00.000097+00:00",
         "computed": 0.6672,
         "method": "provenance",
         "factors": {
@@ -218,7 +227,7 @@
       {
         "seq": 12,
         "type": "decision",
-        "at": "2026-08-24T06:20:28.662782+00:00",
+        "at": "2026-08-24T06:20:00.000098+00:00",
         "rung": "rung_1_inform",
         "chosen": false,
         "confidence": 0.6672,
@@ -229,7 +238,7 @@
       {
         "seq": 13,
         "type": "options",
-        "at": "2026-08-24T06:20:28.662785+00:00",
+        "at": "2026-08-24T06:20:00.000099+00:00",
         "candidates": [
           {
             "option_id": "SG-CONN-4518-r3-tuapas_1120",
@@ -276,7 +285,7 @@
       {
         "seq": 14,
         "type": "decision",
-        "at": "2026-08-24T06:20:28.662786+00:00",
+        "at": "2026-08-24T06:20:00.000100+00:00",
         "rung": "rung_3_move",
         "chosen": true,
         "confidence": 0.6672,
@@ -287,7 +296,7 @@
       {
         "seq": 15,
         "type": "lock",
-        "at": "2026-08-24T06:20:28.662789+00:00",
+        "at": "2026-08-24T06:20:00.000101+00:00",
         "resource": "itt_slot:tuapas_1120",
         "status": "held",
         "our_priority": 136.0,
@@ -297,7 +306,7 @@
       {
         "seq": 16,
         "type": "gate",
-        "at": "2026-08-24T06:20:28.662794+00:00",
+        "at": "2026-08-24T06:20:00.000102+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
@@ -310,7 +319,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662795+00:00",
+        "at": "2026-08-24T06:20:00.000103+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_approval",
         "reason": "confidence 0.67 below 0.7"
@@ -318,7 +327,7 @@
       {
         "seq": 18,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662796+00:00",
+        "at": "2026-08-24T06:20:00.000104+00:00",
         "from_state": "awaiting_approval",
         "to_state": "escalated",
         "reason": "confidence 0.67 below 0.7"
@@ -326,7 +335,7 @@
       {
         "seq": 19,
         "type": "gate",
-        "at": "2026-08-24T06:20:28.662797+00:00",
+        "at": "2026-08-24T06:20:00.000105+00:00",
         "rung": "rung_3_move",
         "required_role": "vessel_ops",
         "escalated": true,
@@ -337,7 +346,7 @@
       {
         "seq": 20,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662798+00:00",
+        "at": "2026-08-24T06:20:00.000106+00:00",
         "from_state": "escalated",
         "to_state": "executing",
         "reason": "rejected; default action fires"
@@ -345,13 +354,13 @@
       {
         "seq": 21,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662800+00:00",
+        "at": "2026-08-24T06:20:00.000107+00:00",
         "summary": "released 1 reservation(s)"
       },
       {
         "seq": 22,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662801+00:00",
+        "at": "2026-08-24T06:20:00.000108+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "internally_declined"

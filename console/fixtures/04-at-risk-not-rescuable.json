@@ -7,8 +7,8 @@
     "authored": false,
     "model_responses": "scripted",
     "model_disclosure": "No model was consulted. Responses come from C's ScriptedDeliberator, which ranks by the policy in B's own deliberation system prompt. Token counts use B's FakeModel formula and are priced at config.PRICING. These traces measure the pipeline, not the agent.",
-    "data_basis": "real vessel movement data + derived arrival estimates + synthetic transhipment connections",
-    "timestamps": "Trace step `at` values are wall clock at record time and change on every regeneration. Order by `seq`; duration is `latency_ms`.",
+    "data_basis": "AIS-replay scenario + legacy display timing reconstructed from event slack + synthetic transhipment connections",
+    "timestamps": "Trace step `at` values use a frozen fixture record clock for deterministic regeneration. They are not scenario time. Order by `seq`; duration is `latency_ms`.",
     "tool_inventory": "synthetic (tools/stubs.py, frozen constants)"
   },
   "event": {
@@ -19,6 +19,7 @@
     "avoidable_by_terminal_prevention": false,
     "affected_boxes": 61,
     "confidence": "HIGH",
+    "timing_resolution": "legacy_slack_fallback",
     "reason_codes": [
       "INBOUND_ETA_SLIP",
       "OUTBOUND_CUTOFF_ADVANCED",
@@ -31,7 +32,15 @@
     "terminal_resolution": "simulated",
     "inbound_vessel": "SYNTHETIC ONE",
     "outbound_vessel": "SYNTHETIC FEEDER IV",
-    "source": "ais_replay+synthetic_connection"
+    "source": "ais_replay+synthetic_connection",
+    "connection_type": "INTER_TERMINAL",
+    "ucid_synthetic": true,
+    "pairing_synthetic": true,
+    "terminals_synthetic": true,
+    "boxes_synthetic": true,
+    "transfer_scenario": "configured reference transfer scenario (1.5h assumed transfer)",
+    "slack_is_scenario_output": true,
+    "no_itt_slack_means": "margin if the transfer requirement were removed"
   },
   "derived": {
     "is_actionable": true,
@@ -104,7 +113,7 @@
       {
         "seq": 1,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662027+00:00",
+        "at": "2026-08-24T06:20:00.000043+00:00",
         "summary": "Under the configured reference transfer scenario (1.5h assumed transfer): AT_RISK, 61 boxes, -3.2h remaining margin (-0.9h if the transfer requirement were removed)",
         "connection_type": "INTER_TERMINAL",
         "reason_codes": [
@@ -118,7 +127,7 @@
       {
         "seq": 2,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662029+00:00",
+        "at": "2026-08-24T06:20:00.000044+00:00",
         "summary": "assumption basis for every figure in this trace",
         "connection_type": "INTER_TERMINAL",
         "ucid_synthetic": true,
@@ -132,14 +141,14 @@
       {
         "seq": 3,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662032+00:00",
+        "at": "2026-08-24T06:20:00.000045+00:00",
         "summary": "61 boxes already past the window by 3.2h; deliberating without asking.",
         "triage_route": "fast_tracked"
       },
       {
         "seq": 4,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662033+00:00",
+        "at": "2026-08-24T06:20:00.000046+00:00",
         "from_state": "detected",
         "to_state": "triaged",
         "reason": "fast_tracked"
@@ -147,7 +156,7 @@
       {
         "seq": 5,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662034+00:00",
+        "at": "2026-08-24T06:20:00.000047+00:00",
         "from_state": "triaged",
         "to_state": "deliberating",
         "reason": "walking the ladder"
@@ -155,7 +164,7 @@
       {
         "seq": 6,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662075+00:00",
+        "at": "2026-08-24T06:20:00.000048+00:00",
         "tool": "query_itt_slot",
         "status": "ok",
         "latency_ms": 420,
@@ -164,7 +173,7 @@
       {
         "seq": 7,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662076+00:00",
+        "at": "2026-08-24T06:20:00.000049+00:00",
         "tool": "query_outbound_services",
         "status": "ok",
         "latency_ms": 260,
@@ -173,7 +182,7 @@
       {
         "seq": 8,
         "type": "model_call",
-        "at": "2026-08-24T06:20:28.662077+00:00",
+        "at": "2026-08-24T06:20:00.000050+00:00",
         "model": "claude-opus-5",
         "purpose": "deliberation",
         "input_tokens": 503,
@@ -183,7 +192,7 @@
       {
         "seq": 9,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662078+00:00",
+        "at": "2026-08-24T06:20:00.000051+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1100: assumed road transit of 55m exceeds the -54m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -191,7 +200,7 @@
       {
         "seq": 10,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662079+00:00",
+        "at": "2026-08-24T06:20:00.000052+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1120: assumed barge transit of 190m exceeds the -54m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -199,7 +208,7 @@
       {
         "seq": 11,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662080+00:00",
+        "at": "2026-08-24T06:20:00.000053+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1140: assumed road transit of 55m exceeds the -54m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -207,7 +216,7 @@
       {
         "seq": 12,
         "type": "observation",
-        "at": "2026-08-24T06:20:28.662081+00:00",
+        "at": "2026-08-24T06:20:00.000054+00:00",
         "summary": "under the configured reference transfer scenario (1.5h assumed transfer), ruled out tuapas_1160: assumed barge transit of 190m exceeds the -54m window; would arrive after the modelled cutoff",
         "rung": "rung_3_move",
         "considered": true
@@ -215,7 +224,7 @@
       {
         "seq": 13,
         "type": "confidence",
-        "at": "2026-08-24T06:20:28.662085+00:00",
+        "at": "2026-08-24T06:20:00.000055+00:00",
         "computed": 1.0,
         "method": "provenance",
         "factors": {
@@ -233,7 +242,7 @@
       {
         "seq": 14,
         "type": "options",
-        "at": "2026-08-24T06:20:28.662087+00:00",
+        "at": "2026-08-24T06:20:00.000056+00:00",
         "candidates": [
           {
             "option_id": "SG-CONN-4503-r4-offer",
@@ -248,7 +257,7 @@
       {
         "seq": 15,
         "type": "decision",
-        "at": "2026-08-24T06:20:28.662088+00:00",
+        "at": "2026-08-24T06:20:00.000057+00:00",
         "rung": "rung_4_offer",
         "chosen": true,
         "confidence": 1.0,
@@ -259,7 +268,7 @@
       {
         "seq": 16,
         "type": "gate",
-        "at": "2026-08-24T06:20:28.662091+00:00",
+        "at": "2026-08-24T06:20:00.000058+00:00",
         "rung": "rung_4_offer",
         "required_role": "duty_manager",
         "escalated": true,
@@ -270,7 +279,7 @@
       {
         "seq": 17,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662092+00:00",
+        "at": "2026-08-24T06:20:00.000059+00:00",
         "from_state": "deliberating",
         "to_state": "awaiting_customer",
         "reason": "the line owns this decision"
@@ -278,7 +287,7 @@
       {
         "seq": 18,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662093+00:00",
+        "at": "2026-08-24T06:20:00.000060+00:00",
         "tool": "send_options_to_line",
         "status": "ok",
         "latency_ms": 640
@@ -286,7 +295,7 @@
       {
         "seq": 19,
         "type": "external_gate",
-        "at": "2026-08-24T06:20:28.662095+00:00",
+        "at": "2026-08-24T06:20:00.000061+00:00",
         "party": "line",
         "options_sent": 1,
         "window_min": 180,
@@ -295,7 +304,7 @@
       {
         "seq": 20,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662095+00:00",
+        "at": "2026-08-24T06:20:00.000062+00:00",
         "from_state": "awaiting_customer",
         "to_state": "executing",
         "reason": "window closed; default action fires"
@@ -303,7 +312,7 @@
       {
         "seq": 21,
         "type": "tool_call",
-        "at": "2026-08-24T06:20:28.662096+00:00",
+        "at": "2026-08-24T06:20:00.000063+00:00",
         "tool": "roll_to_next_service",
         "status": "ok",
         "latency_ms": 310
@@ -311,7 +320,7 @@
       {
         "seq": 22,
         "type": "state_change",
-        "at": "2026-08-24T06:20:28.662098+00:00",
+        "at": "2026-08-24T06:20:00.000064+00:00",
         "from_state": "executing",
         "to_state": "resolved",
         "reason": "window_lapsed_no_response"

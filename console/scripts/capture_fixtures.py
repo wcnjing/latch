@@ -13,7 +13,7 @@ the gate escalations and the excluded options are all computed by B's code. If
 are still true.
 
     uv run python console/scripts/capture_fixtures.py
-    PYTHONPATH=src python console/scripts/capture_fixtures.py
+    PYTHONPATH=src uv run python console/scripts/capture_fixtures.py
 
 Two honest caveats, both recorded in each fixture's `provenance` block and both
 surfaced in the UI rather than buried here:
@@ -22,10 +22,10 @@ surfaced in the UI rather than buried here:
      seam, exactly as B's own `FakeModel` does, using B's token-count formula.
      The traces therefore measure the pipeline, not the agent.
 
-  2. Trace step timestamps are wall-clock at record time (`trace.py::_now`), so
-     they change on every regeneration and are NOT scenario time. Nothing reads
-     them for ordering; `seq` is the order and `latency_ms` is the duration.
-     See CONTRACTS.md section 12.3.
+  2. Production trace steps use wall-clock record time (`trace.py::_now`). This
+     harness replaces only that clock with a deterministic fixture record
+     clock. It is NOT scenario time. Nothing reads it for ordering; `seq` is
+     the order and `latency_ms` is the duration. See CONTRACTS.md section 12.3.
 
 Two fixtures are marked `authored: true` — SUPERSEDED and STALE. Neither state
 is reachable through `runner.handle()` (CONTRACTS.md sections 8 and 9), so
@@ -36,10 +36,11 @@ genuine `CaseRegistry` output.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -63,7 +64,7 @@ from latch.config import (  # noqa: E402
     TRIAGE_MODEL,
 )
 from latch.console import case_view  # noqa: E402
-from latch.events import Assumptions, ConnectionType, RiskEvent  # noqa: E402
+from latch.events import ConnectionType, RiskEvent  # noqa: E402
 from latch.gates import LADDERS  # noqa: E402
 from latch.llm import ModelResponse  # noqa: E402
 from latch.locks import LockTable  # noqa: E402
@@ -79,6 +80,7 @@ from latch.serde import risk_to_dict  # noqa: E402
 from latch.state import RiskState, transition  # noqa: E402
 from latch.tools import CacheEntry, ScriptedFailures, ToolStatus  # noqa: E402
 from latch.tools.stubs import build_itt_inventory  # noqa: E402
+import latch.trace as trace_module  # noqa: E402
 from latch.trace import Trace, TraceStore  # noqa: E402
 
 OUT = CONSOLE / "fixtures"
@@ -90,6 +92,21 @@ CONNECTION_PARAMS = ConnectionParams()
 # Anchor for the synthetic connection windows. Only affects the scenario, never
 # the trace step timestamps, which B stamps with wall clock.
 T0 = datetime(2026, 8, 30, 4, 17, tzinfo=UTC)
+
+# Fixture capture uses the production trace pipeline but freezes its record
+# clock so two regenerations are byte-identical. These remain fixture record
+# times, not scenario times; `seq` is still the authoritative ordering field.
+FIXTURE_TRACE_EPOCH = datetime(2026, 8, 24, 6, 20, tzinfo=UTC)
+_fixture_trace_ticks = itertools.count()
+
+
+def _fixture_trace_now() -> datetime:
+    return FIXTURE_TRACE_EPOCH + timedelta(
+        microseconds=next(_fixture_trace_ticks)
+    )
+
+
+trace_module._now = _fixture_trace_now
 
 
 # --- the model seam ---------------------------------------------------------
@@ -269,15 +286,12 @@ def event(
     `from_dict` raises on an unknown reason code and on a bad severity, which is
     what makes this safer than constructing the dataclass directly.
 
-    It also cannot set `assumptions` — neither `to_dict` nor `from_dict` carries
-    that block (CONTRACTS.md section 4a), so every event rebuilt from JSON claims
-    `SAME_TERMINAL` no matter what its terminals say. The `replace` below
-    reattaches the assumptions the live Watcher would have set
-    (`watcher.py::to_risk_event`), so a fixture cannot contradict itself on
-    screen. This is a workaround for a real gap, not a fix: B's own
-    `latch --events` path still misreports it.
+    PR #4 made enrichment and assumptions round-trip through the wire. These
+    fixtures intentionally omit the four PR #2 causal arrival values, so the
+    decoder classifies them as `legacy_slack_fallback`; the capture pipeline
+    never relabels reconstructed values as causal timing.
     """
-    decoded = RiskEvent.from_dict(
+    return RiskEvent.from_dict(
         {
             "connection_id": connection_id,
             "state": state,
@@ -295,21 +309,17 @@ def event(
             "inbound_vessel": inbound_vessel,
             "outbound_vessel": outbound_vessel,
             "source": "ais_replay+synthetic_connection",
-        }
-    )
-    return replace(
-        decoded,
-        assumptions=Assumptions(
-            connection_type=(
-                ConnectionType.INTER_TERMINAL
+            "ucid_synthetic": True,
+            "connection_type": (
+                ConnectionType.INTER_TERMINAL.value
                 if inbound_terminal is not outbound_terminal
-                else ConnectionType.SAME_TERMINAL
+                else ConnectionType.SAME_TERMINAL.value
             ),
-            transfer_scenario=(
+            "transfer_scenario": (
                 "configured reference transfer scenario "
                 f"({CONNECTION_PARAMS.planned_transfer_h:.1f}h assumed transfer)"
             ),
-        ),
+        }
     )
 
 
@@ -404,26 +414,17 @@ def capture(
                 "the pipeline, not the agent."
             ),
             "data_basis": (
-                "real vessel movement data + derived arrival estimates + "
-                "synthetic transhipment connections"
+                "AIS-replay scenario + legacy display timing reconstructed "
+                "from event slack + synthetic transhipment connections"
             ),
             "timestamps": (
-                "Trace step `at` values are wall clock at record time and change "
-                "on every regeneration. Order by `seq`; duration is `latency_ms`."
+                "Trace step `at` values use a frozen fixture record clock for "
+                "deterministic regeneration. They are not scenario time. Order "
+                "by `seq`; duration is `latency_ms`."
             ),
             "tool_inventory": "synthetic (tools/stubs.py, frozen constants)",
         },
-        "event": evt.to_dict()
-        | {
-            # Keys `to_dict()` drops but `from_dict()` reads. Written here so the
-            # console has terminals and vessel names at all. CONTRACTS.md section 4.
-            "inbound_terminal": evt.inbound_terminal.value,
-            "outbound_terminal": evt.outbound_terminal.value,
-            "terminal_resolution": evt.terminal_resolution.value,
-            "inbound_vessel": evt.inbound_vessel,
-            "outbound_vessel": evt.outbound_vessel,
-            "source": evt.source,
-        },
+        "event": evt.to_dict(),
         "derived": derived_block(evt),
         "assumptions": evt.assumptions.as_dict(),
         "risk": risk_to_dict(risk),

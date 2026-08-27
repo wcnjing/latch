@@ -40,6 +40,7 @@ import {
   type StateChangeStep,
   type Terminal,
   type TerminalResolution,
+  type TimingResolution,
   type ToolCallStep,
   type TraceStep,
   type TraceWire,
@@ -143,6 +144,11 @@ const TERMINAL_RESOLUTION_LABEL: Record<TerminalResolution, string> = {
   terminal: 'Terminal named in the feed',
   inferred: 'Inferred from the service rotation',
   simulated: 'Simulated — no claim to reality',
+};
+
+export const TIMING_RESOLUTION_LABEL: Record<TimingResolution, string> = {
+  derived_causal_arrival: 'Derived causal AIS estimate',
+  legacy_slack_fallback: 'Reconstructed legacy timing',
 };
 
 const SEVERITY_LABEL: Record<RiskSeverity, string> = {
@@ -1081,6 +1087,7 @@ function buildProvenance(bundle: FixtureBundle): ProvenanceVM {
 function buildLeg(
   call: FixtureBundle['risk']['inbound'],
   fallbackName: string,
+  timingResolution: TimingResolution,
 ): VesselLegVM {
   const deviationMin =
     (new Date(call.estimated).getTime() - new Date(call.scheduled).getTime()) / 60000;
@@ -1088,8 +1095,10 @@ function buildLeg(
     name: call.vessel_name === 'UNKNOWN' ? fallbackName : call.vessel_name,
     terminal: call.terminal,
     terminalLabel: TERMINAL_LABEL[call.terminal],
-    scheduled: call.scheduled,
-    estimated: call.estimated,
+    referenceTime: call.scheduled,
+    arrivalTime: call.estimated,
+    timingResolution,
+    timingProvenanceLabel: TIMING_RESOLUTION_LABEL[timingResolution],
     deviationMin: Math.round(deviationMin),
   };
 }
@@ -1136,8 +1145,16 @@ export function toViewModel(bundle: FixtureBundle): ConnectionVM {
     rescuableByRemovingItt: derived.itt_is_the_problem,
     crossesTerminals: risk.derived.crosses_terminals,
 
-    inbound: buildLeg(risk.inbound, event.inbound_vessel ?? 'Unknown vessel'),
-    outbound: buildLeg(risk.outbound, event.outbound_vessel ?? 'Unknown vessel'),
+    inbound: buildLeg(
+      risk.inbound,
+      event.inbound_vessel ?? 'Unknown vessel',
+      event.timing_resolution,
+    ),
+    outbound: buildLeg(
+      risk.outbound,
+      event.outbound_vessel ?? 'Unknown vessel',
+      event.timing_resolution,
+    ),
 
     watcherConfidence: event.confidence,
     reasons: event.reason_codes.map((code) => ({

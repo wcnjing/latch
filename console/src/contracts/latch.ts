@@ -134,6 +134,15 @@ export type WatcherConfidence = 'LOW' | 'MEDIUM' | 'HIGH';
 /** events.py :: ConnectionType */
 export type ConnectionType = 'SAME_TERMINAL' | 'INTER_TERMINAL';
 
+/**
+ * events.py :: TimingResolution — provenance of the vessel arrival values.
+ * Neither value denotes an official schedule, a PSA schedule, or an observed
+ * actual arrival.
+ */
+export type TimingResolution =
+  | 'derived_causal_arrival'
+  | 'legacy_slack_fallback';
+
 /** events.py :: ReasonCode — why the connection is at risk. */
 export type ReasonCode =
   | 'INBOUND_ETA_SLIP'
@@ -236,13 +245,12 @@ export const GATE_LADDERS: Record<Rung, readonly ApprovalRole[]> = {
  * 3. A to B wire format: the risk event
  * src/latch/events.py :: RiskEvent.to_dict() / RiskEvent.from_dict()
  *
- * NOTE the asymmetry, which is real and load-bearing: `from_dict` reads many
- * more keys than `to_dict` writes. A round trip through `to_dict` silently
- * drops terminals, vessel names, source and every assumption flag.
- * See CONTRACTS.md section 4.
+ * PR #4 made this a round-tripping contract: terminal/vessel enrichment,
+ * assumption provenance, timing_resolution, and (for causal events) all four
+ * arrival values survive `to_dict()` / `from_dict()`.
  * ======================================================================== */
 
-/** Exactly the keys `RiskEvent.to_dict()` always writes. */
+/** Exactly the non-timing keys `RiskEvent.to_dict()` always writes. */
 export interface RiskEventWireRequired {
   connection_id: string;
   state: RiskSeverity;
@@ -260,31 +268,50 @@ export interface RiskEventWireRequired {
   /** Serialised from `watcher_confidence`. The JSON key is `confidence`. */
   confidence: WatcherConfidence;
   reason_codes: ReasonCode[];
+  inbound_terminal: Terminal;
+  outbound_terminal: Terminal;
+  terminal_resolution: TerminalResolution;
+  inbound_vessel: string;
+  outbound_vessel: string;
+  source: string;
+  connection_type: ConnectionType;
+  ucid_synthetic: boolean;
+  pairing_synthetic: boolean;
+  terminals_synthetic: boolean;
+  boxes_synthetic: boolean;
+  transfer_scenario: string;
+  slack_is_scenario_output: true;
+  no_itt_slack_means: string;
 }
 
-/** Keys `to_dict()` writes only when present. */
-export interface RiskEventWireOptional {
+interface RiskEventWireIdentity {
+  /** ISO-8601; required by derived causal timing and optional for legacy events. */
   detected_at?: string;
   ucid?: string;
 }
 
-/**
- * Keys `from_dict()` accepts but `to_dict()` never writes. The live Watcher
- * (`watcher.py :: to_risk_event`) sets all of these on the in-process object,
- * so they exist — they just do not survive JSON.
- */
-export interface RiskEventWireEnrichment {
-  inbound_terminal?: Terminal;
-  outbound_terminal?: Terminal;
-  terminal_resolution?: TerminalResolution;
-  inbound_vessel?: string;
-  outbound_vessel?: string;
-  source?: string;
+/** All four values are causal estimates derived from AIS observations. */
+export interface DerivedCausalRiskEventTiming {
+  timing_resolution: 'derived_causal_arrival';
+  detected_at: string;
+  inbound_reference_arrival: string;
+  inbound_predicted_arrival: string;
+  outbound_reference_arrival: string;
+  outbound_predicted_arrival: string;
+}
+
+/** Legacy events carry none of the four causal values. */
+export interface LegacySlackFallbackRiskEventTiming {
+  timing_resolution: 'legacy_slack_fallback';
+  inbound_reference_arrival?: never;
+  inbound_predicted_arrival?: never;
+  outbound_reference_arrival?: never;
+  outbound_predicted_arrival?: never;
 }
 
 export type RiskEventWire = RiskEventWireRequired &
-  RiskEventWireOptional &
-  RiskEventWireEnrichment;
+  RiskEventWireIdentity &
+  (DerivedCausalRiskEventTiming | LegacySlackFallbackRiskEventTiming);
 
 /**
  * events.py :: Assumptions.as_dict().
@@ -389,9 +416,16 @@ export interface VesselCallWire {
   terminal: Terminal;
   terminal_resolution: TerminalResolution;
   berth: string | null;
-  /** ISO-8601 */
+  /**
+   * ISO-8601. B's historical field name. For a derived causal RiskEvent this
+   * is the PR #2 derived reference arrival, not an official/PSA schedule.
+   * For legacy fallback it is reconstructed for display.
+   */
   scheduled: string;
-  /** ISO-8601 */
+  /**
+   * ISO-8601. For derived causal timing this is the selected causal prediction;
+   * for legacy fallback it is reconstructed and is not an observed arrival.
+   */
   estimated: string;
 }
 

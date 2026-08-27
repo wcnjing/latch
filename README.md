@@ -445,22 +445,46 @@ activation-conditioned event-triggered unavailable fraction:
 | T−3h | 18 | 14 | 56.2% | no assessment at/before horizon |
 | T−1h | 24 | 8 | 75.0% | no assessment at/before horizon |
 
-REFERENCE raw confusion counts and end-to-end rates are:
+REFERENCE available-support confusion and rates are self-contained below.
+`P` and `N` are the actual-positive and actual-negative rate denominators;
+unavailable is excluded from these rates.
 
-| Horizon | Detector | TP | FP | TN | FN | Unavailable | Recall | Precision | FAR | Specificity | F1 |
+| Horizon | Detector | TP | FP | TN | FN | Unavailable | P | N | Recall | Precision | FAR |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| T−6h | Watcher | 2 | 0 | 10 | 0 | 20 | 22.2% | 100.0% | 0.0% | 100.0% | 36.4% |
-| T−6h | reference-delay | 1 | 6 | 4 | 1 | 20 | 11.1% | 14.3% | 26.1% | 73.9% | 12.5% |
-| T−3h | Watcher | 2 | 0 | 14 | 2 | 14 | 22.2% | 100.0% | 0.0% | 100.0% | 36.4% |
-| T−3h | reference-delay | 4 | 10 | 4 | 0 | 14 | 44.4% | 28.6% | 43.5% | 56.5% | 34.8% |
-| T−1h | Watcher | 3 | 0 | 18 | 3 | 8 | 33.3% | 100.0% | 0.0% | 100.0% | 50.0% |
-| T−1h | reference-delay | 6 | 11 | 7 | 0 | 8 | 66.7% | 35.3% | 47.8% | 52.2% | 46.2% |
+| T−6h | Watcher | 2 | 0 | 10 | 0 | 20 | 2 | 10 | 2/2 = 100.0% | 2/2 = 100.0% | 0/10 = 0.0% |
+| T−6h | reference-delay | 1 | 6 | 4 | 1 | 20 | 2 | 10 | 1/2 = 50.0% | 1/7 = 14.3% | 6/10 = 60.0% |
+| T−3h | Watcher | 2 | 0 | 14 | 2 | 14 | 4 | 14 | 2/4 = 50.0% | 2/2 = 100.0% | 0/14 = 0.0% |
+| T−3h | reference-delay | 4 | 10 | 4 | 0 | 14 | 4 | 14 | 4/4 = 100.0% | 4/14 = 28.6% | 10/14 = 71.4% |
+| T−1h | Watcher | 3 | 0 | 18 | 3 | 8 | 6 | 18 | 3/6 = 50.0% | 3/3 = 100.0% | 0/18 = 0.0% |
+| T−1h | reference-delay | 6 | 11 | 7 | 0 | 8 | 6 | 18 | 6/6 = 100.0% | 6/17 = 35.3% | 11/18 = 61.1% |
 
-Because unavailable is separated in the raw counts but imputed negative in
-the displayed end-to-end rates, raw TP+FP+TN+FN is the available support. On
-common/available support, Watcher recall was 100.0%, 50.0%, and 50.0% with
-precision 100.0% at T−6h/T−3h/T−1h. Baseline recall was 50.0%, 100.0%, and
-100.0%; precision was 14.3%, 28.6%, and 35.3%.
+End-to-end effective confusion treats unavailable as no alert: unavailable
+INFEASIBLE becomes effective FN and unavailable FEASIBLE becomes effective TN.
+These rates therefore correspond directly to the four displayed counts.
+
+| Horizon | Detector | TP | FP | TN | FN | P | N | Recall | Precision | FAR |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| T−6h | Watcher | 2 | 0 | 23 | 7 | 9 | 23 | 2/9 = 22.2% | 2/2 = 100.0% | 0/23 = 0.0% |
+| T−6h | reference-delay | 1 | 6 | 17 | 8 | 9 | 23 | 1/9 = 11.1% | 1/7 = 14.3% | 6/23 = 26.1% |
+| T−3h | Watcher | 2 | 0 | 23 | 7 | 9 | 23 | 2/9 = 22.2% | 2/2 = 100.0% | 0/23 = 0.0% |
+| T−3h | reference-delay | 4 | 10 | 13 | 5 | 9 | 23 | 4/9 = 44.4% | 4/14 = 28.6% | 10/23 = 43.5% |
+| T−1h | Watcher | 3 | 0 | 23 | 6 | 9 | 23 | 3/9 = 33.3% | 3/3 = 100.0% | 0/23 = 0.0% |
+| T−1h | reference-delay | 6 | 11 | 12 | 3 | 9 | 23 | 6/9 = 66.7% | 6/17 = 35.3% | 11/23 = 47.8% |
+
+Common support happened to equal detector-available support in this run. Its
+T−6h recall denominator is only 2 infeasible connections (12 total common
+cases), so the Watcher's 2/2 = 100.0% recall must not be read without that
+small denominator.
+
+**On the bounded retrospective synthetic benchmark, the connection-aware
+Watcher was substantially more selective than the inbound reference-delay
+baseline, producing fewer false alerts, while the baseline retained higher
+sensitivity at later horizons.** This is a precision/false-alert versus recall
+trade-off, not universal detector superiority. The Watcher produced no
+false-positive synthetic connections at the three fixed horizons; the baseline
+had higher common-support recall at T−3h and T−1h but many more false positives.
+The baseline median first-alert lead time was also longer in this run. These
+results come from 32 synthetic connections and are not production performance.
 
 Paired disagreements on common support were:
 
@@ -488,6 +512,21 @@ availability was respectively 12/19/28, 12/18/24, and 11/13/19 at
 T−6h/T−3h/T−1h. Separate full scorecards are written in the JSON report; no
 connection population is regenerated between scenarios.
 
+Synthetic pairing-seed sensitivity is available only as a secondary CLI
+diagnostic. It reuses the exact bounded call population and does not alter the
+frozen primary seed, report, or causal semantics:
+
+```bash
+uv run python scripts/run_historical.py --mode watcher-eval \
+  --seed-sensitivity-seeds sensitivity-a sensitivity-b sensitivity-c
+```
+
+With the current data, those three illustrative seeds produced 1–3 Watcher
+false positives per fixed horizon instead of the frozen primary seed's zero.
+That is enough to treat the primary zero-false-positive result as pairing-seed
+sensitive; three alternatives are a robustness prompt, not a replacement
+benchmark or evidence of production stability.
+
 Run the scorecard and optionally write its deterministic, timestamp-free,
 versioned JSON manifest with:
 
@@ -498,7 +537,8 @@ uv run python scripts/run_historical.py --mode watcher-eval \
 
 The JSON includes configuration and limits, seed and quota definitions,
 Watcher thresholds, all process assumptions and horizons, composition,
-availability, raw/end-to-end/common-support metrics, paired comparisons,
+availability, available-support/end-to-end-effective/common-support metrics,
+paired comparisons,
 lead-time and churn statistics, terminal-prevention opportunities, scenario
 sensitivity, digests, and explicit provenance/limitations. It does not alter
 legacy `run_historical.py` figures, `eval_eta.py`, `eval_detection.py`, or

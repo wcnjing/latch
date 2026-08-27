@@ -42,6 +42,7 @@ from latch.historical_eval import (
     file_sha256,
     historical_synthetic_config,
     replay_watcher_assessments,
+    scenario_evaluation_report,
     write_historical_benchmark_report,
 )
 from latch.llm import FakeModel, OllamaModel
@@ -53,7 +54,7 @@ from latch.replay import (
 from latch.runner import AutoApprove, CustomerSilent, handle
 from latch.trace import TraceStore
 from latch.watcher import WatcherConfig, events_from_signals
-from latch.synthetic import ProcessScenario
+from latch.synthetic import ProcessScenario, generate_synthetic_benchmark
 
 DEFAULT_CSV = (
     Path(__file__).resolve().parent.parent
@@ -92,17 +93,82 @@ def _hours(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.2f}h"
 
 
-def _metric_line(label, metrics) -> str:
-    counts = metrics.raw_connection_level
-    rates = metrics.end_to_end_support.rates
+def _fraction(numerator: int, denominator: int, rate: float | None) -> str:
+    return f"{numerator}/{denominator}={_percentage(rate)}"
+
+
+def _metric_lines(label, metrics) -> tuple[str, str, str]:
+    available = metrics.available_support
+    available_counts = available.counts
+    available_denominators = available.rate_denominators
+    effective = metrics.end_to_end_effective
+    effective_counts = effective.counts
+    effective_denominators = effective.rate_denominators
+    common = metrics.common_support
+    common_counts = common.counts
+    common_denominators = common.rate_denominators
     return (
-        f"  {label:24} "
-        f"TP {counts.tp:2} FP {counts.fp:2} TN {counts.tn:2} "
-        f"FN {counts.fn:2} unavailable {counts.unavailable:2}  "
-        f"end-to-end recall {_percentage(rates.recall):>6} "
-        f"precision {_percentage(rates.precision):>6} "
-        f"FAR {_percentage(rates.false_alarm_rate):>6} "
-        f"F1 {_percentage(rates.f1):>6}"
+        (
+            f"  {label:24} available-support  "
+            f"TP {available_counts.tp:2} FP {available_counts.fp:2} "
+            f"TN {available_counts.tn:2} FN {available_counts.fn:2} "
+            f"unavailable {available_counts.unavailable:2}; "
+            f"support={available.available_support}/{available.total_connections} "
+            f"(positive={available.actual_positive_support}, "
+            f"negative={available.actual_negative_support}); "
+            "recall "
+            f"{_fraction(available_counts.tp, available_denominators.recall_actual_positive, available.rates.recall)} "
+            "precision "
+            f"{_fraction(available_counts.tp, available_denominators.precision_alert_positive, available.rates.precision)} "
+            "FAR "
+            f"{_fraction(available_counts.fp, available_denominators.false_alarm_actual_negative, available.rates.false_alarm_rate)}"
+        ),
+        (
+            f"  {'':24} end-to-end effective "
+            f"TP {effective_counts.tp:2} FP {effective_counts.fp:2} "
+            f"TN {effective_counts.tn:2} FN {effective_counts.fn:2}; "
+            f"support={effective.support} "
+            f"(positive={effective.actual_positive_support}, "
+            f"negative={effective.actual_negative_support}); "
+            "recall "
+            f"{_fraction(effective_counts.tp, effective_denominators.recall_actual_positive, effective.rates.recall)} "
+            "precision "
+            f"{_fraction(effective_counts.tp, effective_denominators.precision_alert_positive, effective.rates.precision)} "
+            "FAR "
+            f"{_fraction(effective_counts.fp, effective_denominators.false_alarm_actual_negative, effective.rates.false_alarm_rate)}; "
+            f"imputed no-alert: infeasible→FN={effective.unavailable_infeasible_as_fn}, "
+            f"feasible→TN={effective.unavailable_feasible_as_tn}"
+        ),
+        (
+            f"  {'':24} common support       "
+            f"n={common.support} (positive={common.actual_positive_support}, "
+            f"negative={common.actual_negative_support}); "
+            "recall "
+            f"{_fraction(common_counts.tp, common_denominators.recall_actual_positive, common.rates.recall)} "
+            "precision "
+            f"{_fraction(common_counts.tp, common_denominators.precision_alert_positive, common.rates.precision)}"
+        ),
+    )
+
+
+def _seed_horizon_summary(horizon) -> str:
+    watcher = horizon.watcher.available_support
+    baseline = horizon.reference_delay_baseline.available_support
+    watcher_recall = _fraction(
+        watcher.counts.tp,
+        watcher.actual_positive_support,
+        watcher.rates.recall,
+    )
+    baseline_recall = _fraction(
+        baseline.counts.tp,
+        baseline.actual_positive_support,
+        baseline.rates.recall,
+    )
+    return (
+        f"{horizon.horizon}:W-FP={watcher.counts.fp},"
+        f"W-recall={watcher_recall},"
+        f"B-FP={baseline.counts.fp},"
+        f"B-recall={baseline_recall}"
     )
 
 
@@ -220,17 +286,22 @@ def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
 
     print("\nWatcher vs reference-delay baseline")
     print(
-        "  Primary Watcher alert is WATCH or AT_RISK. Raw confusion counts "
-        "are connection-level."
+        "  Primary Watcher alert is WATCH or AT_RISK. Every rate below is "
+        "shown with its own confusion support and denominator."
     )
     print(
-        "  End-to-end rates shown below treat unavailable as no alert; common "
-        "support is retained in JSON."
+        "  Available-support excludes unavailable from rates. End-to-end "
+        "effective treats unavailable as no alert. Common support requires "
+        "both detectors."
     )
     for horizon in selected.horizons:
         print(f"  {horizon.horizon}")
-        print(_metric_line("Watcher", horizon.watcher))
-        print(_metric_line("reference-delay", horizon.reference_delay_baseline))
+        for line in _metric_lines("Watcher", horizon.watcher):
+            print(line)
+        for line in _metric_lines(
+            "reference-delay", horizon.reference_delay_baseline
+        ):
+            print(line)
         infeasible = horizon.paired_comparison.retrospectively_infeasible
         feasible = horizon.paired_comparison.retrospectively_feasible
         print(
@@ -279,6 +350,43 @@ def run_watcher_evaluation(args, replay_config: ReplayConfig) -> None:
         print(f"  - {limitation}")
     if args.output is not None:
         print(f"\nDeterministic JSON written to {args.output}")
+
+    if args.seed_sensitivity_seeds:
+        print("\nSecondary synthetic pairing-seed sensitivity diagnostic")
+        print(
+            "  Frozen primary report above is unchanged. Each row reuses the "
+            "same bounded call population and causal replay semantics."
+        )
+        population_updates = tuple(
+            update
+            for call in result.population.replay_calls
+            for update in call.updates
+        )
+        for seed in args.seed_sensitivity_seeds:
+            diagnostic_config = replace(synthetic_config, seed=seed)
+            diagnostic_benchmark = generate_synthetic_benchmark(
+                population_updates, diagnostic_config
+            )
+            diagnostic_result = replay_watcher_assessments(
+                result.population,
+                diagnostic_benchmark,
+                watcher_config,
+            )
+            diagnostic = scenario_evaluation_report(
+                diagnostic_result,
+                scenario=watcher_config.process_scenario,
+                horizons=horizons,
+            )
+            horizon_summary = ", ".join(
+                _seed_horizon_summary(item) for item in diagnostic.horizons
+            )
+            print(
+                f"  seed={seed!r} graph={diagnostic_benchmark.manifest.output_digest[:12]} "
+                f"feasible/infeasible="
+                f"{diagnostic.composition.feasible_synthetic_scenarios}/"
+                f"{diagnostic.composition.infeasible_synthetic_scenarios}; "
+                f"{horizon_summary}"
+            )
 
 
 def main() -> None:
@@ -333,6 +441,16 @@ def main() -> None:
         "--output",
         type=Path,
         help="optional deterministic watcher-eval JSON report path",
+    )
+    parser.add_argument(
+        "--seed-sensitivity-seeds",
+        nargs="+",
+        default=(),
+        metavar="SEED",
+        help=(
+            "optional secondary diagnostic using alternative deterministic "
+            "pairing seeds; never replaces or mutates the frozen primary report"
+        ),
     )
     args = parser.parse_args()
 

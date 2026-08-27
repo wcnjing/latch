@@ -9,7 +9,7 @@ npm run fixtures
 or directly:
 
 ```bash
-python console/scripts/capture_fixtures.py
+uv run python console/scripts/capture_fixtures.py
 ```
 
 **These are not the repo's top-level `fixtures/`.** Those are hand-scripted by
@@ -30,17 +30,22 @@ Each file is a bundle: the `RiskEvent`, B's `ConnectionRisk`, the full `Trace`,
 B's own `case_view`, the `GateDecision` (which B never serialises), and the
 `RiskEvent` derived properties. The adapter reads the bundle; nothing else does.
 
-Captured against B at `6be7bb4`, which added the `options` trace step, so each
-Rung 3 run carries every candidate it compared with that candidate's cost and
-emissions. `LATCH_SRC=/path/to/src` points the capture at a different checkout
-of A and B.
+Each event is serialized with the current `RiskEvent.to_dict()` contract.
+These historical console scenarios genuinely lack all four PR #2 causal
+arrival values, so they remain `timing_resolution: legacy_slack_fallback` and
+the UI labels their display-only vessel times as reconstructed. The generator
+does not relabel them as causal. `LATCH_SRC=/path/to/src` points the capture at
+a different checkout of A and B.
 
 ## What is real and what is not
 
 Honest in both directions, and both facts are on screen in the console:
 
-- **Real:** Singapore AIS vessel movement data and the arrival estimates
-  derived from it. That is what A measures against observed crossings.
+- **Timing in these fixtures:** the source scenario is labelled AIS replay,
+  but these legacy payloads do not carry the four causal arrival values. The
+  vessel times displayed by B are reconstructed from event slack and are not
+  observed timings. A production `derived_causal_arrival` event would instead
+  carry all four causal AIS-derived estimates explicitly.
 - **Simulated:** which box connects to which outbound vessel, the terminal
   assignments, the box counts, the loading cut-offs, and the entire ITT slot
   inventory. Every event carries `terminal_resolution: simulated`, which lowers
@@ -139,12 +144,12 @@ the console renders rather than hides.
   no code path enters it (CONTRACTS.md §8). This fixture shows what the console
   does if B wires it up. It is not evidence that the behaviour exists today.
 
-## Regeneration is not byte-stable, and that is fine
+## Regeneration is byte-stable
 
-Trace step `at` values come from `datetime.now(UTC)` at record time
-(`trace.py::_append`), so they change on every run and are **not** scenario
-time. Nothing reads them: the console orders by `seq` and takes duration from
-`latency_ms`. Everything else in these files is deterministic.
+The fixture harness freezes `trace.py::_now` to a deterministic fixture record
+clock. Those `at` values are **not** scenario time: the console orders by
+`seq` and takes duration from `latency_ms`. Running the normal fixture command
+twice produces byte-identical files.
 
 After regenerating, run the adapter check:
 

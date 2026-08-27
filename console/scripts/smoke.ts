@@ -15,7 +15,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { byCriticality, toViewModel } from '../src/adapters/toViewModel';
+import {
+  TIMING_RESOLUTION_LABEL,
+  byCriticality,
+  toViewModel,
+} from '../src/adapters/toViewModel';
 import type { FixtureBundle } from '../src/adapters/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -68,6 +72,29 @@ for (const vm of bundles.map(toViewModel).sort(byCriticality)) {
   }
   for (const r of vm.reasons) if (!r.title) fail(`${vm.id}: unmapped reason code ${r.code}`);
   for (const t of vm.timeline) if (!t.title) fail(`${vm.id}: timeline step ${t.seq} has no title`);
+  for (const leg of [vm.inbound, vm.outbound]) {
+    if (leg.timingProvenanceLabel !== TIMING_RESOLUTION_LABEL[vm.raw.event.timing_resolution]) {
+      fail(`${vm.id}: vessel timing provenance does not match RiskEvent.timing_resolution`);
+    }
+  }
+  const timingFields = [
+    vm.raw.event.inbound_reference_arrival,
+    vm.raw.event.inbound_predicted_arrival,
+    vm.raw.event.outbound_reference_arrival,
+    vm.raw.event.outbound_predicted_arrival,
+  ];
+  if (
+    vm.raw.event.timing_resolution === 'legacy_slack_fallback' &&
+    timingFields.some((value) => value !== undefined)
+  ) {
+    fail(`${vm.id}: legacy timing fixture carries causal arrival fields`);
+  }
+  if (
+    vm.raw.event.timing_resolution === 'derived_causal_arrival' &&
+    timingFields.some((value) => value === undefined)
+  ) {
+    fail(`${vm.id}: derived causal timing fixture is missing an arrival field`);
+  }
   // Two independent B serialisation sites — `case_view()` and the trace's own
   // outcome block. The adapter reads the first; if they diverge, the console
   // renders one of them while the metrics are computed from the other.

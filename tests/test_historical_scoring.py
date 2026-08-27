@@ -264,9 +264,12 @@ def test_fixed_horizon_absence_is_unavailable_and_rows_do_not_multiply_denominat
     )
     scored = evaluate_fixed_horizon(repeated, outcomes, timedelta(hours=6))
     assert scored.availability.total_benchmark_connections == 2
-    assert scored.watcher.raw_connection_level.tp == 1
-    assert scored.watcher.raw_connection_level.unavailable == 1
-    assert scored.watcher.end_to_end_support.support == 2
+    assert scored.watcher.available_support.counts.tp == 1
+    assert scored.watcher.available_support.counts.unavailable == 1
+    assert scored.watcher.end_to_end_effective.support == 2
+    assert scored.watcher.end_to_end_effective.counts.tn == 1
+    assert scored.watcher.end_to_end_effective.unavailable_infeasible_as_fn == 0
+    assert scored.watcher.end_to_end_effective.unavailable_feasible_as_tn == 1
 
 
 def test_horizon_selection_is_deterministic_under_permutation():
@@ -313,18 +316,30 @@ def test_connection_level_confusion_rates_and_unavailable():
     scored = evaluate_fixed_horizon(records, outcomes, timedelta(hours=6))
     watcher = scored.watcher
     assert (
-        watcher.raw_connection_level.tp,
-        watcher.raw_connection_level.fp,
-        watcher.raw_connection_level.tn,
-        watcher.raw_connection_level.fn,
-        watcher.raw_connection_level.unavailable,
+        watcher.available_support.counts.tp,
+        watcher.available_support.counts.fp,
+        watcher.available_support.counts.tn,
+        watcher.available_support.counts.fn,
+        watcher.available_support.counts.unavailable,
     ) == (1, 1, 1, 1, 1)
     assert watcher.available_support.rates.recall == pytest.approx(0.5)
     assert watcher.available_support.rates.precision == pytest.approx(0.5)
     assert watcher.available_support.rates.false_alarm_rate == pytest.approx(0.5)
     assert watcher.available_support.rates.specificity == pytest.approx(0.5)
     assert watcher.available_support.rates.f1 == pytest.approx(0.5)
-    assert watcher.end_to_end_support.counts.fn == 2
+    assert watcher.available_support.available_support == 4
+    assert watcher.available_support.total_connections == 5
+    assert watcher.available_support.actual_positive_support == 2
+    assert watcher.available_support.actual_negative_support == 2
+    assert watcher.available_support.rate_denominators.recall_actual_positive == 2
+    assert watcher.available_support.rate_denominators.false_alarm_actual_negative == 2
+    assert watcher.end_to_end_effective.counts.fn == 2
+    assert watcher.end_to_end_effective.counts.tn == 1
+    assert watcher.end_to_end_effective.actual_positive_support == 3
+    assert watcher.end_to_end_effective.actual_negative_support == 2
+    assert watcher.end_to_end_effective.unavailable_infeasible_as_fn == 1
+    assert watcher.end_to_end_effective.unavailable_feasible_as_tn == 0
+    assert watcher.end_to_end_effective.rates.recall == pytest.approx(1 / 3)
 
 
 def test_zero_denominator_rates_are_explicit_none():
@@ -443,4 +458,26 @@ def test_identical_bounded_reports_are_byte_reproducible_across_all_scenarios():
         watcher_config=watcher,
     )
     assert first.to_json() == second.to_json()
-    assert '"report_version": "historical-watcher-report-v1"' in first.to_json()
+    assert '"report_version": "historical-watcher-report-v2"' in first.to_json()
+    payload = first.as_dict()
+    metrics = payload["scenarios"][0]["horizons"][0]["watcher"]
+    assert "raw_connection_level" not in metrics
+    assert "end_to_end_support" not in metrics
+    assert set(metrics) == {
+        "available_support",
+        "end_to_end_effective",
+        "common_support",
+    }
+    assert set(metrics["available_support"]["counts"]) == {
+        "tp",
+        "fp",
+        "tn",
+        "fn",
+        "unavailable",
+    }
+    assert set(metrics["end_to_end_effective"]["counts"]) == {
+        "tp",
+        "fp",
+        "tn",
+        "fn",
+    }

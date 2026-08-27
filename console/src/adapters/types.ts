@@ -27,6 +27,7 @@ import type {
   Rung,
   Terminal,
   TerminalResolution,
+  TimingResolution,
   ToolStatus,
   TraceWire,
   WatcherConfidence,
@@ -418,9 +419,12 @@ export interface VesselLegVM {
   name: string;
   terminal: Terminal;
   terminalLabel: string;
-  /** ISO-8601, from ConnectionRiskWire. */
-  scheduled: string;
-  estimated: string;
+  /** ISO-8601 values adapted from B's VesselCall wire names. */
+  referenceTime: string;
+  arrivalTime: string;
+  timingResolution: TimingResolution;
+  /** Operator wording shown beside arrivalTime. */
+  timingProvenanceLabel: string;
   /** Minutes late. Negative means early. */
   deviationMin: number;
 }
