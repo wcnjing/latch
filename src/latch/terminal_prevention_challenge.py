@@ -1514,6 +1514,8 @@ def build_terminal_prevention_challenge_report(
 
 def validate_challenge_output_path(path: str | Path) -> Path:
     target = Path(path)
+    if target.suffix.lower() != ".json":
+        raise ValueError("terminal prevention challenge output must end in .json")
     normalized = target.as_posix().lower()
     forbidden = (
         "historical-watcher-report",
@@ -1527,14 +1529,30 @@ def validate_challenge_output_path(path: str | Path) -> Path:
         raise ValueError("challenge output must not enter the historical artifact population")
     if "/fixtures/synthetic/" in f"/{normalized}":
         raise ValueError("challenge output must not target PR #3 fixtures")
-    if target.exists() and target.is_file():
+    if target.exists():
+        if not target.is_file():
+            raise ValueError("terminal prevention challenge output must be a JSON file")
         try:
             payload = json.loads(target.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            payload = None
-        if isinstance(payload, dict) and payload.get("report_version") != (
-            TERMINAL_PREVENTION_CHALLENGE_VERSION
-        ):
+            raise ValueError(
+                "challenge writer will not overwrite an unrelated file"
+            ) from None
+        required = {
+            "report_version",
+            "challenge_set_version",
+            "selection_rule_version",
+            "curation",
+            "cases",
+            "causal_actionability_capability_set",
+            "provenance",
+            "limitations",
+        }
+        if not isinstance(payload, dict) or not required <= payload.keys():
+            raise ValueError(
+                "challenge writer will not overwrite an unrelated JSON file"
+            )
+        if payload.get("report_version") != TERMINAL_PREVENTION_CHALLENGE_VERSION:
             raise ValueError("challenge writer will not overwrite another report contract")
     return target
 

@@ -544,7 +544,7 @@ sensitivity, digests, and explicit provenance/limitations. It does not alter
 legacy `run_historical.py` figures, `eval_eta.py`, `eval_detection.py`, or
 `TraceStore` service-rate evidence.
 
-## PR #6 — Watcher refinement and terminal-prevention evidence
+## Watcher refinement workstream (internally developed as PR #6)
 
 PR #6 diagnoses the frozen Watcher rather than changing it. On the frozen
 synthetic historical benchmark, all margins reuse the same 32 connections,
@@ -565,18 +565,40 @@ and false positives from 0 to 3. Wider margins did not provide a consistent
 sensitivity improvement and added false positives in several cells. The 2h
 margin is therefore retained—not proven optimal—because post-hoc benchmark
 tuning would be inappropriate and many early misses were coverage-limited.
+Under REFERENCE, 0h, 1h, and 2h produce identical fixed-horizon confusion
+matrices at T−6h, T−3h, and T−1h because no REFERENCE alert is WATCH-only in
+that range. The REFERENCE slice alone therefore does not specifically support
+2h; separation occurs in other process-scenario/horizon cells, and 2h remains
+the existing configuration rather than a validated optimum.
 
 At frozen REFERENCE 2h T−1h, the Watcher had 33.3% recall, 100.0% precision,
 3 alerts, and 0 false positives; the unchanged 15-minute inbound-delay baseline
 had 66.7% recall, 35.3% precision, 17 alerts, and 11 false positives. The
 baseline was more sensitive while the connection-aware Watcher was more
-selective; this is not universal detector superiority. Watcher first alerted on
-6/9 infeasible cases with median 1.76h lead, versus 7/9 and 3.66h for the
-baseline, but these distributions are conditional on different caught sets.
+selective; this is not Watcher superiority.
 
-Alert stability did not justify new detector state: median transitions per
-connection were 0, p90 was at most 1, and wider margins did not materially
-increase repeated alert entries. PR #6 adds no hysteresis.
+Common support answers a different question from end-to-end scoring by
+restricting comparison to connections where both detectors can be evaluated:
+
+| Horizon | Detector | Support | Recall | Precision | False positives |
+|---|---|---:|---:|---:|---:|
+| T−3h | Watcher | 18 | 50.0% | 100.0% | 0 |
+| T−3h | Inbound-delay baseline | 18 | 100.0% | 28.6% | 10 |
+| T−1h | Watcher | 24 | 50.0% | 100.0% | 0 |
+| T−1h | Inbound-delay baseline | 24 | 100.0% | 35.3% | 11 |
+
+On common support the baseline is more sensitive and the Watcher remains more
+selective. PR #6 also reproduces the frozen PR #5 first-alert result: Watcher
+6/9, median 1.76h; baseline 7/9, median 3.66h. These distributions are
+conditional on different caught sets. Because REFERENCE has only nine
+infeasible connections, percentage differences are highly uncertain bounded-
+benchmark observations, not statistically stable estimates.
+
+At retained 2h, corrected repeated-entry totals are 2/1/1 for
+LOW/REFERENCE/CONSERVATIVE; median transitions are 0, p90 is 1.0/0.9/0.9, and
+maximum transitions are 5/3/2. No hysteresis is added. Observed churn remained
+limited in this bounded benchmark, including the corrected repeated-entry
+counts and reported maximum transition tail.
 
 Because the frozen 32-connection benchmark contains no natural retrospective
 prevention examples, PR #6 keeps capability tests separate. The deliberately
@@ -585,6 +607,10 @@ and four feasible-with-ITT cases. Three of four curated retrospective-
 prevention cases alerted before cutoff, but only TPC-01 reached the stricter
 causal state `current_plan_slack <= 0` and `no_itt_slack > 0`; TPC-02 had no
 assessment, and TPC-03/TPC-04 alerted after the no-ITT window closed.
+TPC-V1-06 also mathematically satisfies that unchanged causal predicate, but
+with only about +0.0012h (4.3 seconds) no-ITT slack; this is operationally
+negligible in the synthetic benchmark, not strongly actionable. Any future
+minimum actionable window should be a separate configurable policy.
 
 The additional `causal-actionability-capability-v1` set is labelled
 **DELIBERATELY CURATED CAUSAL-ACTIONABILITY CAPABILITY SET**. A deterministic
@@ -598,8 +624,11 @@ required or would guarantee the final outcome.
 
 Detailed methodology, case tables, limitations, generation commands, and
 digests are in [`docs/pr6-watcher-refinement.md`](docs/pr6-watcher-refinement.md).
+These modules are offline diagnostic/evaluation tools invoked by their
+dedicated CLI scripts. They are deliberately not integrated into Agent Core,
+the demo runner, console, or production Watcher path.
 The untracked deterministic reports have SHA-256
-`aeb9c340b773d1ea60211971b18b613b186afbe64c85eda3cdf9e2393479bac8`
+`17e5c49f66c0031c5ef347fc1b980b26660b7d8f7ffe73c0b3b9dc2cec253d9b`
 (historical refinement) and
 `285c734784e604f74a1135b592b559f69b616c4cd20f8f2dca62080ec560b2ce`
 (terminal-prevention semantics). No generated JSON is committed.

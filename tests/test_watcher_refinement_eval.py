@@ -10,6 +10,7 @@ from latch.historical_eval import (
     ReplayCursor,
     build_historical_benchmark_report,
     build_retrospective_outcomes,
+    evaluate_fixed_horizon,
     historical_synthetic_config,
     replay_watcher_assessments,
 )
@@ -423,6 +424,31 @@ def test_alert_churn_transitions_repeated_entries_and_recoveries_are_determinist
     assert first.total_available_state_changes == 7
 
 
+@pytest.mark.parametrize(
+    ("slacks", "expected"),
+    (
+        ((3.0, 1.0, 3.0, 1.0), 1),  # SAFE -> WATCH -> SAFE -> WATCH
+        ((1.0, 3.0, 1.0), 1),  # WATCH -> SAFE -> WATCH
+        ((-1.0, 3.0, 1.0), 1),  # AT_RISK -> SAFE -> WATCH
+        ((1.0, -1.0), 0),  # WATCH -> AT_RISK
+    ),
+)
+def test_repeated_alert_entries_account_for_initial_alert_state(slacks, expected):
+    template = reference_result().records[0]
+    records = tuple(
+        churn_record(template, row=index, slack=slack)
+        for index, slack in enumerate(slacks)
+    )
+    churn = calculate_connection_alert_churn(
+        records,
+        ucid="churn-ucid",
+        scenario=ProcessScenario.REFERENCE,
+        warning_margin=timedelta(hours=2),
+        cutoff=records[-1].assessed_at,
+    )
+    assert churn.repeated_alert_entries == expected
+
+
 def test_unavailable_gap_is_not_treated_as_safe():
     template = reference_result().records[0]
     records = (
@@ -542,6 +568,84 @@ def test_refinement_writer_cannot_target_or_overwrite_pr5_report(tmp_path):
         '{"report_version": "historical-watcher-report-v2"}',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="overwrite a PR #5 report"):
+    with pytest.raises(ValueError, match="unrelated JSON file"):
         validate_refinement_output_path(disguised)
     assert not (tmp_path / "historical-watcher-report.json").exists()
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        ROOT / "src/latch/watcher.py",
+        ROOT / "README.md",
+        ROOT / "COMPLIANCE.md",
+        ROOT / "uv.lock",
+        ROOT / "docs/pr6-watcher-refinement.md",
+    ),
+)
+def test_refinement_writer_rejects_non_json_project_files(path):
+    with pytest.raises(ValueError, match="end in .json"):
+        validate_refinement_output_path(path)
+
+
+def test_refinement_writer_allows_new_json_and_only_its_own_existing_report(tmp_path):
+    new = tmp_path / "refinement.json"
+    assert validate_refinement_output_path(new) == new
+
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text('{"purpose": "not a report"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="unrelated JSON file"):
+        validate_refinement_output_path(unrelated)
+
+    report = build_watcher_refinement_report(
+        (reference_result(),), dataset_hash="test-dataset"
+    )
+    write_watcher_refinement_report(report, new)
+    assert validate_refinement_output_path(new) == new
+    write_watcher_refinement_report(report, new)
+
+
+def test_two_hour_refinement_confusion_matrices_match_frozen_pr5_scoring():
+    result = reference_result()
+    report = build_watcher_refinement_report(
+        (result,), dataset_hash="test-dataset"
+    )
+    outcomes = build_retrospective_outcomes(
+        result, scenario=ProcessScenario.REFERENCE
+    ).outcomes
+    summaries = {
+        (item.detector, item.evaluation_horizon_hours): item
+        for item in report.detector_summaries
+        if item.warning_margin_hours == 2.0
+    }
+
+    for horizon in FROZEN_EVALUATION_HORIZONS:
+        frozen = evaluate_fixed_horizon(result.records, outcomes, horizon)
+        horizon_hours = horizon.total_seconds() / 3600
+        for detector, metrics in (
+            ("watcher", frozen.watcher),
+            ("reference_delay_baseline", frozen.reference_delay_baseline),
+        ):
+            summary = summaries[(detector, horizon_hours)]
+            assert (
+                summary.end_to_end_tp,
+                summary.end_to_end_fp,
+                summary.end_to_end_tn,
+                summary.end_to_end_fn,
+            ) == (
+                metrics.end_to_end_effective.counts.tp,
+                metrics.end_to_end_effective.counts.fp,
+                metrics.end_to_end_effective.counts.tn,
+                metrics.end_to_end_effective.counts.fn,
+            )
+            assert (
+                summary.common_support_tp,
+                summary.common_support_fp,
+                summary.common_support_tn,
+                summary.common_support_fn,
+            ) == (
+                metrics.common_support.counts.tp,
+                metrics.common_support.counts.fp,
+                metrics.common_support.counts.tn,
+                metrics.common_support.counts.fn,
+            )

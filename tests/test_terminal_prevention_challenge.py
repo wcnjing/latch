@@ -539,6 +539,28 @@ def test_challenge_writer_rejects_frozen_report_and_evidence_targets(tmp_path, n
         validate_challenge_output_path(tmp_path / name)
 
 
+@pytest.mark.parametrize(
+    "path",
+    (
+        ROOT / "src/latch/watcher.py",
+        ROOT / "README.md",
+        ROOT / "COMPLIANCE.md",
+        ROOT / "uv.lock",
+        ROOT / "docs/pr6-watcher-refinement.md",
+    ),
+)
+def test_challenge_writer_rejects_non_json_project_files(path):
+    with pytest.raises(ValueError, match="end in .json"):
+        validate_challenge_output_path(path)
+
+
+def test_challenge_writer_rejects_unrelated_existing_json(tmp_path):
+    path = tmp_path / "unrelated.json"
+    path.write_text('{"purpose": "not a report"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="unrelated JSON file"):
+        validate_challenge_output_path(path)
+
+
 def test_challenge_writer_is_deterministic(tmp_path):
     result, config = challenge_fixture()
     report = build_terminal_prevention_challenge_report(
@@ -552,3 +574,5 @@ def test_challenge_writer_is_deterministic(tmp_path):
     write_terminal_prevention_challenge_report(report, first)
     write_terminal_prevention_challenge_report(report, second)
     assert first.read_bytes() == second.read_bytes()
+    assert validate_challenge_output_path(first) == first
+    write_terminal_prevention_challenge_report(report, first)

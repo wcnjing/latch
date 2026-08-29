@@ -220,6 +220,9 @@ class AlertChurnSummary:
     total_recoveries_to_safe: int
     total_within_alert_escalations: int
     total_within_alert_deescalations: int
+    median_transitions_per_connection: float | None
+    p90_transitions_per_connection: float | None
+    maximum_transitions_per_connection: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -790,6 +793,7 @@ def calculate_connection_alert_churn(
     if any(state is None for state in states):
         raise ValueError("available assessment is missing causal slack")
     transitions = Counter(zip(states, states[1:]))
+    initial_alert = _state_alert(states[0]) if states else None
     changes = sum(before != after for before, after in transitions.elements())
     entries = sum(
         count
@@ -807,10 +811,10 @@ def calculate_connection_alert_churn(
         warning_margin_hours=_hours(warning_margin),
         available_assessments=len(states),
         unavailable_assessments=unavailable,
-        initial_alert=_state_alert(states[0]) if states else None,
+        initial_alert=initial_alert,
         total_available_state_changes=changes,
         non_alert_to_alert_entries=entries,
-        repeated_alert_entries=max(entries - 1, 0),
+        repeated_alert_entries=max(entries - (0 if initial_alert else 1), 0),
         recoveries_to_safe=recoveries,
         within_alert_escalations=transitions[
             (RiskSeverity.WATCH.value, RiskSeverity.AT_RISK.value)
@@ -970,6 +974,9 @@ def _churn_summary(
     margin: float,
     values: tuple[ConnectionAlertChurn, ...],
 ) -> AlertChurnSummary:
+    transition_counts = tuple(
+        item.total_available_state_changes for item in values
+    )
     return AlertChurnSummary(
         scenario=scenario,
         warning_margin_hours=margin,
@@ -993,6 +1000,9 @@ def _churn_summary(
         total_within_alert_deescalations=sum(
             item.within_alert_deescalations for item in values
         ),
+        median_transitions_per_connection=_quantile(transition_counts, 0.5),
+        p90_transitions_per_connection=_quantile(transition_counts, 0.9),
+        maximum_transitions_per_connection=max(transition_counts, default=None),
     )
 
 
@@ -1139,6 +1149,8 @@ def build_watcher_refinement_report(
 
 def validate_refinement_output_path(path: str | Path) -> Path:
     target = Path(path)
+    if target.suffix.lower() != ".json":
+        raise ValueError("watcher refinement output must end in .json")
     lowered = target.name.lower()
     if "historical-watcher-report" in lowered or HISTORICAL_REPORT_VERSION in lowered:
         raise ValueError("PR #6 output must not target a PR #5 report path")
@@ -1149,16 +1161,34 @@ def validate_refinement_output_path(path: str | Path) -> Path:
         raise ValueError("PR #6 output must not target PR #5 evidence")
     if "/fixtures/synthetic/" in f"/{normalized}":
         raise ValueError("PR #6 output must not target PR #3 fixtures")
-    if target.exists() and target.is_file():
+    if target.exists():
+        if not target.is_file():
+            raise ValueError("watcher refinement output must be a JSON file")
         try:
             payload = json.loads(target.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            payload = None
-        if (
-            isinstance(payload, dict)
-            and payload.get("report_version") == HISTORICAL_REPORT_VERSION
-        ):
-            raise ValueError("PR #6 output must not overwrite a PR #5 report")
+            raise ValueError(
+                "watcher refinement output will not overwrite an unrelated file"
+            ) from None
+        required = {
+            "report_version",
+            "parent",
+            "experiment",
+            "diagnostics",
+            "detector_summaries",
+            "connection_alert_churn",
+            "alert_churn_summaries",
+            "provenance",
+            "limitations",
+        }
+        if not isinstance(payload, dict) or not required <= payload.keys():
+            raise ValueError(
+                "watcher refinement output will not overwrite an unrelated JSON file"
+            )
+        if payload.get("report_version") != WATCHER_REFINEMENT_REPORT_VERSION:
+            raise ValueError(
+                "watcher refinement output will not overwrite another report contract"
+            )
     return target
 
 

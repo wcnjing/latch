@@ -1,8 +1,10 @@
-# PR #6: Watcher refinement and terminal-prevention evidence
+# Watcher refinement workstream (internally developed as PR #6)
 
 ## Purpose
 
-PR #6 is the final Data & Detection / Watcher refinement. It investigates:
+This workstream is the final Data & Detection / Watcher refinement. It was
+internally developed as PR #6; that label is not necessarily the current
+GitHub pull-request number. It investigates:
 
 - why early Watcher alerts are unavailable or missed;
 - sensitivity to predeclared warning margins;
@@ -26,7 +28,7 @@ sections in `README.md` and
 
 | Evidence | SHA-256 |
 |---|---|
-| Historical refinement report | `aeb9c340b773d1ea60211971b18b613b186afbe64c85eda3cdf9e2393479bac8` |
+| Historical refinement report | `17e5c49f66c0031c5ef347fc1b980b26660b7d8f7ffe73c0b3b9dc2cec253d9b` |
 | Terminal-prevention semantic report | `285c734784e604f74a1135b592b559f69b616c4cd20f8f2dca62080ec560b2ce` |
 
 Relevant deterministic identities are:
@@ -63,6 +65,22 @@ shasum -a 256 \
 The approximately 5.9 MB refinement report and temporary challenge reports are
 not committed. Their generation commands, contracts, digests, and reviewed
 findings are recorded instead.
+
+The modules in this workstream are offline diagnostic/evaluation tooling,
+invoked only through `scripts/run_watcher_refinement.py` and
+`scripts/run_terminal_prevention_challenge.py`. They are intentionally not
+wired into Agent Core runtime, the demo runner, the console, or the production
+Watcher path. This is a deliberate scope decision, not missing integration.
+
+CI does not currently run the real-data regression: `.github/workflows/ci.yml`
+sets `actions/checkout` to `lfs: false`, so
+`tests/test_terminal_prevention_challenge.py::test_frozen_real_32_connection_benchmark_and_zero_opportunities_remain_unchanged`
+skips when the 205 MB AIS CSV remains an LFS pointer. The smallest workflow
+change would be `lfs: true` on that checkout, but it would add the dataset
+download and real-data runtime to every CI run. This deadline fix therefore
+documents the gap and leaves CI unchanged; a separate scheduled/manual
+real-data job is the lower-risk follow-up if that cost is undesirable on every
+pull request.
 
 ## Evidence layers
 
@@ -201,14 +219,24 @@ Changing `M` could change WATCH versus SAFE, alert entry, and churn. It could
 not change calls, pairing, terminal assignment, UCID, topology, predictions,
 slack, process assumptions, retrospective outcomes, graph digest, or baseline.
 
-REFERENCE end-to-end examples show the sensitivity trade-off:
+All five REFERENCE margins are shown below as end-to-end `TP/FP/TN/FN`
+confusion matrices:
 
-| Horizon | Margin | Recall | Precision | False positives |
-|---|---:|---:|---:|---:|
-| T−3h | 2h | 22.2% | 100.0% | 0 |
-| T−3h | 4h | 33.3% | 50.0% | 3 |
-| T−1h | 2h | 33.3% | 100.0% | 0 |
-| T−1h | 4h | 44.4% | 57.1% | 3 |
+| Margin | T−6h | T−3h | T−1h |
+|---:|---:|---:|---:|
+| 0h | 2/0/23/7 | 2/0/23/7 | 3/0/23/6 |
+| 1h | 2/0/23/7 | 2/0/23/7 | 3/0/23/6 |
+| 2h | 2/0/23/7 | 2/0/23/7 | 3/0/23/6 |
+| 3h | 2/1/22/7 | 2/3/20/7 | 3/3/20/6 |
+| 4h | 2/1/22/7 | 3/3/20/6 | 4/3/20/5 |
+
+Under REFERENCE, no alert is WATCH-only for 0h, 1h, or 2h: alerting begins
+only when slack is non-positive. Consequently those three margins have
+identical fixed-horizon confusion matrices at every tested horizon, including
+on common support. The REFERENCE slice alone therefore provides no evidence
+specifically supporting 2h. Margin separation occurs in other process-scenario
+and horizon cells (and for 3h/4h within REFERENCE). The 2h margin is retained as
+the existing configuration, not validated as optimal.
 
 The 2h warning margin is retained, not proven optimal. The reasons are limited
 to these reviewed findings:
@@ -225,7 +253,10 @@ sensitivity study.
 
 End-to-end scoring includes every valid historical outcome and treats an
 unavailable detector as not alerted. Common support requires both causal legs
-and an available Watcher assessment; these denominators remain separate.
+and an available Watcher assessment. These denominators answer different
+questions: end-to-end measures behavior over the full outcome population,
+including lack of availability, while common support compares the detectors
+only where both can be evaluated.
 
 At frozen REFERENCE 2h, T−1h:
 
@@ -234,14 +265,28 @@ At frozen REFERENCE 2h, T−1h:
 | Watcher | 33.3% | 100.0% | 3 | 0 |
 | Inbound-delay baseline | 66.7% | 35.3% | 17 | 11 |
 
-The inbound-delay baseline was more sensitive, while the connection-aware
-Watcher was more selective. This is a recall/alert-burden trade-off, not
-universal Watcher superiority. The baseline remains the frozen inbound-only
-reference-delay detector with a 15-minute threshold.
+The corresponding common-support comparison is:
+
+| Horizon | Detector | Support | TP/FP/TN/FN | Recall | Precision | False positives |
+|---|---|---:|---:|---:|---:|---:|
+| T−3h | Watcher | 18 | 2/0/14/2 | 50.0% | 100.0% | 0 |
+| T−3h | Inbound-delay baseline | 18 | 4/10/4/0 | 100.0% | 28.6% | 10 |
+| T−1h | Watcher | 24 | 3/0/18/3 | 50.0% | 100.0% | 0 |
+| T−1h | Inbound-delay baseline | 24 | 6/11/7/0 | 100.0% | 35.3% | 11 |
+
+On common support the inbound-delay baseline was more sensitive, while the
+connection-aware Watcher remained more selective. This is a
+recall/alert-burden trade-off, not Watcher superiority. The baseline remains
+the frozen inbound-only reference-delay detector with a 15-minute threshold.
+
+Because REFERENCE contains only nine infeasible connections, percentage
+differences are highly uncertain and should be read as bounded benchmark
+observations rather than statistically stable performance estimates.
 
 ## First-alert lead time
 
-Before synthetic cutoff in REFERENCE:
+PR #6 reproduces the frozen PR #5 first-alert result before synthetic cutoff in
+REFERENCE; it does not introduce a new lead-time statistic:
 
 | Detector | Caught | Missed | Median first-alert lead |
 |---|---:|---:|---:|
@@ -257,11 +302,22 @@ population, and synthetic lead time is not proof of an operational rescue.
 Across tested scenario/margin cells:
 
 - median state transitions per connection was 0;
-- p90 transitions per connection was at most 1; and
-- wider margins did not materially increase repeated alert entries.
+- p90 transitions per connection was at most 1;
+- the maximum was 5 transitions on LOW/1h and LOW/2h; and
+- corrected repeated-entry counts did not materially increase with wider
+  margins.
 
-PR #6 therefore introduces no hysteresis. The evidence did not justify adding
-stateful detector behaviour to solve a churn problem that was not observed.
+At the retained 2h configuration, corrected churn is:
+
+| Scenario | Connections with repeated entry | Total repeated entries | Median transitions | p90 transitions | Maximum transitions |
+|---|---:|---:|---:|---:|---:|
+| LOW | 2 | 2 | 0 | 1.0 | 5 |
+| REFERENCE | 1 | 1 | 0 | 0.9 | 3 |
+| CONSERVATIVE | 1 | 1 | 0 | 0.9 | 2 |
+
+No hysteresis is added. Observed churn remained limited in this bounded
+benchmark, including the corrected repeated-entry counts and reported maximum
+transition tail.
 
 ## Retrospective preventability versus causal actionability
 
@@ -288,18 +344,30 @@ Only information available at that replay moment participates. It means the
 current plan is predicted infeasible while removing ITT restores positive
 predicted slack. The report records the first such signal, lead to cutoff,
 causal slack values, recovered slack, and the corresponding AT_RISK state.
+This mathematical causal predicate is unchanged; no minimum operational
+window is retroactively added. If a minimum actionable window is later wanted,
+it should be a separate, configurable policy concept rather than a
+redefinition of this predicate.
 
 The concepts are deliberately independent and must never be treated as
 equivalent.
 
 ### Retrospective challenge results
 
-| Case | Watcher result before cutoff | Actionability classification |
-|---|---|---|
-| TPC-01 | Alert and causal prevention signal | `CAUSALLY_ACTIONABLE` |
-| TPC-02 | No causal assessment | `NO_CAUSAL_ASSESSMENT_BEFORE_CUTOFF` |
-| TPC-03 | Alert after causal no-ITT slack was non-positive | `ALERTED_AFTER_PREVENTION_WINDOW_CLOSED` |
-| TPC-04 | Alert after causal no-ITT slack was non-positive | `ALERTED_AFTER_PREVENTION_WINDOW_CLOSED` |
+| Case | Category | Assessment available? | Prevention signal? | Key causal behavior |
+|---|---|---:|---:|---|
+| TPC-01 | Prevention opportunity | Yes | Yes | `CAUSALLY_ACTIONABLE` before cutoff |
+| TPC-02 | Prevention opportunity | No | No | No causal assessment before cutoff |
+| TPC-03 | Prevention opportunity | Yes | No | Alert after no-ITT slack became non-positive |
+| TPC-04 | Prevention opportunity | Yes | No | Alert after no-ITT slack became non-positive |
+| TPC-05 | Unrecoverable without ITT | No | No | No assessment; insufficiency not demonstrated |
+| TPC-06 | Unrecoverable without ITT | Yes | Yes | Later insufficiency observed; first signal had only +0.001194h no-ITT slack |
+| TPC-07 | Unrecoverable without ITT | Yes | No | No-ITT insufficiency observed before cutoff |
+| TPC-08 | Unrecoverable without ITT | No | No | No assessment; insufficiency not demonstrated |
+| TPC-09 | Feasible with ITT | Yes | No | Avoided a prevention signal before cutoff |
+| TPC-10 | Feasible with ITT | Yes | No | Avoided a prevention signal before cutoff |
+| TPC-11 | Feasible with ITT | Yes | No | Avoided a prevention signal before cutoff |
+| TPC-12 | Feasible with ITT | No | No | No assessment; feasible discrimination not demonstrated |
 
 Three of four curated retrospective-prevention cases received an alert before
 cutoff. Only one reached the causal current-plan-infeasible/no-ITT-feasible
@@ -311,6 +379,11 @@ that historical causal timing availability can limit early intervention.
 The other curated categories remain separate: four cases are unrecoverable
 even without ITT and four are feasible with ITT. They test whether the Watcher
 can distinguish prevention from insufficient or unnecessary intervention.
+
+TPC-V1-06 mathematically satisfies `current_plan_slack <= 0` and
+`no_itt_slack > 0` at its first signal, but its remaining no-ITT margin is only
+about 0.0012h (4.3 seconds). That is operationally negligible under this
+synthetic benchmark and is not presented as strongly actionable.
 
 ### Causal-actionability capability cases
 
