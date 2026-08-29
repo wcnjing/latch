@@ -17,10 +17,10 @@ const STEPS: readonly TourStep[] = [
     body: 'Decision needed, in progress, and closed records are kept in one list.',
   },
   {
-    selector: '[data-tour="connection-detail"]',
+    selector: '[data-tour="connection-summary"]',
     eyebrow: 'Step 2',
     title: 'See the operational picture',
-    body: 'The selected connection opens beside the list, so you never lose your place.',
+    body: 'Start with the time margin, affected containers, and when the risk was detected.',
   },
   {
     selector: '[data-tour="connection-workflow"]',

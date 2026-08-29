@@ -690,8 +690,8 @@ export function ConnectionDetail({
   }, [view, c.id]);
 
   return (
-    <div ref={detailRef} className="space-y-4" data-tour="connection-detail">
-      <section className="connection-summary">
+    <div ref={detailRef} className="space-y-4">
+      <section className="connection-summary" data-tour="connection-summary">
         <div className="flex flex-wrap items-center gap-3">
           <SeverityBadge label={c.lifecycle === 'live' ? c.severityLabel : 'CLOSED'} big />
           <h1 className="font-mono text-[18px] font-semibold text-mist-100">{c.id}</h1>
