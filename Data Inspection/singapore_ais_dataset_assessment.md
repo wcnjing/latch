@@ -1195,3 +1195,150 @@ small, and not a prevalence sample. It feeds no alerts to the agent or
 `CaseRegistry`, makes no container-saved or missed-connection-prevented claim,
 and does not overwrite legacy historical-run, `eval_eta.py`,
 `eval_detection.py`, or `TraceStore` evidence.
+
+## Stage 8: PR #6 final Watcher refinement and prevention capability evidence
+
+PR #6 preserves the PR #5 replay, 32-connection graph, UCIDs, LOW/REFERENCE/
+CONSERVATIVE assumptions, two-hour Watcher margin, 15-minute inbound-delay
+baseline, and slack arithmetic. It adds evaluation-only diagnostics and
+separate challenge populations; it does not add or alter AIS observations,
+detector features, topology, or process assumptions.
+
+### Data provenance hierarchy
+
+The final Watcher evidence has three provenance layers.
+
+**REAL AIS**
+
+- vessel observations;
+- observation timestamps; and
+- vessel trajectories represented by positions, speeds, headings, and other
+  received AIS fields.
+
+**DERIVED**
+
+- deterministic call segmentation over accepted/reset-confirmed approach
+  episodes;
+- causal arrival predictions from current and prior continuous-segment state;
+- each call's first available reference arrival;
+- final exploratory geofence crossings used only for retrospective evaluation;
+  and
+- whether inbound and outbound causal timing support existed by a historical
+  assessment horizon.
+
+**SYNTHETIC / EXPERIMENTAL**
+
+- UCID vessel-call pairings;
+- terminal assignment;
+- cargo-ready and cutoff process assumptions;
+- transfer mode and duration;
+- synthetic cargo cutoff;
+- LOW/REFERENCE/CONSERVATIVE feasibility outcomes;
+- historical benchmark connection labels; and
+- deliberately curated retrospective-prevention and causal-actionability
+  challenge populations.
+
+Early support limitations originate primarily in the AIS-derived timing layer.
+At REFERENCE T−6h, 7 of 9 retrospectively infeasible synthetic connections did
+not yet have sufficient causal support: 2 had neither leg supported and 5
+lacked outbound support. This means the replay had not yet derived usable
+timing for both vessel legs. It does not mean that the synthetic connection or
+its assignments were missing. Synthetic pairing determines which legs must be
+available, but it neither provides nor removes historical causal vessel
+observations.
+
+### Frozen historical evidence
+
+The historical experiment remains one fixed 32-connection synthetic
+population:
+
+| Scenario | Retrospectively infeasible | Retrospective prevention opportunities |
+|---|---:|---:|
+| LOW | 7 | 0 |
+| REFERENCE | 9 | 0 |
+| CONSERVATIVE | 9 | 0 |
+
+Zero opportunities is retained as the historical result. No transfer duration,
+cutoff, terminal assignment, scenario assumption, or connection pairing was
+changed to manufacture examples.
+
+The predeclared 0h/1h/2h/3h/4h warning-margin study reused this exact population
+and causal stream. Wider margins did not provide consistent sensitivity gains
+and introduced false positives in several cells. Missing early causal support
+remained a major limitation. The two-hour margin is retained without any claim
+that it is optimal; choosing a threshold after observing which one looked best
+would be post-hoc benchmark tuning.
+
+At REFERENCE 2h T−1h, the Watcher produced 3 alerts with 33.3% recall,
+100.0% precision, and 0 false positives. The unchanged inbound-delay baseline
+produced 17 alerts with 66.7% recall, 35.3% precision, and 11 false positives.
+The baseline was more sensitive and the connection-aware Watcher more
+selective. These synthetic benchmark results do not establish universal
+detector superiority or operational PSA performance.
+
+Median Watcher state transitions per connection were 0 across tested cells,
+p90 was at most 1, and wider margins did not materially increase repeated alert
+entries. No hysteresis was added.
+
+### Deliberately curated retrospective prevention challenge
+
+The separate `terminal-prevention-challenge-v1` population searches a broader
+valid AIS-derived candidate-pair space and is explicitly labelled
+**DELIBERATELY CURATED / DETERMINISTIC SYNTHETIC CHALLENGE SELECTION**.
+Retrospective final crossings deliberately select four cases in each category:
+
+- `RETROSPECTIVE_PREVENTION_OPPORTUNITY`;
+- `UNRECOVERABLE_WITH_NO_ITT`; and
+- `FEASIBLE_WITH_ITT`.
+
+For the four retrospective-prevention cases, three received a Watcher alert
+before cutoff. Only TPC-01 reached a causal assessment with current-plan slack
+at or below zero while no-ITT slack remained positive. TPC-02 had no causal
+assessment before cutoff. TPC-03 and TPC-04 alerted only after causal no-ITT
+slack was already non-positive. These are curated capability counts, not
+operational recall or a historical prevalence estimate.
+
+Retrospective preventability uses final derived crossing timing and asks
+whether the synthetic final outcome would become feasible if ITT duration were
+removed. A causal prevention signal uses only predictions available at one
+replay moment and requires:
+
+```text
+current_plan_slack <= 0
+and no_itt_slack > 0
+```
+
+The two labels are intentionally independent. A retrospectively preventable
+connection need not remain preventable when sufficient causal information
+arrives.
+
+### Deliberately curated causal-actionability capability set
+
+The separately identified `causal-actionability-capability-v1` set is labelled
+**DELIBERATELY CURATED CAUSAL-ACTIONABILITY CAPABILITY SET**. Under unchanged
+REFERENCE assumptions, the deliberate search found 5,051 candidate
+configurations with at least one qualifying causal prevention signal and
+selected four by canonical rank. The 5,051 configurations are not actual
+opportunities, prevalence, expected operational frequency, or a percentage of
+PSA connections.
+
+All four CAP examples represent the causal signal correctly. CAP-01 is
+retrospectively unrecoverable; CAP-02 through CAP-04 are retrospectively
+feasible with ITT. This is legitimate because the causal assessment records
+what was predicted at one historical replay moment, while retrospective
+metadata records the later final synthetic outcome.
+
+The capability set proves only that the signal can exist and be represented.
+It does not prove that intervention would ultimately be required, that removing
+ITT would guarantee the final outcome, or that a causal prediction would remain
+unchanged as later AIS observations arrive. It makes no claim that a real PSA
+container was saved or rescued.
+
+The reviewed deterministic report SHA-256 values are
+`aeb9c340b773d1ea60211971b18b613b186afbe64c85eda3cdf9e2393479bac8`
+for `watcher-refinement-report-v1` and
+`285c734784e604f74a1135b592b559f69b616c4cd20f8f2dca62080ec560b2ce`
+for `terminal-prevention-challenge-v1`. The approximately 5.9 MB refinement
+report and temporary challenge JSON files are not tracked; their generation
+commands and full technical interpretation are recorded in
+`docs/pr6-watcher-refinement.md`.

@@ -544,6 +544,66 @@ sensitivity, digests, and explicit provenance/limitations. It does not alter
 legacy `run_historical.py` figures, `eval_eta.py`, `eval_detection.py`, or
 `TraceStore` service-rate evidence.
 
+## PR #6 — Watcher refinement and terminal-prevention evidence
+
+PR #6 diagnoses the frozen Watcher rather than changing it. On the frozen
+synthetic historical benchmark, all margins reuse the same 32 connections,
+causal update stream, UCIDs, scenario assumptions, outcomes, and inbound-delay
+baseline. LOW/REFERENCE/CONSERVATIVE contain 7/9/9 retrospectively infeasible
+connections and 0/0/0 retrospective terminal-prevention opportunities.
+
+Early warning was often limited by causal timing coverage. At REFERENCE T−6h,
+7 of 9 retrospectively infeasible connections lacked sufficient causal support:
+2 had neither leg supported and 5 lacked outbound support. The synthetic
+connection existed, but the AIS-derived replay did not yet provide causal
+timing for both assigned vessel legs.
+
+The predeclared 0h/1h/2h/3h/4h sensitivity grid changed only WATCH-versus-SAFE
+classification from already-causal slack. At REFERENCE T−1h, moving from 2h to
+4h changed Watcher recall from 33.3% to 44.4%, precision from 100.0% to 57.1%,
+and false positives from 0 to 3. Wider margins did not provide a consistent
+sensitivity improvement and added false positives in several cells. The 2h
+margin is therefore retained—not proven optimal—because post-hoc benchmark
+tuning would be inappropriate and many early misses were coverage-limited.
+
+At frozen REFERENCE 2h T−1h, the Watcher had 33.3% recall, 100.0% precision,
+3 alerts, and 0 false positives; the unchanged 15-minute inbound-delay baseline
+had 66.7% recall, 35.3% precision, 17 alerts, and 11 false positives. The
+baseline was more sensitive while the connection-aware Watcher was more
+selective; this is not universal detector superiority. Watcher first alerted on
+6/9 infeasible cases with median 1.76h lead, versus 7/9 and 3.66h for the
+baseline, but these distributions are conditional on different caught sets.
+
+Alert stability did not justify new detector state: median transitions per
+connection were 0, p90 was at most 1, and wider margins did not materially
+increase repeated alert entries. PR #6 adds no hysteresis.
+
+Because the frozen 32-connection benchmark contains no natural retrospective
+prevention examples, PR #6 keeps capability tests separate. The deliberately
+curated retrospective challenge contains four preventable, four unrecoverable,
+and four feasible-with-ITT cases. Three of four curated retrospective-
+prevention cases alerted before cutoff, but only TPC-01 reached the stricter
+causal state `current_plan_slack <= 0` and `no_itt_slack > 0`; TPC-02 had no
+assessment, and TPC-03/TPC-04 alerted after the no-ITT window closed.
+
+The additional `causal-actionability-capability-v1` set is labelled
+**DELIBERATELY CURATED CAUSAL-ACTIONABILITY CAPABILITY SET**. A deterministic
+REFERENCE search found 5,051 qualifying candidate configurations and retained
+four examples. This count is not prevalence or an estimate of preventable PSA
+connections. CAP-01 is retrospectively unrecoverable and CAP-02 through CAP-04
+are retrospectively feasible with ITT, demonstrating why causal actionability
+and final retrospective outcome are intentionally independent. The set verifies
+signal representation only; it does not prove an intervention was ultimately
+required or would guarantee the final outcome.
+
+Detailed methodology, case tables, limitations, generation commands, and
+digests are in [`docs/pr6-watcher-refinement.md`](docs/pr6-watcher-refinement.md).
+The untracked deterministic reports have SHA-256
+`aeb9c340b773d1ea60211971b18b613b186afbe64c85eda3cdf9e2393479bac8`
+(historical refinement) and
+`285c734784e604f74a1135b592b559f69b616c4cd20f8f2dca62080ec560b2ce`
+(terminal-prevention semantics). No generated JSON is committed.
+
 ### Git LFS
 
 The AIS CSV is approximately 205 MB, so it is stored using **Git LFS** rather than normal Git storage.
