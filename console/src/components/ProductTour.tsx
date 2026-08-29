@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 type TourBox = { top: number; left: number; width: number; height: number; right: number; bottom: number };
-type TourStep = { selector?: string; placement?: 'side' | 'below'; eyebrow: string; title: string; body: string };
+type TourStep = {
+  selector?: string;
+  placement?: 'side' | 'below';
+  maxSpotlightHeight?: number;
+  eyebrow: string;
+  title: string;
+  body: string;
+};
 
 const STEPS: readonly TourStep[] = [
   {
@@ -17,7 +24,8 @@ const STEPS: readonly TourStep[] = [
     body: 'Decision needed, in progress, and closed records are kept in one list.',
   },
   {
-    selector: '[data-tour="connection-summary"]',
+    selector: 'section[data-tour="connection-summary"]',
+    maxSpotlightHeight: 190,
     eyebrow: 'Step 2',
     title: 'See the operational picture',
     body: 'Start with the time margin, affected containers, and when the risk was detected.',
@@ -90,32 +98,45 @@ export function ProductTour({
         return;
       }
       const rect = element.getBoundingClientRect();
+      const visibleTop = Math.max(8, rect.top);
+      const visibleBottom = Math.min(window.innerHeight - 8, rect.bottom);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const height = Math.min(visibleHeight, current.maxSpotlightHeight ?? visibleHeight);
       setBox({
-        top: rect.top,
+        top: visibleTop,
         left: rect.left,
         width: rect.width,
-        height: rect.height,
+        height,
         right: rect.right,
-        bottom: rect.bottom,
+        bottom: visibleTop + height,
       });
     };
+
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(update);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
 
     timer = window.setTimeout(() => {
       const element = current.selector
         ? document.querySelector<HTMLElement>(current.selector)
         : null;
+      if (element) resizeObserver.observe(element);
       element?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      frame = window.requestAnimationFrame(update);
+      scheduleUpdate();
       nextRef.current?.focus();
     }, 180);
 
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('scroll', scheduleUpdate, true);
     return () => {
       window.clearTimeout(timer);
       window.cancelAnimationFrame(frame);
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('scroll', scheduleUpdate, true);
     };
   }, [current, open]);
 
