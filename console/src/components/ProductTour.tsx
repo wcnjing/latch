@@ -32,7 +32,7 @@ const STEPS: readonly TourStep[] = [
   },
   {
     selector: '[data-tour="connection-workflow"]',
-    placement: 'below',
+    placement: 'side',
     eyebrow: 'Step 3',
     title: 'Understand, choose, then act',
     body: 'Use Situation, Plans, and Actions to move the connection from risk to execution.',

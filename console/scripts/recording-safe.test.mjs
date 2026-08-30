@@ -25,4 +25,14 @@ assert.equal(
   'the walkthrough must dim around the spotlight with four stable panels',
 );
 
+const workflowStep = tour.match(
+  /selector: '\[data-tour="connection-workflow"\]'[\s\S]*?body: '[^']+',/,
+)?.[0];
+assert.ok(workflowStep, 'the walkthrough must include the workflow-tabs step');
+assert.equal(
+  workflowStep.includes("placement: 'side'"),
+  true,
+  'the Step 3 card must sit beside the highlighted workflow tabs',
+);
+
 console.log('recording-safe rendering checks passed');
