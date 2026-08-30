@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test:recording": "node scripts/recording-safe.test.mjs",
     "fixtures": "uv run python scripts/capture_fixtures.py",
     "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=.smoke/smoke.mjs --log-level=warning && node .smoke/smoke.mjs"
   },

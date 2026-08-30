@@ -145,19 +145,39 @@ export function ProductTour({
 
   const first = step === 0;
   const last = step === STEPS.length - 1;
+  const spotlight = box
+    ? {
+        top: Math.max(8, box.top - 6),
+        left: Math.max(8, box.left - 6),
+        width: Math.min(window.innerWidth - Math.max(8, box.left - 6) - 8, box.width + 12),
+        height: Math.min(window.innerHeight - Math.max(8, box.top - 6) - 8, box.height + 12),
+      }
+    : null;
+  const spotlightRight = spotlight ? spotlight.left + spotlight.width : 0;
+  const spotlightBottom = spotlight ? spotlight.top + spotlight.height : 0;
 
   return (
     <div className={`tour-layer ${first ? 'tour-layer-welcome' : ''}`}>
-      {box ? (
-        <div
-          className="tour-spotlight"
-          style={{
-            top: Math.max(8, box.top - 6),
-            left: Math.max(8, box.left - 6),
-            width: Math.min(window.innerWidth - Math.max(8, box.left - 6) - 8, box.width + 12),
-            height: Math.min(window.innerHeight - Math.max(8, box.top - 6) - 8, box.height + 12),
-          }}
-        />
+      {spotlight ? (
+        <>
+          <div
+            className="tour-dimmer"
+            style={{ top: 0, left: 0, right: 0, height: spotlight.top }}
+          />
+          <div
+            className="tour-dimmer"
+            style={{ top: spotlightBottom, left: 0, right: 0, bottom: 0 }}
+          />
+          <div
+            className="tour-dimmer"
+            style={{ top: spotlight.top, left: 0, width: spotlight.left, height: spotlight.height }}
+          />
+          <div
+            className="tour-dimmer"
+            style={{ top: spotlight.top, left: spotlightRight, right: 0, height: spotlight.height }}
+          />
+          <div className="tour-spotlight" style={spotlight} />
+        </>
       ) : (
         <div className="tour-backdrop" />
       )}

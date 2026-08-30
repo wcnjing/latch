@@ -574,7 +574,7 @@ button:focus-visible, select:focus-visible {
 .queue-pressure-fill-watch { background: #d69200; }
 .queue-pressure-fill-safe { background: #34a853; }
 .queue-outcome-track { position: relative; height: 4px; overflow: hidden; margin-top: 4px; border-radius: 999px; background: #e9e9ed; }
-.queue-outcome-track > span { position: absolute; top: 0; bottom: 0; left: 0; width: 42%; border-radius: inherit; background: var(--color-accent-500); animation: outcome-progress 1.45s ease-in-out infinite; }
+.queue-outcome-track > span { position: absolute; top: 0; bottom: 0; left: 0; width: 42%; border-radius: inherit; background: var(--color-accent-500); }
 .queue-card-footline { display: flex; min-width: 0; align-items: center; gap: 6px; margin-top: 9px; color: var(--color-mist-500); font-size: 8.5px; }
 .queue-action-badge, .queue-recovery-badge, .queue-recorded-badge, .queue-pending-badge { flex: 0 0 auto; border-radius: 4px; padding: 2px 5px; font-size: 8px; font-weight: 650; }
 .queue-action-badge { background: var(--color-accent-500); color: #fff; }
@@ -588,11 +588,6 @@ button:focus-visible, select:focus-visible {
 @keyframes queue-bar-load {
   from { transform: scaleX(0); opacity: .45; }
   to { transform: scaleX(1); opacity: 1; }
-}
-
-@keyframes outcome-progress {
-  0% { transform: translateX(-105%); }
-  55%, 100% { transform: translateX(245%); }
 }
 
 .replay-empty {
@@ -877,7 +872,7 @@ button:focus-visible, select:focus-visible {
 .pending-outcome-panel header p { margin-top: 6px; color: var(--color-mist-500); font-size: 10px; }
 .execution-outcome-status { padding: 18px; }
 .execution-outcome-bar { position: relative; height: 5px; overflow: hidden; border-radius: 999px; background: #e9e9ed; }
-.execution-outcome-bar > span { position: absolute; top: 0; bottom: 0; left: 0; width: 32%; border-radius: inherit; background: var(--color-accent-500); animation: outcome-progress 1.45s ease-in-out infinite; }
+.execution-outcome-bar > span { position: absolute; top: 0; bottom: 0; left: 0; width: 32%; border-radius: inherit; background: var(--color-accent-500); }
 .execution-outcome-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 18px; }
 .execution-step { display: flex; min-width: 0; align-items: flex-start; gap: 9px; padding: 0 14px; border-right: 1px solid #e5e5ea; }
 .execution-step:first-child { padding-left: 0; }
@@ -910,9 +905,8 @@ button:focus-visible, select:focus-visible {
   min-height: 38px;
   align-items: flex-end;
   padding: 0 4px;
-  background: rgb(245 245 247 / 0.96);
+  background: #f5f5f7;
   border-bottom: 1px solid #d1d1d6;
-  backdrop-filter: blur(12px);
 }
 .detail-tab {
   position: relative;
@@ -1030,15 +1024,15 @@ button:focus-visible, select:focus-visible {
 /* --- guided first-use walkthrough ----------------------------------- */
 
 .tour-layer { position: fixed; inset: 0; z-index: 200; pointer-events: none; }
-.tour-backdrop { position: absolute; inset: 0; background: rgb(15 15 18 / .52); pointer-events: auto; backdrop-filter: blur(1px); }
+.tour-backdrop { position: absolute; inset: 0; background: rgb(15 15 18 / .52); pointer-events: auto; }
+.tour-dimmer { position: fixed; z-index: 0; background: rgb(15 15 18 / .52); pointer-events: none; }
 .tour-spotlight {
   position: fixed;
   z-index: 1;
   border: 2px solid rgb(255 255 255 / .92);
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgb(15 15 18 / .52), 0 12px 38px rgb(0 0 0 / .18);
+  box-shadow: 0 12px 38px rgb(0 0 0 / .18);
   pointer-events: none;
-  transition: inset 220ms ease, width 220ms ease, height 220ms ease;
 }
 .tour-card {
   z-index: 2;
