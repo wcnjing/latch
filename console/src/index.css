@@ -1024,8 +1024,8 @@ button:focus-visible, select:focus-visible {
 /* --- guided first-use walkthrough ----------------------------------- */
 
 .tour-layer { position: fixed; inset: 0; z-index: 200; pointer-events: none; }
-.tour-backdrop { position: absolute; inset: 0; background: rgb(15 15 18 / .52); pointer-events: auto; }
-.tour-dimmer { position: fixed; z-index: 0; background: rgb(15 15 18 / .52); pointer-events: none; }
+.tour-backdrop { position: absolute; inset: 0; background: rgb(15 15 18 / .44); pointer-events: auto; backdrop-filter: blur(1px); }
+.tour-dimmer { position: fixed; z-index: 0; background: rgb(15 15 18 / .44); pointer-events: none; }
 .tour-spotlight {
   position: fixed;
   z-index: 1;
