@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 type TourBox = { top: number; left: number; width: number; height: number; right: number; bottom: number };
-type TourCardSize = { width: number; height: number };
 type TourStep = {
   selector?: string;
   placement?: 'side' | 'below';
@@ -46,82 +45,26 @@ const STEPS: readonly TourStep[] = [
   },
 ];
 
-const VIEWPORT_MARGIN = 18;
-const TOUR_GAP = 18;
-const FALLBACK_CARD_SIZE: TourCardSize = { width: 330, height: 305 };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
-}
-
-function sidePosition(box: TourBox, size: TourCardSize): CSSProperties {
-  const width = Math.min(FALLBACK_CARD_SIZE.width, window.innerWidth - VIEWPORT_MARGIN * 2);
-  const height = size.height || FALLBACK_CARD_SIZE.height;
-  const top = clamp(
-    box.top + Math.min(18, Math.max(0, box.height - height) / 2),
-    VIEWPORT_MARGIN,
-    window.innerHeight - height - VIEWPORT_MARGIN,
-  );
-
-  if (box.right + width + TOUR_GAP <= window.innerWidth - VIEWPORT_MARGIN) {
-    return { left: box.right + TOUR_GAP, top, width };
-  }
-
-  const left = box.left - width - TOUR_GAP;
-  if (left >= VIEWPORT_MARGIN) {
-    return { left, top, width };
-  }
-
-  return {
-    left: clamp(
-      box.left + box.width / 2 - width / 2,
-      VIEWPORT_MARGIN,
-      window.innerWidth - width - VIEWPORT_MARGIN,
-    ),
-    top,
-    width,
-  };
-}
-
-function tooltipPosition(
-  box: TourBox | null,
-  placement: TourStep['placement'] = 'side',
-  size: TourCardSize = FALLBACK_CARD_SIZE,
-): CSSProperties {
+function tooltipPosition(box: TourBox | null, placement: TourStep['placement'] = 'side'): CSSProperties {
   if (!box) return {};
   if (window.innerWidth < 768) {
     return { left: 12, right: 12, bottom: 12 };
   }
 
-  const width = Math.min(FALLBACK_CARD_SIZE.width, window.innerWidth - VIEWPORT_MARGIN * 2);
-  const height = size.height || FALLBACK_CARD_SIZE.height;
+  const width = 330;
+  const gap = 18;
   if (placement === 'below') {
-    const centeredLeft = clamp(
-      box.left + box.width / 2 - width / 2,
-      VIEWPORT_MARGIN,
-      window.innerWidth - width - VIEWPORT_MARGIN,
-    );
-    const belowTop = box.bottom + TOUR_GAP;
-    const aboveTop = box.top - height - TOUR_GAP;
-
-    if (belowTop + height <= window.innerHeight - VIEWPORT_MARGIN) {
-      return { left: centeredLeft, top: belowTop, width };
-    }
-    if (aboveTop >= VIEWPORT_MARGIN) {
-      return { left: centeredLeft, top: aboveTop, width };
-    }
-
-    return sidePosition(box, { width, height });
-  }
-
-  const side = sidePosition(box, { width, height });
-  if ('left' in side && typeof side.left === 'number') {
     return {
-      ...side,
-      left: clamp(side.left, VIEWPORT_MARGIN, window.innerWidth - width - VIEWPORT_MARGIN),
+      left: Math.max(18, Math.min(box.left + box.width / 2 - width / 2, window.innerWidth - width - 18)),
+      top: Math.min(box.bottom + 14, window.innerHeight - 330),
+      width,
     };
   }
-  return side;
+  const top = Math.max(64, Math.min(box.top + 18, window.innerHeight - 330));
+  if (box.right + width + gap < window.innerWidth) {
+    return { left: box.right + gap, top, width };
+  }
+  return { left: Math.max(18, box.left - width - gap), top, width };
 }
 
 export function ProductTour({
@@ -136,29 +79,8 @@ export function ProductTour({
   onClose: (completed: boolean) => void;
 }) {
   const [box, setBox] = useState<TourBox | null>(null);
-  const [cardSize, setCardSize] = useState<TourCardSize>(FALLBACK_CARD_SIZE);
-  const cardRef = useRef<HTMLElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const current = STEPS[step] ?? STEPS[0]!;
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    const card = cardRef.current;
-    if (!card) return;
-
-    const update = () => {
-      const rect = card.getBoundingClientRect();
-      setCardSize({
-        width: Math.ceil(rect.width) || FALLBACK_CARD_SIZE.width,
-        height: Math.ceil(rect.height) || FALLBACK_CARD_SIZE.height,
-      });
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(card);
-    return () => observer.disconnect();
-  }, [open, step]);
 
   useEffect(() => {
     if (!open) return;
@@ -218,7 +140,7 @@ export function ProductTour({
     };
   }, [current, open]);
 
-  const cardStyle = useMemo(() => tooltipPosition(box, current.placement, cardSize), [box, cardSize, current.placement]);
+  const cardStyle = useMemo(() => tooltipPosition(box, current.placement), [box, current.placement]);
   if (!open) return null;
 
   const first = step === 0;
@@ -261,7 +183,6 @@ export function ProductTour({
       )}
 
       <section
-        ref={cardRef}
         className={`tour-card ${first || !box ? 'tour-card-welcome' : 'tour-card-anchored'}`}
         style={first ? undefined : cardStyle}
         role="dialog"
